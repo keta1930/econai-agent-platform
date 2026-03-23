@@ -1,0 +1,12 @@
+agent-workspace/
+.claude/
+node_modules/
+__pycache__/
+*.pyc
+*.db
+*.db-shm
+*.db-wal
+storage/
+backend/dist/
+homework-grading.tar.gz
+backend.tar.gz
