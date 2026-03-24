@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
+    --font-heading: "Noto Serif SC", "Noto Sans SC", serif;
     --font-sans: "Noto Sans SC", system-ui, -apple-system, sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
@@ -50,40 +50,40 @@
 }
 
 :root {
-    --background: #FFFFFF;
-    --foreground: #0F172A;
-    --card: #FFFFFF;
-    --card-foreground: #0F172A;
-    --popover: #FFFFFF;
-    --popover-foreground: #0F172A;
-    --primary: #4F46E5;
-    --primary-foreground: #FFFFFF;
-    --secondary: #F1F5F9;
-    --secondary-foreground: #0F172A;
-    --muted: #F8FAFC;
-    --muted-foreground: #64748B;
-    --accent: #F1F5F9;
-    --accent-foreground: #0F172A;
+    --background: #FAFAF7;
+    --foreground: #1C1917;
+    --card: #FFFFFE;
+    --card-foreground: #1C1917;
+    --popover: #FFFFFE;
+    --popover-foreground: #1C1917;
+    --primary: #78592E;
+    --primary-foreground: #FEFDFB;
+    --secondary: #F5F0EB;
+    --secondary-foreground: #1C1917;
+    --muted: #F7F5F2;
+    --muted-foreground: #78716C;
+    --accent: #F5F0EB;
+    --accent-foreground: #1C1917;
     --destructive: #DC2626;
-    --border: #E2E8F0;
-    --input: #E2E8F0;
-    --ring: #4F46E5;
+    --border: #E7E0D8;
+    --input: #E7E0D8;
+    --ring: #78592E;
     --success: #16A34A;
     --warning: #D97706;
-    --chart-1: #4F46E5;
-    --chart-2: #7C3AED;
-    --chart-3: #2563EB;
-    --chart-4: #0891B2;
-    --chart-5: #059669;
+    --chart-1: #78592E;
+    --chart-2: #8B6914;
+    --chart-3: #2D6A4F;
+    --chart-4: #6B5B73;
+    --chart-5: #A0522D;
     --radius: 0.5rem;
-    --sidebar: #FFFFFF;
-    --sidebar-foreground: #0F172A;
-    --sidebar-primary: #4F46E5;
-    --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #F1F5F9;
-    --sidebar-accent-foreground: #0F172A;
-    --sidebar-border: #E2E8F0;
-    --sidebar-ring: #4F46E5;
+    --sidebar: #FAFAF7;
+    --sidebar-foreground: #1C1917;
+    --sidebar-primary: #78592E;
+    --sidebar-primary-foreground: #FEFDFB;
+    --sidebar-accent: #F5F0EB;
+    --sidebar-accent-foreground: #1C1917;
+    --sidebar-border: #E7E0D8;
+    --sidebar-ring: #78592E;
 }
 
 @layer base {
@@ -97,4 +97,24 @@
     html {
         @apply font-sans;
     }
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fade-in-up 0.4s ease-out both;
+}
+
+.animate-stagger {
+    animation: fade-in-up 0.4s ease-out both;
+    animation-delay: calc(min(var(--stagger-index, 0), 10) * 80ms);
 }
