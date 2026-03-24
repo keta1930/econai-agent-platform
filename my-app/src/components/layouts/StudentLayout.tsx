@@ -20,7 +20,7 @@ export function StudentLayout() {
           <div className="flex items-center gap-6">
             <Link to="/student/tasks" className="flex items-center gap-2 text-primary font-heading font-semibold">
               <BookOpen className="h-5 w-5" />
-              <span className="hidden sm:inline">AI 作业批改</span>
+              <span className="hidden sm:inline">智能体课程平台</span>
             </Link>
             <nav className="flex items-center gap-1">
               {navItems.map((item) => (

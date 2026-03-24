@@ -7,10 +7,10 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       <div className="hidden lg:flex lg:w-1/2 bg-primary text-primary-foreground relative overflow-hidden">
         <div className="relative z-10 flex flex-col items-center justify-center w-full px-12 text-center">
           <h1 className="font-heading text-4xl font-semibold tracking-tight">
-            AI 作业批改平台
+            经济金融AI智能体设计课程平台
           </h1>
           <p className="mt-4 text-lg opacity-80 max-w-md">
-            智能批改，精准反馈，让教学更高效
+            岭南学院
           </p>
         </div>
 
