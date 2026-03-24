@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { tasksApi } from "@/api/tasks";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -15,9 +16,32 @@ export default function CreateTaskPage() {
   const [description, setDescription] = useState("");
   const [criteria, setCriteria] = useState("");
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
   const isValid = title.trim() && description.trim() && criteria.trim();
+
+  async function handleGenerate() {
+    if (!title.trim() || !description.trim()) return;
+
+    if (criteria.trim() && !window.confirm("当前打分标准内容将被覆盖，是否继续？")) {
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const result = await tasksApi.generateCriteria({
+        title: title.trim(),
+        description: description.trim(),
+      });
+      setCriteria(result.criteria);
+      toast.success("打分标准已生成");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "生成失败");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -68,13 +92,23 @@ export default function CreateTaskPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="criteria">打分标准</Label>
-              <Textarea
-                id="criteria"
-                placeholder="请输入打分标准"
-                rows={6}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="criteria">打分标准</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!title.trim() || !description.trim() || generating}
+                  onClick={handleGenerate}
+                >
+                  {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  AI 生成
+                </Button>
+              </div>
+              <RichTextEditor
                 value={criteria}
-                onChange={(e) => setCriteria(e.target.value)}
+                onChange={setCriteria}
+                placeholder="请输入打分标准"
               />
               <p className="text-xs text-muted-foreground">此标准将作为 AI 批改的依据</p>
             </div>

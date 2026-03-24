@@ -31,3 +31,12 @@ export interface TaskStatsResponse {
   submissions: TaskSubmissionItem[];
   not_submitted: string[];
 }
+
+export interface GenerateCriteriaRequest {
+  title: string;
+  description: string;
+}
+
+export interface GenerateCriteriaResponse {
+  criteria: string;
+}

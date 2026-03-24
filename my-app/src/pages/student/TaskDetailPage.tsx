@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/FileUpload";
@@ -81,7 +82,7 @@ export default function TaskDetailPage() {
           </div>
           <div>
             <h4 className="mb-2 text-sm font-medium text-muted-foreground">打分标准</h4>
-            <p className="whitespace-pre-wrap text-sm">{task.grading_criteria}</p>
+            <MarkdownContent content={task.grading_criteria} />
           </div>
         </CardContent>
       </Card>
