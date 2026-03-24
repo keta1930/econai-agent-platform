@@ -1,12 +1,14 @@
-# 🤖 AI 作业批改平台
+# 🤖 经济金融AI智能体设计课程平台
 
-一个前后端分离的课程作业平台：教师发布任务与评分标准，学生在线提交 `.md` / `.txt` 作业，系统调用可配置的大模型进行异步批改，并向教师和学生分别展示提交状态、成绩与评语。
+岭南学院课程作业平台：教师发布任务与评分标准，学生在线提交 `.md` / `.txt` 作业，系统调用可配置的大模型进行异步批改，并向教师和学生分别展示提交状态、成绩与评语。
 
 ## ✨ 项目概览
 
 - **后端**：FastAPI + SQLAlchemy + SQLite
 - **前端**：Vite + React 19 + TypeScript + React Router
-- **批改方式**：后台异步任务调用 OpenAI / Anthropic 兼容模型
+- **批改方式**：后台异步任务调用 OpenAI / Anthropic 兼容模型，Prompt 内置注入检测与安全隔离
+- **评分标准生成**：基于 ReAct 架构 + Tavily 搜索，AI 自动生成结构化评分标准
+- **任务暂存**：支持草稿 → 发布的两阶段工作流，草稿对学生不可见
 - **用户角色**：管理员、学生
 - **数据存储**：
   - 业务数据默认保存在 `backend/data.db`
@@ -31,9 +33,13 @@
 
 ![学号名单](docs/screenshots/admin-roster.png)
 
-### 第三步：发布作业任务
+### 第三步：创建与发布作业任务
 
-进入「发布任务」页，填写任务标题、任务说明和打分标准。打分标准会直接传给 AI 模型作为评分依据。
+进入「草稿管理」页，点击「新建草稿」创建任务。任务创建后处于草稿状态，可在 Sheet 抽屉编辑器中逐步完善标题、任务说明和打分标准。
+
+- **AI 生成打分标准**：填写标题和说明后，点击「AI 生成」按钮，系统使用当前激活模型 + Tavily 搜索自动生成结构化评分标准（维度 + 分值表格），管理员可在此基础上编辑
+- **打分标准编辑器**：支持 Markdown 语法，提供编辑/预览/分屏三种模式
+- **发布**：三个字段都填写完成后，点击「发布」将任务变为正式任务，对学生可见。已发布任务不可编辑或回退
 
 ![发布任务](docs/screenshots/admin-create-task.png)
 
@@ -90,15 +96,20 @@
 - `routers/`
   - `auth.py`：注册、登录
   - `roster.py`：管理员维护学号名单
-  - `tasks.py`：任务创建、列表、详情、统计
+  - `tasks.py`：任务 CRUD（含草稿管理、发布）、统计、AI 生成评分标准
   - `submissions.py`：学生提交、个人记录、管理员查看学生记录
   - `model_config.py`：模型新增与激活
 - `services/grading_service.py`
   - 后台批改主流程
   - 读取作业文件、加载当前激活模型、生成评分结果并回写数据库
+- `services/criteria_generator.py`
+  - ReAct 循环驱动的评分标准生成
+  - 使用活跃模型 + Tavily 搜索，输出结构化评分标准
 - `services/ai/`
-  - `openai_adapter.py`：OpenAI 兼容接口
-  - `anthropic_adapter.py`：Anthropic 接口
+  - `base.py`：适配器基类、共享 Prompt 模板、`chat` 方法（支持 tool calling）
+  - `openai_adapter.py`：OpenAI 兼容接口（grade + chat）
+  - `anthropic_adapter.py`：Anthropic 接口（grade + chat）
+  - `__init__.py`：`get_adapter` 工厂函数
 - `auth/`
   - JWT 生成与鉴权依赖
 
@@ -114,8 +125,8 @@
   - `TaskDetailPage.tsx`：任务详情、上传作业、查看批改结果
   - `GradesPage.tsx`：成绩汇总
 - `src/pages/admin/`
-  - `DashboardPage.tsx`：任务概览与提交率
-  - `CreateTaskPage.tsx`：发布任务
+  - `DashboardPage.tsx`：任务概览与提交率（仅展示已发布任务）
+  - `CreateTaskPage.tsx`：草稿管理（卡片网格 + Sheet 编辑器 + AI 生成 + 发布）
   - `TaskDetailPage.tsx`：单任务统计
   - `RosterPage.tsx`：学号名单维护
   - `StudentDetailPage.tsx`：单个学生的提交历史
@@ -127,14 +138,16 @@
 ## 📁 目录结构
 
 ```text
-vibe-everything/
+book-web/
 ├── backend/
 │   ├── auth/
 │   ├── models/
 │   ├── routers/
 │   ├── schemas/
 │   ├── services/
-│   │   └── ai/
+│   │   ├── ai/                    # 适配器 + 共享 Prompt + chat 方法
+│   │   ├── criteria_generator.py  # ReAct + Tavily 评分标准生成
+│   │   └── grading_service.py     # 异步批改调度
 │   ├── config.py
 │   ├── database.py
 │   ├── init_db.py
@@ -151,6 +164,7 @@ vibe-everything/
 │   │   └── types/
 │   ├── package.json
 │   └── vite.config.ts
+├── .env.example
 └── README.md
 ```
 
@@ -213,30 +227,19 @@ npm run build
 | `DEFAULT_MODEL_API_KEY` | *(空)* | 模型 API Key |
 | `DEFAULT_MODEL_BASE_URL` | `https://api.deepseek.com/v1` | 模型 base URL（OpenAI 兼容接口）|
 | `DEFAULT_MODEL_ADAPTER` | `openai` | 适配器类型：`openai` 或 `anthropic` |
+| `TAVILY_API_KEY` | *(空)* | Tavily 搜索 API Key（用于 AI 生成评分标准时的联网搜索）|
 
 > ⚠️ 管理员账号和模型配置仅在**数据库首次初始化时**生效。若数据库已存在，修改 `.env` 中对应变量不会覆盖已有记录。
 
 ## 🤖 模型批改机制
 
-- 模型配置保存在 `model_configs` 表中。
-- 每次只能激活一个模型。
-- 当前支持两类适配器：
-  - `openai`
-  - `anthropic`
-- 批改提示词由 `backend/services/grading_service.py` 中的 `GRADING_PROMPT_TEMPLATE` 统一生成。
-- 模型需要返回 JSON：
-
-```json
-{
-  "score": 92,
-  "suggestion": "结构清晰，但案例分析还可以更具体。"
-}
-```
-
-适配器内置了两层解析策略：
-
-- 直接解析纯 JSON
-- 从混合文本中提取 JSON 代码块
+- 模型配置保存在 `model_configs` 表中，每次只能激活一个模型。
+- 支持两类适配器：`openai`（含 DeepSeek 等兼容接口）和 `anthropic`。
+- 批改 Prompt 模板定义在 `backend/services/ai/base.py`，包含以下安全措施：
+  - **XML 隔离**：学生作业用 `<student_submission>` 标签包裹，与系统指令分离
+  - **注入检测**：检测到试图操纵评分的内容时，直接给 59 分并标注原因
+  - **格式约束**：分数限定 0-100 整数，纯 JSON 输出
+- 适配器内置两层 JSON 解析策略：直接解析纯 JSON，或从混合文本中用正则提取
 
 ## 🔐 当前实现中的注意事项
 
@@ -250,6 +253,7 @@ npm run build
 
 - 为批改任务引入真正的异步队列，如 Celery / RQ
 - 支持作业重提、教师重批、评分版本记录
+- 已发布任务的编辑功能
 - 增加文件大小限制、内容预览与更丰富的格式支持
 - 增加测试、日志、错误监控与部署脚本
 
