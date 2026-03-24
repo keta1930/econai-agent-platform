@@ -3,17 +3,26 @@ export interface Task {
   title: string;
   description: string;
   grading_criteria: string;
+  status: "draft" | "published";
   created_at: string;
+  updated_at: string | null;
 }
 
 export interface TaskListResponse {
   items: Task[];
 }
 
-export interface TaskCreateRequest {
+export interface TaskDraftRequest {
   title: string;
-  description: string;
-  grading_criteria: string;
+  description?: string;
+  grading_criteria?: string;
+}
+
+export interface TaskUpdateRequest {
+  title?: string;
+  description?: string;
+  grading_criteria?: string;
+  status?: "published";
 }
 
 export interface TaskSubmissionItem {

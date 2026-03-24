@@ -20,7 +20,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
 
   const { data, loading, error } = useApi(async () => {
-    const tasksRes = await tasksApi.list();
+    const tasksRes = await tasksApi.list("published");
     const tasks = tasksRes.items;
     if (tasks.length === 0) return { tasks, statsMap: new Map<number, TaskStatsResponse>() };
 

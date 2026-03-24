@@ -19,7 +19,7 @@ function formatDate(iso: string): string {
 export default function TaskListPage() {
   const navigate = useNavigate();
   const { data: tasksData, loading: tasksLoading, error: tasksError } = useApi(
-    () => tasksApi.list(),
+    () => tasksApi.list("published"),
     [],
   );
   const { data: subsData } = useApi(() => submissionsApi.listMy(), []);
