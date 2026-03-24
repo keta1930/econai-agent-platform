@@ -3,10 +3,17 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class TaskCreateRequest(BaseModel):
+class TaskDraftRequest(BaseModel):
     title: str
-    description: str
-    grading_criteria: str
+    description: str = ""
+    grading_criteria: str = ""
+
+
+class TaskUpdateRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    grading_criteria: str | None = None
+    status: str | None = None
 
 
 class TaskResponse(BaseModel):
@@ -14,7 +21,9 @@ class TaskResponse(BaseModel):
     title: str
     description: str
     grading_criteria: str
+    status: str
     created_at: datetime
+    updated_at: datetime | None
 
     model_config = {"from_attributes": True}
 

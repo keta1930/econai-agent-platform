@@ -11,8 +11,10 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String, nullable=False)
-    description = Column(Text, nullable=False)
-    grading_criteria = Column(Text, nullable=False)
+    description = Column(Text, nullable=False, default="")
+    grading_criteria = Column(Text, nullable=False, default="")
+    status = Column(String, nullable=False, default="draft")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
     submissions = relationship("Submission", back_populates="task")

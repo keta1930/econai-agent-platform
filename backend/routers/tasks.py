@@ -1,6 +1,7 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -10,7 +11,7 @@ from models.submission import Submission
 from models.roster import StudentRoster
 from models.user import User
 from schemas.task import (
-    TaskCreateRequest, TaskResponse, TaskListResponse,
+    TaskDraftRequest, TaskUpdateRequest, TaskResponse, TaskListResponse,
     TaskSubmissionItem, TaskStatsResponse,
     GenerateCriteriaRequest, GenerateCriteriaResponse,
 )
@@ -22,10 +23,14 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 @router.get("", response_model=TaskListResponse)
 def list_tasks(
+    status_filter: str | None = Query(None, alias="status"),
     _user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tasks = db.query(Task).order_by(Task.created_at.desc()).all()
+    query = db.query(Task)
+    if status_filter is not None:
+        query = query.filter(Task.status == status_filter)
+    tasks = query.order_by(Task.created_at.desc()).all()
     return TaskListResponse(
         items=[TaskResponse.model_validate(t) for t in tasks]
     )
@@ -52,18 +57,20 @@ async def generate_criteria_endpoint(
 @router.get("/{task_id}", response_model=TaskResponse)
 def get_task(
     task_id: int,
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    if user.role != "admin" and task.status == "draft":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
     return TaskResponse.model_validate(task)
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(
-    req: TaskCreateRequest,
+    req: TaskDraftRequest,
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -76,6 +83,70 @@ def create_task(
     db.commit()
     db.refresh(task)
     return TaskResponse.model_validate(task)
+
+
+@router.patch("/{task_id}", response_model=TaskResponse)
+def update_task(
+    task_id: int,
+    req: TaskUpdateRequest,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    if task.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="已发布任务不可编辑",
+        )
+
+    updates = req.model_dump(exclude_unset=True)
+
+    if "status" in updates:
+        if updates["status"] == "draft":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="不支持的状态变更",
+            )
+        if updates["status"] == "published":
+            # Apply other field updates first so validation sees latest values
+            for field, value in updates.items():
+                if field != "status":
+                    setattr(task, field, value)
+            if not task.title or not task.description or not task.grading_criteria:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="发布任务需要填写标题、任务说明和打分标准",
+                )
+            task.status = "published"
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="不支持的状态值",
+            )
+    else:
+        for field, value in updates.items():
+            setattr(task, field, value)
+
+    db.commit()
+    db.refresh(task)
+    return TaskResponse.model_validate(task)
+
+
+@router.delete("/{task_id}", status_code=204)
+def delete_task(
+    task_id: int,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    if task.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="已发布任务不可删除",
+        )
+    db.delete(task)
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/{task_id}/stats", response_model=TaskStatsResponse)

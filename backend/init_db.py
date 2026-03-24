@@ -1,3 +1,7 @@
+import logging
+
+from sqlalchemy import text
+
 from database import engine, SessionLocal, Base
 from models import User, ModelConfig
 from services.auth_service import hash_password
@@ -10,12 +14,33 @@ from config import (
     DEFAULT_MODEL_ADAPTER,
 )
 
+logger = logging.getLogger(__name__)
+
+
+def _migrate_tasks_table(db):
+    """Add status and updated_at columns to tasks table if missing."""
+    rows = db.execute(text("PRAGMA table_info(tasks)")).fetchall()
+    existing_columns = {row[1] for row in rows}
+
+    if "status" not in existing_columns:
+        db.execute(text(
+            "ALTER TABLE tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'published'"
+        ))
+        logger.info("Migrated tasks table: added 'status' column")
+
+    if "updated_at" not in existing_columns:
+        db.execute(text(
+            "ALTER TABLE tasks ADD COLUMN updated_at TIMESTAMP DEFAULT NULL"
+        ))
+        logger.info("Migrated tasks table: added 'updated_at' column")
+
 
 def init_database():
     Base.metadata.create_all(bind=engine)
 
     db = SessionLocal()
     try:
+        _migrate_tasks_table(db)
         # Default admin
         if not db.query(User).filter(User.id == DEFAULT_ADMIN_ID).first():
             admin = User(
