@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authApi } from "@/api/auth";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -37,7 +37,7 @@ export default function RegisterPage() {
       <Card className="w-full max-w-[400px]">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-semibold">注册</CardTitle>
-          <CardDescription>经济金融AI智能体设计课程平台</CardDescription>
+
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
