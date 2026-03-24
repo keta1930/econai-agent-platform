@@ -21,7 +21,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <BookOpen className="h-5 w-5 text-primary" />
-        <span className="font-semibold text-primary">AI 作业批改</span>
+        <span className="font-heading font-semibold text-primary">AI 作业批改</span>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
@@ -76,7 +76,7 @@ export function AdminLayout() {
             <SidebarContent onNavigate={() => setSheetOpen(false)} />
           </SheetContent>
         </Sheet>
-        <span className="ml-3 font-semibold text-primary">AI 作业批改</span>
+        <span className="ml-3 font-heading font-semibold text-primary">AI 作业批改</span>
       </header>
 
       <div className="flex">

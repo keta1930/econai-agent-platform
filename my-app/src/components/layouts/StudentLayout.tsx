@@ -18,7 +18,7 @@ export function StudentLayout() {
       <header className="sticky top-0 z-40 h-16 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-full max-w-4xl items-center justify-between px-4 lg:px-8">
           <div className="flex items-center gap-6">
-            <Link to="/student/tasks" className="flex items-center gap-2 text-primary font-semibold">
+            <Link to="/student/tasks" className="flex items-center gap-2 text-primary font-heading font-semibold">
               <BookOpen className="h-5 w-5" />
               <span className="hidden sm:inline">AI 作业批改</span>
             </Link>
