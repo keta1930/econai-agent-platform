@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { authApi } from "@/api/auth";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { AuthLayout } from "@/components/layouts/AuthLayout";
 
 export default function RegisterPage() {
   const [studentId, setStudentId] = useState("");
@@ -32,7 +33,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-muted/30">
+    <AuthLayout>
       <Card className="w-full max-w-[400px]">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-semibold">注册</CardTitle>
@@ -76,6 +77,6 @@ export default function RegisterPage() {
           </p>
         </CardContent>
       </Card>
-    </div>
+    </AuthLayout>
   );
 }
