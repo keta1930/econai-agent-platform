@@ -13,23 +13,67 @@
   - 学生提交文件默认保存在 `backend/storage/submissions/`
   - 前端生产构建输出到 `backend/dist/`，由 FastAPI 统一托管
 
-## 🧭 核心流程
+## 👩‍🏫 教师（管理员）使用指南
 
-### 管理员端
+管理员账号在系统初始化时自动创建，账号密码由 `.env` 中的 `DEFAULT_ADMIN_ID` / `DEFAULT_ADMIN_PASSWORD` 决定，**无需注册，直接登录**。
 
-1. 初始化后自动创建默认管理员账号。
-2. 在“学号名单”中维护允许注册的学生名单。
-3. 在“发布任务”中创建作业标题、任务说明和打分标准。
-4. 在“模型管理”中新增模型配置并激活当前用于批改的模型。
-5. 在仪表板和任务详情页查看提交率、已交 / 未交学生、评分结果。
+### 第一步：登录
 
-### 学生端
+访问 `/login`，输入管理员账号和密码，系统自动跳转到管理仪表板。
 
-1. 只有在学号已进入名单后才能注册。
-2. 登录后可查看任务列表和自己的成绩。
-3. 在任务详情页上传 `.md` / `.txt` 作业文件。
-4. 提交后系统异步批改，状态依次可能为 `pending`、`grading`、`completed`、`failed`。
-5. 批改完成后可查看分数和 AI 建议。
+| 登录页 | 管理仪表板 |
+|--------|-----------|
+| ![登录](docs/screenshots/login.png) | ![仪表板](docs/screenshots/admin-dashboard-with-task.png) |
+
+### 第二步：维护学号名单
+
+进入「学号名单」页，添加允许注册的学生学号（支持逐个添加或批量导入）。**只有在名单中的学号才能注册账号。**
+
+![学号名单](docs/screenshots/admin-roster.png)
+
+### 第三步：发布作业任务
+
+进入「发布任务」页，填写任务标题、任务说明和打分标准。打分标准会直接传给 AI 模型作为评分依据。
+
+![发布任务](docs/screenshots/admin-create-task.png)
+
+### 第四步：配置 AI 批改模型
+
+进入「模型管理」页，添加模型配置（支持 OpenAI 兼容接口和 Anthropic）并激活。
+
+![模型管理](docs/screenshots/admin-models.png)
+
+### 第五步：查看提交与批改结果
+
+在仪表板点击任务卡片，可查看提交率统计、已提交/未提交学生列表及每位学生的 AI 评分结果。
+
+![任务详情](docs/screenshots/admin-task-detail.png)
+
+---
+
+## 🎓 学生使用指南
+
+### 第一步：注册账号
+
+访问 `/register`，输入学号和密码。**学号必须已被老师添加到名单中，否则注册会失败。**
+
+| 注册页 | 登录页 |
+|--------|--------|
+| ![注册](docs/screenshots/register.png) | ![登录](docs/screenshots/login.png) |
+
+### 第二步：查看任务并提交作业
+
+登录后进入任务列表，点击任务查看详情，上传 `.md` 或 `.txt` 格式的作业文件后提交。每个任务只能提交一次。
+
+| 任务列表 | 任务详情与提交 |
+|----------|--------------|
+| ![任务列表](docs/screenshots/student-tasks.png) | ![提交作业](docs/screenshots/student-task-detail.png) |
+
+### 第三步：查看成绩
+
+进入「我的成绩」页查看所有任务的批改状态和分数。状态流转：`pending` → `grading` → `completed`（或 `failed`）。批改完成后可查看分数和 AI 评语。
+
+![我的成绩](docs/screenshots/student-grades.png)
 
 ## 🏗️ 架构与职责
 
