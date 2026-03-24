@@ -19,3 +19,5 @@ DEFAULT_MODEL_NAME: str = os.getenv("DEFAULT_MODEL_NAME", "deepseek-chat")
 DEFAULT_MODEL_API_KEY: str = os.getenv("DEFAULT_MODEL_API_KEY", "")
 DEFAULT_MODEL_BASE_URL: str = os.getenv("DEFAULT_MODEL_BASE_URL", "https://api.deepseek.com/v1")
 DEFAULT_MODEL_ADAPTER: str = os.getenv("DEFAULT_MODEL_ADAPTER", "openai")
+
+TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")

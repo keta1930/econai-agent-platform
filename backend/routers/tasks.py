@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -10,7 +12,10 @@ from models.user import User
 from schemas.task import (
     TaskCreateRequest, TaskResponse, TaskListResponse,
     TaskSubmissionItem, TaskStatsResponse,
+    GenerateCriteriaRequest, GenerateCriteriaResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -24,6 +29,24 @@ def list_tasks(
     return TaskListResponse(
         items=[TaskResponse.model_validate(t) for t in tasks]
     )
+
+
+@router.post("/generate-criteria", response_model=GenerateCriteriaResponse)
+async def generate_criteria_endpoint(
+    req: GenerateCriteriaRequest,
+    _admin: User = Depends(require_admin),
+):
+    from services.criteria_generator import generate_criteria
+
+    try:
+        criteria = await generate_criteria(req.title, req.description)
+        return GenerateCriteriaResponse(criteria=criteria)
+    except Exception:
+        logger.exception("Failed to generate criteria")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="生成失败，请稍后重试",
+        )
 
 
 @router.get("/{task_id}", response_model=TaskResponse)

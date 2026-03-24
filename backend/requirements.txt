@@ -6,3 +6,5 @@ bcrypt
 python-multipart
 openai
 anthropic
+tavily-python
+python-dotenv

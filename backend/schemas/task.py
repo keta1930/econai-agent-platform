@@ -37,3 +37,12 @@ class TaskStatsResponse(BaseModel):
     submission_rate: float
     submissions: list[TaskSubmissionItem]
     not_submitted: list[str]
+
+
+class GenerateCriteriaRequest(BaseModel):
+    title: str
+    description: str
+
+
+class GenerateCriteriaResponse(BaseModel):
+    criteria: str
