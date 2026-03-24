@@ -1,3 +1,4 @@
+.env
 agent-workspace/
 .claude/
 node_modules/
