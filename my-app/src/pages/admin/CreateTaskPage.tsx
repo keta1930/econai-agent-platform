@@ -403,7 +403,7 @@ export default function CreateTaskPage() {
         <SheetContent
           side="right"
           showCloseButton={false}
-          className="sm:max-w-[50vw] overflow-y-auto"
+          className="sm:max-w-[75vw] overflow-y-auto"
         >
           <SheetHeader>
             <div className="flex items-center justify-between">
