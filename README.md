@@ -112,6 +112,15 @@ vibe-everything/
 
 ## 🚀 本地开发
 
+### 0. 配置环境变量
+
+```bash
+cp .env.example .env
+# 编辑 .env，填写端口、密钥、模型 API Key 等
+```
+
+`.env` 文件已加入 `.gitignore`，不会提交到仓库。
+
 ### 1. 启动后端
 
 ```bash
@@ -119,10 +128,10 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --port $(grep '^PORT' ../.env | cut -d= -f2)
 ```
 
-后端默认运行在 `http://localhost:8000`。
+后端端口由 `.env` 中的 `PORT` 决定（默认 `8000`）。
 
 ### 2. 启动前端
 
@@ -132,7 +141,7 @@ npm install
 npm run dev
 ```
 
-前端默认运行在 `http://localhost:5173`，开发时通过 Vite 代理访问后端 `/api`。
+前端默认运行在 `http://localhost:5173`，开发时通过 Vite 代理将 `/api` 转发到后端。代理目标地址在 `my-app/vite.config.ts` 中设置，需与 `PORT` 保持一致。
 
 ### 3. 生产构建
 
@@ -143,21 +152,25 @@ npm run build
 
 构建结果会输出到 `backend/dist/`。此时重新启动 FastAPI 后，可由后端同时提供 API 和前端页面。
 
-## ⚙️ 后端配置
+## ⚙️ 环境变量说明
 
-`backend/config.py` 当前使用环境变量读取配置：
+所有配置集中在项目根目录的 `.env` 文件中，参考 `.env.example`：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
+| `PORT` | `8000` | 后端监听端口 |
 | `SECRET_KEY` | `hw-grading-secret-key-change-in-production` | JWT 签名密钥 |
 | `DATABASE_URL` | `sqlite:///./data.db` | 数据库连接串 |
 | `STORAGE_DIR` | `./storage` | 文件存储目录 |
 | `TOKEN_EXPIRE_HOURS` | `24` | 登录 token 有效期 |
+| `DEFAULT_ADMIN_ID` | `admin` | 首次启动自动创建的管理员账号 |
+| `DEFAULT_ADMIN_PASSWORD` | `changeme` | 首次启动自动创建的管理员密码 |
+| `DEFAULT_MODEL_NAME` | `deepseek-chat` | 首次启动自动写入的模型名称 |
+| `DEFAULT_MODEL_API_KEY` | *(空)* | 模型 API Key |
+| `DEFAULT_MODEL_BASE_URL` | `https://api.deepseek.com/v1` | 模型 base URL（OpenAI 兼容接口）|
+| `DEFAULT_MODEL_ADAPTER` | `openai` | 适配器类型：`openai` 或 `anthropic` |
 
-默认管理员账号由 `DEFAULT_ADMIN_ID` / `DEFAULT_ADMIN_PASSWORD` 决定，当前代码中为：
-
-- 账号：`xueheng26`
-- 密码：`vibeai26`
+> ⚠️ 管理员账号和模型配置仅在**数据库首次初始化时**生效。若数据库已存在，修改 `.env` 中对应变量不会覆盖已有记录。
 
 ## 🤖 模型批改机制
 
@@ -185,15 +198,12 @@ npm run build
 
 这个仓库更接近课程内部工具或原型，直接用于生产前至少需要处理下面几项：
 
-- `backend/init_db.py` 中写死了默认模型配置，包含真实 API Key 风险，不应提交到仓库。
-- 默认管理员账号和密码也写在代码中，部署前必须改为环境变量或初始化脚本注入。
 - 登录和注册目前没有限流、验证码、审计日志等安全措施。
 - 数据库默认是 SQLite，适合单机和轻量使用，不适合高并发场景。
 - 当前仓库未见自动化测试与 CI 配置。
 
 ## 🧪 适合继续演进的方向
 
-- 增加 `.env` / `.env.example` 配置方式，移除硬编码密钥
 - 为批改任务引入真正的异步队列，如 Celery / RQ
 - 支持作业重提、教师重批、评分版本记录
 - 增加文件大小限制、内容预览与更丰富的格式支持
