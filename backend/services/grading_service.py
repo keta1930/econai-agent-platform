@@ -6,44 +6,10 @@ from database import SessionLocal
 from models.submission import Submission
 from models.task import Task
 from models.model_config import ModelConfig
-from services.ai.base import BaseAIAdapter
+from services.ai import get_adapter
 from config import STORAGE_DIR
 
 logger = logging.getLogger(__name__)
-
-GRADING_PROMPT_TEMPLATE = """你是一位严格的作业批改助手。请根据以下打分标准对学生作业进行评分。
-
-## 打分标准
-{grading_criteria}
-
-## 学生作业
-{submission_content}
-
-## 输出要求
-请以 JSON 格式输出，包含两个字段：
-- score: 数字，表示分数
-- suggestion: 字符串，表示改进建议
-
-仅输出 JSON，不要输出其他内容。"""
-
-
-def get_adapter(model_config: ModelConfig) -> BaseAIAdapter:
-    if model_config.adapter_type == "openai":
-        from services.ai.openai_adapter import OpenAIAdapter
-        return OpenAIAdapter(
-            api_key=model_config.api_key,
-            base_url=model_config.base_url,
-            model_name=model_config.name,
-        )
-    elif model_config.adapter_type == "anthropic":
-        from services.ai.anthropic_adapter import AnthropicAdapter
-        return AnthropicAdapter(
-            api_key=model_config.api_key,
-            base_url=model_config.base_url,
-            model_name=model_config.name,
-        )
-    else:
-        raise ValueError(f"Unknown adapter type: {model_config.adapter_type}")
 
 
 def grade_submission(submission_id: int):
@@ -87,7 +53,7 @@ def grade_submission(submission_id: int):
 
         # Call AI
         adapter = get_adapter(model_config)
-        result = adapter.grade(content, task.grading_criteria)
+        result = adapter.grade(content, task.grading_criteria, task.description)
 
         # Save result
         submission.score = result.score
