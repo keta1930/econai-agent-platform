@@ -1,7 +1,14 @@
 from database import engine, SessionLocal, Base
 from models import User, ModelConfig
 from services.auth_service import hash_password
-from config import DEFAULT_ADMIN_ID, DEFAULT_ADMIN_PASSWORD
+from config import (
+    DEFAULT_ADMIN_ID,
+    DEFAULT_ADMIN_PASSWORD,
+    DEFAULT_MODEL_NAME,
+    DEFAULT_MODEL_API_KEY,
+    DEFAULT_MODEL_BASE_URL,
+    DEFAULT_MODEL_ADAPTER,
+)
 
 
 def init_database():
@@ -19,12 +26,12 @@ def init_database():
             db.add(admin)
 
         # Default model config
-        if not db.query(ModelConfig).filter(ModelConfig.name == "deepseek-chat").first():
+        if not db.query(ModelConfig).filter(ModelConfig.name == DEFAULT_MODEL_NAME).first():
             model = ModelConfig(
-                name="deepseek-chat",
-                api_key="sk-110d4fd6af1645558f56854349a9370f",
-                base_url="https://api.deepseek.com/v1",
-                adapter_type="openai",
+                name=DEFAULT_MODEL_NAME,
+                api_key=DEFAULT_MODEL_API_KEY,
+                base_url=DEFAULT_MODEL_BASE_URL,
+                adapter_type=DEFAULT_MODEL_ADAPTER,
                 is_active=True,
             )
             db.add(model)
