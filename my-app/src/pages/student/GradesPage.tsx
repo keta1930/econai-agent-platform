@@ -42,8 +42,8 @@ export default function GradesPage() {
   const submissions = data?.items ?? [];
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">我的成绩</h1>
+    <div className="space-y-4 animate-fade-in-up">
+      <h1 className="text-2xl font-heading font-semibold">我的成绩</h1>
       {submissions.length === 0 ? (
         <EmptyState
           icon={<FileText className="h-12 w-12" />}
@@ -65,7 +65,7 @@ export default function GradesPage() {
               {submissions.map((sub) => (
                 <TableRow
                   key={sub.id}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className="cursor-pointer hover:bg-accent/50"
                   onClick={() => navigate(`/student/tasks/${sub.task_id}`)}
                 >
                   <TableCell className="font-medium">{sub.task_title}</TableCell>

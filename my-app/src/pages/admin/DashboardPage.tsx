@@ -54,9 +54,9 @@ export default function DashboardPage() {
   const statsMap = data?.statsMap ?? new Map();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">仪表板</h1>
+        <h1 className="text-2xl font-heading font-semibold">仪表板</h1>
         <Button onClick={() => navigate("/admin/tasks/new")}>
           <PlusCircle className="mr-2 h-4 w-4" />
           发布新任务
@@ -76,7 +76,7 @@ export default function DashboardPage() {
           }
         />
       ) : (
-        tasks.map((task) => {
+        tasks.map((task, index) => {
           const stats = statsMap.get(task.id);
           const submitted = stats?.submitted_count ?? 0;
           const total = stats?.total_students ?? 0;
@@ -85,7 +85,8 @@ export default function DashboardPage() {
           return (
             <Card
               key={task.id}
-              className="cursor-pointer transition-shadow hover:shadow-md"
+              className="cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 animate-stagger"
+              style={{ '--stagger-index': index } as React.CSSProperties}
               onClick={() => navigate(`/admin/tasks/${task.id}`)}
             >
               <CardContent className="py-5">

@@ -115,8 +115,8 @@ export default function RosterPage() {
   const items = data?.items ?? [];
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">学号名单</h1>
+    <div className="space-y-4 animate-fade-in-up">
+      <h1 className="text-2xl font-heading font-semibold">学号名单</h1>
 
       {/* Action bar */}
       <div className="flex flex-wrap items-center gap-3">
@@ -211,7 +211,7 @@ export default function RosterPage() {
                         className={
                           item.registered
                             ? "bg-green-50 text-green-700 hover:bg-green-50"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-100"
+                            : "bg-stone-100 text-stone-600 hover:bg-stone-100"
                         }
                       >
                         {item.registered ? "已注册" : "未注册"}

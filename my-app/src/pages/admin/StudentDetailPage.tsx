@@ -55,8 +55,8 @@ export default function StudentDetailPage() {
   const submissions = data?.items ?? [];
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">学生 {studentId}</h1>
+    <div className="space-y-4 animate-fade-in-up">
+      <h1 className="text-2xl font-heading font-semibold">学生 {studentId}</h1>
 
       {submissions.length === 0 ? (
         <EmptyState

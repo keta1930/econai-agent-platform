@@ -99,9 +99,9 @@ export default function ModelsPage() {
   const models = data?.items ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">模型管理</h1>
+        <h1 className="text-2xl font-heading font-semibold">模型管理</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" />
@@ -201,7 +201,7 @@ export default function ModelsPage() {
                           活跃
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-100">
+                        <Badge variant="secondary" className="bg-stone-100 text-stone-600 hover:bg-stone-100">
                           未激活
                         </Badge>
                       )}

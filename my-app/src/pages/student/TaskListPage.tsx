@@ -58,12 +58,13 @@ export default function TaskListPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">任务列表</h1>
-      {tasks.map((task) => (
+    <div className="space-y-4 animate-fade-in-up">
+      <h1 className="text-2xl font-heading font-semibold">任务列表</h1>
+      {tasks.map((task, index) => (
         <Card
           key={task.id}
-          className="cursor-pointer transition-shadow hover:shadow-md"
+          className="cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 animate-stagger"
+          style={{ '--stagger-index': index } as React.CSSProperties}
           onClick={() => navigate(`/student/tasks/${task.id}`)}
         >
           <CardContent className="flex items-center justify-between py-5">

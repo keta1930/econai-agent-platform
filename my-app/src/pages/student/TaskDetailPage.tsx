@@ -65,7 +65,7 @@ export default function TaskDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Task info */}
       <Card>
         <CardHeader>

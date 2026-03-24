@@ -40,8 +40,8 @@ export default function CreateTaskPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold">发布任务</h1>
+    <div className="mx-auto max-w-2xl animate-fade-in-up">
+      <h1 className="mb-6 text-2xl font-heading font-semibold">发布任务</h1>
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">任务信息</CardTitle>

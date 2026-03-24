@@ -42,7 +42,7 @@ export default function AdminTaskDetailPage() {
   const ratePercent = stats ? Math.round(stats.submission_rate * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Task info */}
       <Card>
         <CardHeader>
@@ -66,27 +66,33 @@ export default function AdminTaskDetailPage() {
       {/* Statistics */}
       {stats && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card>
+          <Card className="animate-stagger" style={{ '--stagger-index': 0 } as React.CSSProperties}>
             <CardContent className="flex items-center gap-3 py-4">
-              <Users className="h-8 w-8 text-muted-foreground" />
+              <div className="rounded-full p-2 bg-primary/10">
+                <Users className="h-8 w-8 text-primary" />
+              </div>
               <div>
                 <p className="text-2xl font-bold">{stats.total_students}</p>
                 <p className="text-xs text-muted-foreground">总人数</p>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="animate-stagger" style={{ '--stagger-index': 1 } as React.CSSProperties}>
             <CardContent className="flex items-center gap-3 py-4">
-              <FileCheck className="h-8 w-8 text-primary" />
+              <div className="rounded-full p-2 bg-blue-50">
+                <FileCheck className="h-8 w-8 text-blue-600" />
+              </div>
               <div>
                 <p className="text-2xl font-bold">{stats.submitted_count}</p>
                 <p className="text-xs text-muted-foreground">已提交</p>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="animate-stagger" style={{ '--stagger-index': 2 } as React.CSSProperties}>
             <CardContent className="flex items-center gap-3 py-4">
-              <BarChart3 className="h-8 w-8 text-success" />
+              <div className="rounded-full p-2 bg-green-50">
+                <BarChart3 className="h-8 w-8 text-green-600" />
+              </div>
               <div>
                 <p className="text-2xl font-bold">{ratePercent}%</p>
                 <p className="text-xs text-muted-foreground">提交率</p>
