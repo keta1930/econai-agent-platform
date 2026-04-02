@@ -10,7 +10,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/StatusBadge";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
