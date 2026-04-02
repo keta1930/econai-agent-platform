@@ -12,6 +12,7 @@ import DashboardPage from "@/pages/admin/DashboardPage";
 import CreateTaskPage from "@/pages/admin/CreateTaskPage";
 import AdminTaskDetailPage from "@/pages/admin/TaskDetailPage";
 import StudentDetailPage from "@/pages/admin/StudentDetailPage";
+import SubmissionDetailPage from "@/pages/admin/SubmissionDetailPage";
 import RosterPage from "@/pages/admin/RosterPage";
 import ModelsPage from "@/pages/admin/ModelsPage";
 
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="tasks/new" element={<CreateTaskPage />} />
         <Route path="tasks/:taskId" element={<AdminTaskDetailPage />} />
+        <Route path="tasks/:taskId/submissions/:studentId" element={<SubmissionDetailPage />} />
         <Route path="students/:studentId" element={<StudentDetailPage />} />
         <Route path="roster" element={<RosterPage />} />
         <Route path="models" element={<ModelsPage />} />

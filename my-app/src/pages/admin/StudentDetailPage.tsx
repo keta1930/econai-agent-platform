@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -21,7 +21,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
 import { useApi } from "@/hooks/useApi";
 import { submissionsApi } from "@/api/submissions";
-import { FileText } from "lucide-react";
+import { FileText, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function scoreColor(score: number | null): string {
@@ -33,6 +33,7 @@ function scoreColor(score: number | null): string {
 
 export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>();
+  const navigate = useNavigate();
 
   const { data, loading, error } = useApi(
     () => submissionsApi.getStudentSubmissions(studentId!),
@@ -75,16 +76,19 @@ export default function StudentDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>任务标题</TableHead>
+                    <TableHead>版本</TableHead>
                     <TableHead>提交时间</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead className="text-right">分数</TableHead>
                     <TableHead>AI 建议</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {submissions.map((sub) => (
                     <TableRow key={sub.id}>
                       <TableCell className="font-medium">{sub.task_title}</TableCell>
+                      <TableCell className="text-muted-foreground">v{sub.version}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {new Date(sub.submitted_at).toLocaleString("zh-CN")}
                       </TableCell>
@@ -114,6 +118,18 @@ export default function StudentDetailPage() {
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            navigate(`/admin/tasks/${sub.task_id}/submissions/${studentId}`)
+                          }
+                        >
+                          <Eye className="mr-1 h-4 w-4" />
+                          查看
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -1,5 +1,9 @@
 import { api } from "./client";
-import type { SubmissionCreateResponse, SubmissionDetail, SubmissionListResponse } from "@/types/submission";
+import type {
+  SubmissionCreateResponse,
+  SubmissionListResponse,
+  SubmissionContentResponse,
+} from "@/types/submission";
 
 export const submissionsApi = {
   submit: (taskId: number, file: File) => {
@@ -9,7 +13,14 @@ export const submissionsApi = {
     return api.post<SubmissionCreateResponse>("/submissions", formData);
   },
   listMy: () => api.get<SubmissionListResponse>("/submissions/my"),
-  getMy: (taskId: number) => api.get<SubmissionDetail>(`/submissions/my/${taskId}`),
+  getMy: (taskId: number) =>
+    api.get<SubmissionListResponse>(`/submissions/my/${taskId}`),
   getStudentSubmissions: (studentId: string) =>
     api.get<SubmissionListResponse>(`/admin/students/${studentId}/submissions`),
+  getContent: (submissionId: number) =>
+    api.get<SubmissionContentResponse>(`/admin/submissions/${submissionId}/content`),
+  getStudentTaskSubmissions: (taskId: number, studentId: string) =>
+    api.get<SubmissionListResponse>(
+      `/admin/tasks/${taskId}/students/${studentId}/submissions`
+    ),
 };

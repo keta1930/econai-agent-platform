@@ -27,6 +27,8 @@ export interface TaskUpdateRequest {
 
 export interface TaskSubmissionItem {
   student_id: string;
+  version: number;
+  submission_count: number;
   status: string;
   score: number | null;
   submitted_at: string;

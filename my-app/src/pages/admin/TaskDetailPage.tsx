@@ -13,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
-import { Users, FileCheck, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, FileCheck, BarChart3, Eye } from "lucide-react";
 
 export default function AdminTaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -117,7 +118,9 @@ export default function AdminTaskDetailPage() {
                     <TableHead>学号</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead className="text-right">分数</TableHead>
+                    <TableHead className="text-right">提交次数</TableHead>
                     <TableHead>提交时间</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -137,8 +140,23 @@ export default function AdminTaskDetailPage() {
                       <TableCell className="text-right">
                         {sub.score !== null ? sub.score : "-"}
                       </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {sub.submission_count}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {new Date(sub.submitted_at).toLocaleString("zh-CN")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            navigate(`/admin/tasks/${taskId}/submissions/${sub.student_id}`)
+                          }
+                        >
+                          <Eye className="mr-1 h-4 w-4" />
+                          查看
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
