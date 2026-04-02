@@ -34,6 +34,8 @@ class TaskListResponse(BaseModel):
 
 class TaskSubmissionItem(BaseModel):
     student_id: str
+    version: int
+    submission_count: int
     status: str
     score: float | None
     submitted_at: datetime
