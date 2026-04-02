@@ -1,9 +1,14 @@
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from config import STORAGE_DIR
 from database import get_db
 from auth.deps import require_admin
 from models.roster import StudentRoster
+from models.submission import Submission
 from models.user import User
 from schemas.roster import (
     RosterAddRequest, RosterBatchRequest,
@@ -84,5 +89,13 @@ def delete_student(student_id: str, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="学号不在名单中",
         )
+    # Cascade: delete submissions, user, roster entry, then clean up files
+    submissions = db.query(Submission).filter(Submission.student_id == student_id).all()
+    file_paths = [Path(STORAGE_DIR) / s.file_path for s in submissions if s.file_path]
+    db.query(Submission).filter(Submission.student_id == student_id).delete()
+    db.query(User).filter(User.id == student_id).delete()
     db.delete(entry)
     db.commit()
+    for fp in file_paths:
+        if fp.exists():
+            fp.unlink()

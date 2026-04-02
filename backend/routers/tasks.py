@@ -1,8 +1,11 @@
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
+
+from config import STORAGE_DIR
 
 from database import get_db
 from auth.deps import get_current_user, require_admin
@@ -140,12 +143,15 @@ def delete_task(
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-    if task.status != "draft":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="已发布任务不可删除",
-        )
+    # Cascade: delete submissions and task, then clean up files
+    submissions = db.query(Submission).filter(Submission.task_id == task_id).all()
+    file_paths = [Path(STORAGE_DIR) / s.file_path for s in submissions if s.file_path]
+    db.query(Submission).filter(Submission.task_id == task_id).delete()
     db.delete(task)
     db.commit()
+    for fp in file_paths:
+        if fp.exists():
+            fp.unlink()
     return Response(status_code=204)
 
 
