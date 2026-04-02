@@ -39,7 +39,23 @@ export default function GradesPage() {
     return <p className="text-sm text-destructive">{error}</p>;
   }
 
-  const submissions = data?.items ?? [];
+  // Deduplicate by task_id — items are sorted by submitted_at DESC,
+  // so the first occurrence per task_id is the latest version.
+  const allSubmissions = data?.items ?? [];
+  const submissions = (() => {
+    const seen = new Set<number>();
+    return allSubmissions.filter((sub) => {
+      if (seen.has(sub.task_id)) return false;
+      seen.add(sub.task_id);
+      return true;
+    });
+  })();
+
+  // Count total versions per task for display
+  const versionCountByTask = new Map<number, number>();
+  for (const sub of allSubmissions) {
+    versionCountByTask.set(sub.task_id, (versionCountByTask.get(sub.task_id) ?? 0) + 1);
+  }
 
   return (
     <div className="space-y-4 animate-fade-in-up">
@@ -57,6 +73,7 @@ export default function GradesPage() {
               <TableRow>
                 <TableHead>任务标题</TableHead>
                 <TableHead>提交时间</TableHead>
+                <TableHead>版本</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead className="text-right">分数</TableHead>
               </TableRow>
@@ -71,6 +88,9 @@ export default function GradesPage() {
                   <TableCell className="font-medium">{sub.task_title}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(sub.submitted_at).toLocaleDateString("zh-CN")}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {versionCountByTask.get(sub.task_id) ?? 1} 次提交
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={sub.status} />

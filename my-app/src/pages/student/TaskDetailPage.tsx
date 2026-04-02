@@ -5,11 +5,19 @@ import { MarkdownContent } from "@/components/ui/markdown-content";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/FileUpload";
+import { StatusBadge } from "@/components/StatusBadge";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
 import { submissionsApi } from "@/api/submissions";
-import { ApiError } from "@/api/client";
-import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ChevronDown,
+  ChevronRight,
+  History,
+} from "lucide-react";
 import type { SubmissionDetail } from "@/types/submission";
 
 export default function TaskDetailPage() {
@@ -19,22 +27,22 @@ export default function TaskDetailPage() {
   const { data: task, loading: taskLoading } = useApi(() => tasksApi.get(id), [id]);
 
   const {
-    data: submission,
+    data: submissionData,
     loading: subLoading,
     refetch,
-  } = useApi<SubmissionDetail | null>(async () => {
-    try {
-      return await submissionsApi.getMy(id);
-    } catch (e) {
-      // 404 means not submitted
-      if (e instanceof ApiError && e.status === 404) return null;
-      throw e;
-    }
-  }, [id]);
+  } = useApi(() => submissionsApi.getMy(id), [id]);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const submissions = submissionData?.items ?? [];
+  const latestSubmission: SubmissionDetail | null = submissions[0] ?? null;
+  const historySubmissions = submissions.slice(1);
+  const hasSubmitted = submissions.length > 0;
+  const isLatestPending =
+    latestSubmission?.status === "pending" || latestSubmission?.status === "grading";
 
   async function handleSubmit() {
     if (!selectedFile) return;
@@ -87,66 +95,87 @@ export default function TaskDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Submission section */}
-      {!submission && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">提交作业</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <FileUpload onFileSelect={setSelectedFile} disabled={submitting} />
-            {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-            <Button onClick={handleSubmit} disabled={!selectedFile || submitting}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              提交
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Submit section — always visible, label changes based on state */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">
+            {hasSubmitted ? "重新提交" : "提交作业"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLatestPending ? (
+            <p className="text-sm text-muted-foreground">
+              最新提交正在批改中，批改完成后可重新提交
+            </p>
+          ) : (
+            <>
+              <FileUpload onFileSelect={setSelectedFile} disabled={submitting} />
+              {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+              <Button onClick={handleSubmit} disabled={!selectedFile || submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {hasSubmitted ? "重新提交" : "提交"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
-      {submission?.status === "pending" || submission?.status === "grading" ? (
+      {/* Latest submission result */}
+      {isLatestPending && (
         <Card>
           <CardContent className="flex flex-col items-center py-12 text-center">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="mt-4 font-medium">AI 正在批改中...</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {submission.status === "pending" ? "已提交，等待批改" : "批改进行中，请稍候"}
+              {latestSubmission.status === "pending"
+                ? "已提交，等待批改"
+                : "批改进行中，请稍候"}
             </p>
           </CardContent>
         </Card>
-      ) : null}
+      )}
 
-      {submission?.status === "completed" && (
+      {latestSubmission?.status === "completed" && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <CheckCircle2 className="h-5 w-5 text-success" />
               批改结果
+              {hasSubmitted && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  (第 {latestSubmission.version} 次提交)
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-primary">{submission.score}</span>
+              <span className="text-4xl font-bold text-primary">
+                {latestSubmission.score}
+              </span>
               <span className="text-sm text-muted-foreground">分</span>
             </div>
-            {submission.suggestion && (
+            {latestSubmission.suggestion && (
               <div>
-                <h4 className="mb-2 text-sm font-medium text-muted-foreground">AI 建议</h4>
+                <h4 className="mb-2 text-sm font-medium text-muted-foreground">
+                  AI 建议
+                </h4>
                 <p className="whitespace-pre-wrap text-sm rounded-md bg-muted p-4">
-                  {submission.suggestion}
+                  {latestSubmission.suggestion}
                 </p>
               </div>
             )}
-            {submission.graded_at && (
+            {latestSubmission.graded_at && (
               <p className="text-xs text-muted-foreground">
-                批改完成于 {new Date(submission.graded_at).toLocaleString("zh-CN")}
+                批改完成于{" "}
+                {new Date(latestSubmission.graded_at).toLocaleString("zh-CN")}
               </p>
             )}
           </CardContent>
         </Card>
       )}
 
-      {submission?.status === "failed" && (
+      {latestSubmission?.status === "failed" && (
         <Card>
           <CardContent className="flex flex-col items-center py-12 text-center">
             <XCircle className="h-10 w-10 text-destructive" />
@@ -158,12 +187,69 @@ export default function TaskDetailPage() {
         </Card>
       )}
 
-      {submission && !["pending", "grading", "completed", "failed"].includes(submission.status) && (
+      {latestSubmission &&
+        !["pending", "grading", "completed", "failed"].includes(
+          latestSubmission.status
+        ) && (
+          <Card>
+            <CardContent className="flex items-center gap-2 py-8 justify-center">
+              <Clock className="h-5 w-5 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">已提交，等待处理</p>
+            </CardContent>
+          </Card>
+        )}
+
+      {/* History versions */}
+      {historySubmissions.length > 0 && (
         <Card>
-          <CardContent className="flex items-center gap-2 py-8 justify-center">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">已提交，等待处理</p>
-          </CardContent>
+          <CardHeader className="pb-3">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(!historyOpen)}
+              className="flex w-full items-center gap-2 text-left"
+            >
+              <History className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">历史版本</CardTitle>
+              <span className="text-sm text-muted-foreground">
+                ({historySubmissions.length})
+              </span>
+              <span className="ml-auto text-muted-foreground">
+                {historyOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </span>
+            </button>
+          </CardHeader>
+          {historyOpen && (
+            <CardContent className="pt-0">
+              <div className="divide-y rounded-md border">
+                {historySubmissions.map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="flex items-center justify-between px-4 py-3 text-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">
+                        第 {sub.version} 次提交
+                      </span>
+                      <span className="text-muted-foreground">
+                        {new Date(sub.submitted_at).toLocaleString("zh-CN")}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {sub.status === "completed" && sub.score !== null ? (
+                        <span className="font-medium">{sub.score} 分</span>
+                      ) : (
+                        <StatusBadge status={sub.status} />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
     </div>
