@@ -167,18 +167,30 @@ def get_task_stats(
     submissions = (
         db.query(Submission)
         .filter(Submission.task_id == task_id)
+        .order_by(Submission.student_id, Submission.version.desc())
         .all()
     )
-    submitted_ids = {s.student_id for s in submissions}
+
+    # Group by student: pick latest version, count total submissions
+    latest_by_student: dict[str, Submission] = {}
+    count_by_student: dict[str, int] = {}
+    for s in submissions:
+        count_by_student[s.student_id] = count_by_student.get(s.student_id, 0) + 1
+        if s.student_id not in latest_by_student:
+            latest_by_student[s.student_id] = s  # first hit is latest (desc order)
+
+    submitted_ids = set(latest_by_student.keys())
 
     submission_items = [
         TaskSubmissionItem(
             student_id=s.student_id,
+            version=s.version,
+            submission_count=count_by_student[s.student_id],
             status=s.status,
             score=s.score,
             submitted_at=s.submitted_at,
         )
-        for s in submissions
+        for s in latest_by_student.values()
     ]
 
     not_submitted = [sid for sid in all_student_ids if sid not in submitted_ids]
