@@ -1,9 +1,5 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authApi } from "@/api/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { isClassSelection } from "@/types/auth";
@@ -92,92 +88,117 @@ export default function LoginPage() {
   if (classOptions) {
     return (
       <AuthLayout>
-        <Card className="w-full max-w-[400px]">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-semibold">选择班级</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
+        <div className="auth-card">
+          <div className="auth-card-header">
+            <h2 className="auth-card-title">选择班级</h2>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
               你在多个班级中注册，请选择要登录的班级
             </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
+          </div>
+
+          <div className="space-y-3">
             {classOptions.map((opt) => (
-              <Button
+              <button
                 key={opt.class_id}
-                variant="outline"
-                className="w-full justify-start h-auto py-3"
+                type="button"
+                className="w-full text-left px-4 py-3 rounded-lg border border-[var(--paper-border)] bg-white hover:border-[var(--gold)] hover:shadow-[var(--shadow-md)] transition-all duration-200 disabled:opacity-50"
                 disabled={loading}
                 onClick={() => handleSelectClass(opt)}
               >
-                <div className="text-left">
-                  <div className="font-medium">{opt.class_name}</div>
-                  <div className="text-xs text-muted-foreground">{opt.admin_name}</div>
+                <div className="font-medium text-sm">{opt.class_name}</div>
+                <div className="text-xs text-[var(--muted-foreground)] mt-0.5">
+                  {opt.admin_name}
                 </div>
-              </Button>
+              </button>
             ))}
+
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <p className="text-sm text-[var(--danger)]">{error}</p>
             )}
-            <Button
-              variant="ghost"
-              className="w-full"
+
+            <button
+              type="button"
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
               onClick={() => {
                 setClassOptions(null);
                 setError("");
               }}
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
               返回
-            </Button>
-          </CardContent>
-        </Card>
+            </button>
+          </div>
+        </div>
       </AuthLayout>
     );
   }
 
   return (
     <AuthLayout>
-      <Card className="w-full max-w-[400px]">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-semibold">登录</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">账号</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="请输入学号或管理员账号"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="请输入密码"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <Button type="submit" className="w-full" disabled={loading || !username || !password}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              登录
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            还没有账号？{" "}
-            <Link to="/register" className="text-primary hover:underline">
-              注册
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+      <div className="auth-card">
+        <div className="auth-card-header">
+          <h2 className="auth-card-title">登录</h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-1.5">
+            <label
+              htmlFor="username"
+              className="auth-label"
+            >
+              账号
+            </label>
+            <input
+              id="username"
+              type="text"
+              placeholder="请输入学号或管理员账号"
+              className="auth-input"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="password"
+              className="auth-label"
+            >
+              密码
+            </label>
+            <input
+              id="password"
+              type="password"
+              placeholder="请输入密码"
+              className="auth-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-[var(--danger)]">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            className="auth-btn-primary"
+            disabled={loading || !username || !password}
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            登录
+          </button>
+        </form>
+
+        <p className="mt-5 text-center text-[13px] text-[var(--muted-foreground)]">
+          还没有账号？{" "}
+          <Link
+            to="/register"
+            className="text-[var(--cyan-mid)] hover:text-[var(--cyan-light)] hover:underline transition-colors"
+          >
+            注册
+          </Link>
+        </p>
+      </div>
     </AuthLayout>
   );
 }
