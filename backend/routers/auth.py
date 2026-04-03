@@ -1,25 +1,81 @@
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from models.user import User
+from models.class_ import Class
 from schemas.auth import (
     RegisterRequest, RegisterResponse,
     LoginRequest, LoginResponse,
+    ClassSelectionResponse, ClassOption,
+    SelectClassRequest,
 )
-from services.auth_service import register_student, authenticate_user
+from services.auth_service import (
+    register_student, authenticate_user, authenticate_user_with_class,
+)
 from auth.jwt import create_access_token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    user = register_student(db, req.student_id, req.password)
+async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    user = await register_student(
+        db, req.class_name, req.admin_name, req.student_id, req.password
+    )
     return RegisterResponse(id=user.id, role=user.role)
 
 
-@router.post("/login", response_model=LoginResponse)
-def login(req: LoginRequest, db: Session = Depends(get_db)):
-    user = authenticate_user(db, req.id, req.password)
-    token = create_access_token(sub=user.id, role=user.role)
-    return LoginResponse(access_token=token, role=user.role)
+@router.post("/login")
+async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
+    result = await authenticate_user(db, req.username, req.password)
+
+    if isinstance(result, list):
+        return ClassSelectionResponse(
+            classes=[ClassOption(**opt) for opt in result],
+        )
+
+    user: User = result
+    class_name: str | None = None
+    if user.class_id:
+        cls_result = await db.execute(
+            select(Class).where(Class.id == user.class_id)
+        )
+        cls = cls_result.scalar_one_or_none()
+        class_name = cls.name if cls else None
+
+    token = create_access_token(
+        sub=user.id, role=user.role, class_id=user.class_id
+    )
+    return LoginResponse(
+        access_token=token,
+        role=user.role,
+        class_id=user.class_id,
+        class_name=class_name,
+    )
+
+
+@router.post("/login/select-class", response_model=LoginResponse)
+async def select_class(req: SelectClassRequest, db: AsyncSession = Depends(get_db)):
+    user = await authenticate_user_with_class(
+        db, req.username, req.password, req.class_id
+    )
+
+    class_name: str | None = None
+    if user.class_id:
+        cls_result = await db.execute(
+            select(Class).where(Class.id == user.class_id)
+        )
+        cls = cls_result.scalar_one_or_none()
+        class_name = cls.name if cls else None
+
+    token = create_access_token(
+        sub=user.id, role=user.role, class_id=user.class_id
+    )
+    return LoginResponse(
+        access_token=token,
+        role=user.role,
+        class_id=user.class_id,
+        class_name=class_name,
+    )

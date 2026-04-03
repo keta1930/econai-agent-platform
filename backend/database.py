@@ -1,29 +1,28 @@
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, declarative_base
+from collections.abc import AsyncGenerator
+
+from sqlalchemy import MetaData
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.orm import declarative_base
 
 from config import DATABASE_URL
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
+convention = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+engine = create_async_engine(DATABASE_URL, echo=False)
+
+async_session_factory = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False,
 )
 
-
-@event.listens_for(engine, "connect")
-def _set_sqlite_wal(dbapi_conn, connection_record):
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.close()
+Base = declarative_base(metadata=MetaData(naming_convention=convention))
 
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base = declarative_base()
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_factory() as session:
+        yield session

@@ -5,7 +5,6 @@ import logging
 from tavily import TavilyClient
 
 from config import TAVILY_API_KEY
-from database import SessionLocal
 from models.model_config import ModelConfig
 from services.ai import get_adapter
 from services.ai.base import ToolDefinition
@@ -97,20 +96,12 @@ def execute_tavily_search(query: str) -> str:
     return "\n\n---\n\n".join(parts) if parts else "No results found."
 
 
-async def generate_criteria(title: str, description: str) -> str:
-    """Generate grading criteria using the active model with ReAct loop.
+async def generate_criteria(title: str, description: str, model_config: "ModelConfig") -> str:
+    """Generate grading criteria using the given model with ReAct loop.
 
     The model can search for documentation via Tavily before generating
     the final criteria in the standardized template format.
     """
-    db = SessionLocal()
-    try:
-        model_config = db.query(ModelConfig).filter(ModelConfig.is_active == True).first()
-        if not model_config:
-            raise RuntimeError("No active model configured")
-    finally:
-        db.close()
-
     adapter = get_adapter(model_config)
 
     messages = [

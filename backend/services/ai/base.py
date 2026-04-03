@@ -94,3 +94,12 @@ class BaseAIAdapter(ABC):
         tools: list[ToolDefinition] | None = None,
     ) -> ChatResponse:
         ...
+
+    def grade_image(
+        self,
+        image_data: bytes,
+        media_type: str,
+        criteria: str,
+        task_description: str,
+    ) -> GradingResult:
+        raise NotImplementedError("Vision grading not yet implemented")

@@ -1,6 +1,9 @@
 fastapi
 uvicorn[standard]
-sqlalchemy
+sqlalchemy[asyncio]
+asyncpg
+psycopg[binary]
+alembic
 pyjwt
 bcrypt
 python-multipart
@@ -8,3 +11,5 @@ openai
 anthropic
 tavily-python
 python-dotenv
+minio
+pgvector

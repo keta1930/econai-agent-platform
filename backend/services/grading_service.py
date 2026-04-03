@@ -1,75 +1,108 @@
+import asyncio
 import logging
-from datetime import datetime
-from pathlib import Path
+from datetime import datetime, timezone
 
-from database import SessionLocal
+from sqlalchemy import select
+
+from database import async_session_factory
 from models.submission import Submission
 from models.task import Task
+from models.class_ import Class
 from models.model_config import ModelConfig
 from services.ai import get_adapter
-from config import STORAGE_DIR
+from services.storage import storage_service
 
 logger = logging.getLogger(__name__)
 
 
-def grade_submission(submission_id: int):
+async def grade_submission(submission_id: int):
     """Background task: grade a submission using the active AI model."""
-    db = SessionLocal()
-    try:
-        submission = db.query(Submission).filter(Submission.id == submission_id).first()
-        if not submission:
-            logger.error("Submission %d not found", submission_id)
-            return
-
-        # Update status to grading
-        submission.status = "grading"
-        db.commit()
-
-        # Get active model config
-        model_config = db.query(ModelConfig).filter(ModelConfig.is_active == True).first()
-        if not model_config:
-            logger.error("No active model configured")
-            submission.status = "failed"
-            db.commit()
-            return
-
-        # Read submission file
-        file_path = Path(STORAGE_DIR) / submission.file_path
-        if not file_path.exists():
-            logger.error("Submission file not found: %s", file_path)
-            submission.status = "failed"
-            db.commit()
-            return
-
-        content = file_path.read_text(encoding="utf-8")
-
-        # Get task grading criteria
-        task = db.query(Task).filter(Task.id == submission.task_id).first()
-        if not task:
-            logger.error("Task %d not found for submission %d", submission.task_id, submission_id)
-            submission.status = "failed"
-            db.commit()
-            return
-
-        # Call AI
-        adapter = get_adapter(model_config)
-        result = adapter.grade(content, task.grading_criteria, task.description)
-
-        # Save result
-        submission.score = result.score
-        submission.suggestion = result.suggestion
-        submission.status = "completed"
-        submission.graded_at = datetime.utcnow()
-        db.commit()
-
-        logger.info("Submission %d graded: score=%s", submission_id, result.score)
-
-    except Exception:
-        logger.exception("Grading failed for submission %d", submission_id)
+    async with async_session_factory() as db:
         try:
-            submission.status = "failed"
-            db.commit()
+            result = await db.execute(
+                select(Submission).where(Submission.id == submission_id)
+            )
+            submission = result.scalar_one_or_none()
+            if not submission:
+                logger.error("Submission %d not found", submission_id)
+                return
+
+            # Image submissions skip AI grading (status already set to manual_review)
+            if submission.content_type == "image":
+                # TODO: enable vision grading here via adapter.grade_image()
+                return
+
+            # Update status to grading
+            submission.status = "grading"
+            await db.commit()
+
+            # Get task to find class -> admin
+            result = await db.execute(
+                select(Task).where(Task.id == submission.task_id)
+            )
+            task = result.scalar_one_or_none()
+            if not task:
+                logger.error(
+                    "Task %d not found for submission %d",
+                    submission.task_id,
+                    submission_id,
+                )
+                submission.status = "failed"
+                await db.commit()
+                return
+
+            # Find admin via class
+            result = await db.execute(
+                select(Class).where(Class.id == task.class_id)
+            )
+            cls = result.scalar_one_or_none()
+            if not cls:
+                logger.error("Class %d not found for task %d", task.class_id, task.id)
+                submission.status = "failed"
+                await db.commit()
+                return
+
+            # Get active model config for admin
+            result = await db.execute(
+                select(ModelConfig).where(
+                    ModelConfig.admin_id == cls.created_by,
+                    ModelConfig.is_active == True,
+                )
+            )
+            model_config = result.scalar_one_or_none()
+            if not model_config:
+                logger.error("No active model for admin %d", cls.created_by)
+                submission.status = "failed"
+                await db.commit()
+                return
+
+            # Read submission file from MinIO
+            content = await asyncio.to_thread(
+                storage_service.get_text, submission.file_path
+            )
+
+            # Call AI
+            adapter = get_adapter(model_config)
+            result = await asyncio.to_thread(
+                adapter.grade, content, task.grading_criteria, task.description
+            )
+
+            # Save result
+            submission.score = result.score
+            submission.suggestion = result.suggestion
+            submission.status = "completed"
+            submission.graded_at = datetime.now(timezone.utc)
+            await db.commit()
+
+            logger.info(
+                "Submission %d graded: score=%s", submission_id, result.score
+            )
+
         except Exception:
-            logger.exception("Failed to update submission status to failed")
-    finally:
-        db.close()
+            logger.exception("Grading failed for submission %d", submission_id)
+            try:
+                if "submission" in locals() and submission is not None:
+                    submission.status = "failed"
+                    await db.commit()
+            except Exception:
+                logger.exception("Failed to update submission status to failed")

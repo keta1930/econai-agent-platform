@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
 
@@ -7,11 +7,12 @@ from config import SECRET_KEY, TOKEN_EXPIRE_HOURS
 ALGORITHM = "HS256"
 
 
-def create_access_token(sub: str, role: str) -> str:
+def create_access_token(sub: int, role: str, class_id: int | None = None) -> str:
     payload = {
-        "sub": sub,
+        "sub": str(sub),
         "role": role,
-        "exp": datetime.utcnow() + timedelta(hours=TOKEN_EXPIRE_HOURS),
+        "class_id": class_id,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRE_HOURS),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 

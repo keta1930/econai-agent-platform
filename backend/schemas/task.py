@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -7,6 +8,7 @@ class TaskDraftRequest(BaseModel):
     title: str
     description: str = ""
     grading_criteria: str = ""
+    class_id: int
 
 
 class TaskUpdateRequest(BaseModel):
@@ -22,6 +24,8 @@ class TaskResponse(BaseModel):
     description: str
     grading_criteria: str
     status: str
+    class_id: int
+    created_by: int
     created_at: datetime
     updated_at: datetime | None
 
@@ -33,7 +37,8 @@ class TaskListResponse(BaseModel):
 
 
 class TaskSubmissionItem(BaseModel):
-    student_id: str
+    student_id: int
+    username: str
     version: int
     submission_count: int
     status: str
@@ -57,3 +62,21 @@ class GenerateCriteriaRequest(BaseModel):
 
 class GenerateCriteriaResponse(BaseModel):
     criteria: str
+
+
+class BatchPublishRequest(BaseModel):
+    title: str
+    description: str
+    grading_criteria: str
+    class_ids: list[int]
+    status: Literal["published"]
+
+
+class BatchPublishItem(BaseModel):
+    id: int
+    class_id: int
+    class_name: str
+
+
+class BatchPublishResponse(BaseModel):
+    created: list[BatchPublishItem]
