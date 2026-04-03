@@ -1,5 +1,6 @@
 export interface BackupInfo {
-  filename: string;
+  id: number;
+  display_name: string;
   size: number;
   created_at: string;
 }
@@ -10,4 +11,5 @@ export interface BackupListResponse {
 
 export interface BackupDownloadResponse {
   download_url: string;
+  filename: string;
 }

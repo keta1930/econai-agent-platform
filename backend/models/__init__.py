@@ -5,5 +5,6 @@ from models.task import Task
 from models.submission import Submission
 from models.model_config import ModelConfig
 from models.sharing import SharingTopic, TopicVote
+from models.backup import Backup
 
-__all__ = ["User", "Class", "StudentRoster", "Task", "Submission", "ModelConfig", "SharingTopic", "TopicVote"]
+__all__ = ["User", "Class", "StudentRoster", "Task", "Submission", "ModelConfig", "SharingTopic", "TopicVote", "Backup"]

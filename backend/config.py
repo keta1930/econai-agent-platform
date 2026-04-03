@@ -38,7 +38,7 @@ TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
 
 # Backup
 BACKUP_RETENTION_DAYS: int = int(os.getenv("BACKUP_RETENTION_DAYS", "30"))
-PG_CONTAINER_NAME: str = os.getenv("PG_CONTAINER_NAME", "book-web-postgres-1")
+MAX_BACKUPS_PER_ADMIN: int = int(os.getenv("MAX_BACKUPS_PER_ADMIN", "10"))
 
 # Upload limits (bytes)
 MAX_TEXT_SIZE: int = int(os.getenv("MAX_TEXT_SIZE", "2097152"))  # 2 MB
