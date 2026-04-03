@@ -312,7 +312,7 @@ export default function SharingManagePage() {
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold">分享管理</h1>
+        <h1 className="text-2xl font-heading font-semibold page-title-decorated">分享管理</h1>
         <Button onClick={handleCreate}>
           <PlusCircle className="mr-2 h-4 w-4" />
           创建主题
@@ -335,68 +335,66 @@ export default function SharingManagePage() {
               description="点击「创建主题」添加第一个分享主题"
             />
           ) : (
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>标题</TableHead>
-                    <TableHead>来源</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>汇报人</TableHead>
-                    <TableHead>分享次数</TableHead>
-                    <TableHead>票数</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
+            <Table className="data-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>标题</TableHead>
+                  <TableHead>来源</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>汇报人</TableHead>
+                  <TableHead>分享次数</TableHead>
+                  <TableHead>票数</TableHead>
+                  <TableHead className="text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTopics.map((topic) => (
+                  <TableRow key={topic.id}>
+                    <TableCell className="font-medium">{topic.title}</TableCell>
+                    <TableCell>
+                      {topic.is_student_submitted ? (
+                        <Badge variant="secondary" className="text-xs">同学推荐</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">系统</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_VARIANTS[topic.status]}>
+                        {STATUS_LABELS[topic.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {topic.presenters ?? "-"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {topic.session_number != null ? `第 ${topic.session_number} 次` : "-"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {topic.vote_count}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleEdit(topic)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeleteTarget(topic)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTopics.map((topic) => (
-                    <TableRow key={topic.id}>
-                      <TableCell className="font-medium">{topic.title}</TableCell>
-                      <TableCell>
-                        {topic.is_student_submitted ? (
-                          <Badge variant="secondary" className="text-xs">同学推荐</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">系统</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={STATUS_VARIANTS[topic.status]}>
-                          {STATUS_LABELS[topic.status]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {topic.presenters ?? "-"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {topic.session_number != null ? `第 ${topic.session_number} 次` : "-"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {topic.vote_count}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => handleEdit(topic)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => setDeleteTarget(topic)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </TabsContent>
       </Tabs>

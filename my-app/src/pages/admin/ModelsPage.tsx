@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,7 +100,7 @@ export default function ModelsPage() {
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold">模型管理</h1>
+        <h1 className="text-2xl font-heading font-semibold page-title-decorated">模型管理</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" />
@@ -169,67 +168,59 @@ export default function ModelsPage() {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">模型列表</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>Base URL</TableHead>
-                  <TableHead>类型</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {models.map((model) => (
-                  <TableRow key={model.id}>
-                    <TableCell className="font-medium">{model.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                      {model.base_url}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{model.adapter_type}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {model.is_active ? (
-                        <Badge className="bg-green-50 text-green-700 hover:bg-green-50">
-                          活跃
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="bg-stone-100 text-stone-600 hover:bg-stone-100">
-                          未激活
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {!model.is_active && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={activatingId === model.id}
-                          onClick={() => handleActivate(model.id)}
-                        >
-                          {activatingId === model.id ? (
-                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Zap className="mr-1 h-4 w-4" />
-                          )}
-                          设为活跃
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      <p className="text-sm text-muted-foreground">共 {models.length} 个模型配置</p>
+      <Table className="data-table">
+        <TableHeader>
+          <TableRow>
+            <TableHead>名称</TableHead>
+            <TableHead>Base URL</TableHead>
+            <TableHead>类型</TableHead>
+            <TableHead>状态</TableHead>
+            <TableHead className="text-right">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {models.map((model) => (
+            <TableRow key={model.id}>
+              <TableCell className="font-medium">{model.name}</TableCell>
+              <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                {model.base_url}
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">{model.adapter_type}</Badge>
+              </TableCell>
+              <TableCell>
+                {model.is_active ? (
+                  <Badge className="bg-success/10 text-success hover:bg-success/10">
+                    活跃
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="bg-secondary text-muted-foreground hover:bg-secondary">
+                    未激活
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell className="text-right">
+                {!model.is_active && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={activatingId === model.id}
+                    onClick={() => handleActivate(model.id)}
+                  >
+                    {activatingId === model.id ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Zap className="mr-1 h-4 w-4" />
+                    )}
+                    设为活跃
+                  </Button>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

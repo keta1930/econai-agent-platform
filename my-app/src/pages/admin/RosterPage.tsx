@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,39 +120,35 @@ export default function RosterPage() {
 
   return (
     <div className="space-y-4 animate-fade-in-up">
-      <h1 className="text-2xl font-heading font-semibold">学号名单</h1>
+      <h1 className="text-2xl font-heading font-semibold page-title-decorated">学号名单</h1>
 
       {/* Class selector */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-3">
-            <Label className="shrink-0 font-medium">选择班级</Label>
-            <Select
-              value={selectedClass?.name}
-              onValueChange={(name) => {
-                const found = classes.find((c) => c.name === name);
-                if (found) setSelectedClassId(found.id);
-              }}
-            >
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="请选择要管理的班级" />
-              </SelectTrigger>
-              <SelectContent>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.name}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedClass && (
-              <span className="text-sm text-muted-foreground">
-                当前 {items.length} 人
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-3">
+        <Label className="shrink-0 font-medium">选择班级</Label>
+        <Select
+          value={selectedClass?.name}
+          onValueChange={(name) => {
+            const found = classes.find((c) => c.name === name);
+            if (found) setSelectedClassId(found.id);
+          }}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="请选择要管理的班级" />
+          </SelectTrigger>
+          <SelectContent>
+            {classes.map((c) => (
+              <SelectItem key={c.id} value={c.name}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedClass && (
+          <span className="text-sm text-muted-foreground">
+            当前 {items.length} 人
+          </span>
+        )}
+      </div>
 
       {!selectedClassId ? (
         <EmptyState
@@ -228,63 +223,57 @@ export default function RosterPage() {
           </div>
 
           {/* Roster table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                {selectedClass?.name} — 名单 ({items.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {items.length === 0 ? (
-                <EmptyState
-                  icon={<Users className="h-10 w-10" />}
-                  title="暂无学号"
-                  description="通过上方输入框添加学号，或批量导入"
-                />
-              ) : (
-                <div className="rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>学号</TableHead>
-                        <TableHead>注册状态</TableHead>
-                        <TableHead className="text-right">操作</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item) => (
-                        <TableRow key={item.student_id}>
-                          <TableCell>{item.student_id}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className={
-                                item.registered
-                                  ? "bg-green-50 text-green-700 hover:bg-green-50"
-                                  : "bg-stone-100 text-stone-600 hover:bg-stone-100"
-                              }
-                            >
-                              {item.registered ? "已注册" : "未注册"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setDeleteTarget({ id: item.student_id, registered: item.registered })}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {items.length === 0 ? (
+            <EmptyState
+              icon={<Users className="h-10 w-10" />}
+              title="暂无学号"
+              description="通过上方输入框添加学号，或批量导入"
+            />
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                共 {items.length} 名学生 — 已注册 {items.filter((i) => i.registered).length} / 未注册 {items.filter((i) => !i.registered).length}
+              </p>
+              <Table className="data-table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>学号</TableHead>
+                    <TableHead>注册状态</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow key={item.student_id}>
+                      <TableCell>{item.student_id}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="secondary"
+                          className={
+                            item.registered
+                              ? "bg-success/10 text-success hover:bg-success/10"
+                              : "bg-secondary text-muted-foreground hover:bg-secondary"
+                          }
+                        >
+                          {item.registered ? "已注册" : "未注册"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget({ id: item.student_id, registered: item.registered })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          )}
         </>
       )}
 

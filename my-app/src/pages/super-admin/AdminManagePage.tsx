@@ -79,7 +79,7 @@ export default function AdminManagePage() {
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold">管理员管理</h1>
+        <h1 className="text-2xl font-heading font-semibold page-title-decorated">管理员管理</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" />

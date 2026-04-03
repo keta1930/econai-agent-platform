@@ -24,7 +24,7 @@ export default function GradesPage() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-32" />
-        <Skeleton className="h-64 w-full rounded-lg" />
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     );
   }
@@ -33,8 +33,6 @@ export default function GradesPage() {
     return <p className="text-sm text-destructive">{error}</p>;
   }
 
-  // Deduplicate by task_id — items are sorted by submitted_at DESC,
-  // so the first occurrence per task_id is the latest version.
   const allSubmissions = data?.items ?? [];
   const submissions = (() => {
     const seen = new Set<number>();
@@ -45,15 +43,16 @@ export default function GradesPage() {
     });
   })();
 
-  // Count total versions per task for display
   const versionCountByTask = new Map<number, number>();
   for (const sub of allSubmissions) {
     versionCountByTask.set(sub.task_id, (versionCountByTask.get(sub.task_id) ?? 0) + 1);
   }
 
   return (
-    <div className="space-y-4 animate-fade-in-up">
-      <h1 className="text-2xl font-heading font-semibold">我的成绩</h1>
+    <div className="animate-fade-in-up">
+      <h1 className="text-[22px] font-heading font-semibold page-title-decorated mb-6">
+        我的成绩
+      </h1>
       {submissions.length === 0 ? (
         <EmptyState
           icon={<FileText className="h-12 w-12" />}
@@ -61,7 +60,7 @@ export default function GradesPage() {
           description="完成任务并提交后，成绩将在此显示"
         />
       ) : (
-        <div className="rounded-lg border">
+        <div className="rounded-xl border" style={{ borderColor: "var(--paper-border)" }}>
           <Table>
             <TableHeader>
               <TableRow>

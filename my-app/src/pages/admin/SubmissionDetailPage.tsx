@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -96,7 +95,7 @@ function GradingPanel({ submission }: { submission: SubmissionDetail }) {
 
   if (submission.status === "manual_review") {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-16 text-blue-600">
+      <div className="flex flex-col items-center justify-center gap-3 py-16 text-info">
         <Eye className="h-8 w-8" />
         <p className="text-sm">待人工审核</p>
         <p className="text-xs text-muted-foreground">图片类提交需要人工评分</p>
@@ -312,27 +311,23 @@ export default function SubmissionDetailPage() {
         </div>
 
         {/* Side-by-side content */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="overflow-hidden">
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-medium">
-                {leftVersion ? versionLabel(leftVersion) : "选择版本"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-[70vh] overflow-y-auto">
+        <div className="grid grid-cols-2 gap-6">
+          <div className="overflow-hidden">
+            <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+              {leftVersion ? versionLabel(leftVersion) : "选择版本"}
+            </h3>
+            <div className="max-h-[70vh] overflow-y-auto">
               <ContentRenderer data={contentLeft} loading={leftLoading} />
-            </CardContent>
-          </Card>
-          <Card className="overflow-hidden">
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-medium">
-                {rightVersion ? versionLabel(rightVersion) : "选择版本"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-[70vh] overflow-y-auto">
+            </div>
+          </div>
+          <div className="overflow-hidden">
+            <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+              {rightVersion ? versionLabel(rightVersion) : "选择版本"}
+            </h3>
+            <div className="max-h-[70vh] overflow-y-auto">
               <ContentRenderer data={contentRight} loading={rightLoading} />
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -379,30 +374,30 @@ export default function SubmissionDetailPage() {
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left: document content */}
-        <Card className="overflow-hidden">
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium">学生提交内容</CardTitle>
-          </CardHeader>
-          <CardContent className="max-h-[70vh] overflow-y-auto">
+        <div className="overflow-hidden">
+          <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+            学生提交内容
+          </h3>
+          <div className="max-h-[70vh] overflow-y-auto">
             <ContentRenderer data={contentData} loading={contentLoading} />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Right: AI grading result */}
-        <Card className="overflow-hidden">
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium">批改结果</CardTitle>
-          </CardHeader>
-          <CardContent className="max-h-[70vh] overflow-y-auto">
+        <div className="overflow-hidden">
+          <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+            批改结果
+          </h3>
+          <div className="max-h-[70vh] overflow-y-auto">
             {currentVersion ? (
               <GradingPanel submission={currentVersion} />
             ) : (
               <Skeleton className="h-48 w-full" />
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Footer: submission time */}

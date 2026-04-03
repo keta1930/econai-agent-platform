@@ -36,7 +36,6 @@ export default function TaskDetailPage() {
     refetch,
   } = useApi(() => submissionsApi.getMy(id), [id]);
 
-  // Submission form state — independent per tab so switching doesn't lose content
   const [activeTab, setActiveTab] = useState("text");
   const [textContent, setTextContent] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -83,8 +82,8 @@ export default function TaskDetailPage() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-48 w-full rounded-lg" />
-        <Skeleton className="h-32 w-full rounded-lg" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-32 w-full rounded-xl" />
       </div>
     );
   }
@@ -96,14 +95,17 @@ export default function TaskDetailPage() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       {/* Task info */}
+      <div>
+        <h1 className="text-[22px] font-heading font-semibold page-title-decorated mb-2">
+          {task.title}
+        </h1>
+        <p className="pl-4 text-xs" style={{ color: "var(--text-tertiary,#8a8479)" }}>
+          发布于 {new Date(task.created_at).toLocaleDateString("zh-CN")}
+        </p>
+      </div>
+
       <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">{task.title}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            发布于 {new Date(task.created_at).toLocaleDateString("zh-CN")}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           <div>
             <h4 className="mb-2 text-sm font-medium text-muted-foreground">任务说明</h4>
             <p className="whitespace-pre-wrap text-sm">{task.description}</p>
@@ -118,7 +120,7 @@ export default function TaskDetailPage() {
       {/* Submit section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">
+          <CardTitle className="text-lg font-heading">
             {hasSubmitted ? "重新提交" : "提交作业"}
           </CardTitle>
         </CardHeader>
@@ -197,7 +199,7 @@ export default function TaskDetailPage() {
       {latestSubmission?.status === "manual_review" && (
         <Card>
           <CardContent className="flex flex-col items-center py-12 text-center">
-            <Eye className="h-10 w-10 text-blue-500" />
+            <Eye className="h-10 w-10 text-info" />
             <p className="mt-4 font-medium">已提交，待人工审核</p>
             <p className="mt-1 text-sm text-muted-foreground">
               图片类提交需要人工审核，请耐心等待
@@ -209,7 +211,7 @@ export default function TaskDetailPage() {
       {latestSubmission?.status === "completed" && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
+            <CardTitle className="flex items-center gap-2 text-lg font-heading">
               <CheckCircle2 className="h-5 w-5 text-success" />
               批改结果
               {hasSubmitted && (
@@ -280,7 +282,7 @@ export default function TaskDetailPage() {
               className="flex w-full items-center gap-2 text-left"
             >
               <History className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">历史版本</CardTitle>
+              <CardTitle className="text-base font-heading">历史版本</CardTitle>
               <span className="text-sm text-muted-foreground">
                 ({historySubmissions.length})
               </span>

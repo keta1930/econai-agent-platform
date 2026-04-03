@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
@@ -92,7 +91,7 @@ export default function BackupManagePage() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold">数据库管理</h1>
+        <h1 className="text-2xl font-heading font-semibold page-title-decorated">数据库管理</h1>
         <div className="flex items-center gap-2">
           <Input
             className="w-56"
@@ -116,31 +115,34 @@ export default function BackupManagePage() {
         <p className="text-sm text-destructive">{createError}</p>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">备份列表</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : backups.length === 0 ? (
-            <EmptyState
-              icon={<Database className="h-12 w-12" />}
-              title="暂无备份"
-              description="点击上方按钮创建第一个数据库备份"
-            />
-          ) : (
-            <div className="divide-y rounded-md border">
+      {loading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      ) : backups.length === 0 ? (
+        <EmptyState
+          icon={<Database className="h-12 w-12" />}
+          title="暂无备份"
+          description="点击上方按钮创建第一个数据库备份"
+        />
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">共 {backups.length} 份备份</p>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>备份名称</th>
+                <th>大小</th>
+                <th>创建时间</th>
+                <th className="text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody>
               {backups.map((backup) => (
-                <div
-                  key={backup.id}
-                  className="flex items-center justify-between px-4 py-3 text-sm"
-                >
-                  <div className="flex flex-col gap-0.5">
+                <tr key={backup.id}>
+                  <td>
                     {renamingId === backup.id ? (
                       <Input
                         className="h-7 w-56 text-sm"
@@ -166,37 +168,41 @@ export default function BackupManagePage() {
                         </button>
                       </span>
                     )}
-                    <span className="text-xs text-muted-foreground">
-                      {formatFileSize(backup.size)} ·{" "}
-                      {formatDate(backup.created_at, {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDownload(backup.id)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteTarget(backup)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
+                  </td>
+                  <td className="text-muted-foreground">
+                    {formatFileSize(backup.size)}
+                  </td>
+                  <td className="text-muted-foreground">
+                    {formatDate(backup.created_at, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </td>
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownload(backup.id)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteTarget(backup)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
               ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </>
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}

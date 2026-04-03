@@ -62,7 +62,7 @@ function CompletedTab({ topics }: { topics: TopicListItem[] }) {
 
   return (
     <>
-      <div className="rounded-lg border divide-y">
+      <div className="rounded-xl border divide-y" style={{ borderColor: "var(--paper-border)" }}>
         {topics.map((topic) => (
           <div
             key={topic.id}
@@ -130,7 +130,7 @@ function ConfirmedTab({ topics }: { topics: TopicListItem[] }) {
   }
 
   return (
-    <div className="rounded-lg border divide-y">
+    <div className="rounded-xl border divide-y" style={{ borderColor: "var(--paper-border)" }}>
       {topics.map((topic) => (
         <div key={topic.id} className="px-4 py-3">
           <span className="text-sm font-medium">{topic.title}</span>
@@ -216,7 +216,6 @@ function VotingTab({
   async function handleToggleVote(topic: TopicListItem) {
     if (loadingIds.has(topic.id)) return;
 
-    // Snapshot before optimistic update for reliable rollback
     const snapshot = { voted: topic.current_user_voted, count: topic.vote_count };
     const optimisticCount = snapshot.voted ? snapshot.count - 1 : snapshot.count + 1;
 
@@ -315,7 +314,6 @@ export default function SharingPage() {
   const allTopics = data?.items ?? [];
   const serverTotalVotes = data?.total_votes ?? 0;
 
-  // Apply optimistic overrides
   const topics = allTopics.map((t) => {
     const override = topicsOverride.get(t.id);
     if (override) {
@@ -324,7 +322,6 @@ export default function SharingPage() {
     return t;
   });
 
-  // Compute total votes: server total + delta from overrides
   const voteDelta = allTopics.reduce((delta, t) => {
     const override = topicsOverride.get(t.id);
     if (!override) return delta;
@@ -362,7 +359,7 @@ export default function SharingPage() {
       <div className="space-y-4">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-64 w-full rounded-lg" />
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     );
   }
@@ -372,8 +369,10 @@ export default function SharingPage() {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in-up">
-      <h1 className="text-2xl font-heading font-semibold">课程分享</h1>
+    <div className="animate-fade-in-up">
+      <h1 className="text-[22px] font-heading font-semibold page-title-decorated mb-6">
+        课程分享
+      </h1>
       <Tabs defaultValue="completed">
         <TabsList>
           <TabsTrigger value="completed">已分享</TabsTrigger>

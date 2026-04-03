@@ -378,7 +378,7 @@ export default function CreateTaskPage() {
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold">草稿管理</h1>
+        <h1 className="text-2xl font-heading font-semibold page-title-decorated">草稿管理</h1>
         <Button onClick={openSheetForNew}>
           <PlusCircle className="mr-2 h-4 w-4" />
           新建草稿
@@ -398,7 +398,7 @@ export default function CreateTaskPage() {
             return (
               <Card
                 key={draft.id}
-                className="group relative cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 animate-stagger"
+                className="group relative cursor-pointer card-scroll animate-scroll-reveal rounded-xl border-[var(--paper-border)]"
                 style={{ "--stagger-index": index } as React.CSSProperties}
                 onClick={() => openSheetForEdit(draft)}
               >

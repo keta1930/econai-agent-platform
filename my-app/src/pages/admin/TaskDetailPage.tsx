@@ -1,5 +1,4 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import {
   Table,
@@ -44,148 +43,140 @@ export default function AdminTaskDetailPage() {
   const ratePercent = stats ? Math.round(stats.submission_rate * 100) : 0;
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
-      {/* Task info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">{task.title}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            发布于 {new Date(task.created_at).toLocaleDateString("zh-CN")}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="mb-2 text-sm font-medium text-muted-foreground">任务说明</h4>
-            <p className="whitespace-pre-wrap text-sm">{task.description}</p>
-          </div>
-          <div>
-            <h4 className="mb-2 text-sm font-medium text-muted-foreground">打分标准</h4>
-            <MarkdownContent content={task.grading_criteria} />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-0 animate-fade-in-up">
+      {/* Page header */}
+      <h1 className="text-2xl font-heading font-semibold page-title-decorated">
+        {task.title}
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        发布于 {new Date(task.created_at).toLocaleDateString("zh-CN")}
+      </p>
 
-      {/* Statistics */}
+      {/* Task description */}
+      <div className="mt-6 mb-6">
+        <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+          任务说明
+        </h3>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{task.description}</p>
+      </div>
+
+      {/* Grading criteria */}
+      <div className="mb-6">
+        <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+          打分标准
+        </h3>
+        <MarkdownContent content={task.grading_criteria} />
+      </div>
+
+      {/* Statistics row */}
       {stats && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card className="animate-stagger" style={{ '--stagger-index': 0 } as React.CSSProperties}>
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="rounded-full p-2 bg-primary/10">
-                <Users className="h-8 w-8 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.total_students}</p>
-                <p className="text-xs text-muted-foreground">总人数</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="animate-stagger" style={{ '--stagger-index': 1 } as React.CSSProperties}>
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="rounded-full p-2 bg-blue-50">
-                <FileCheck className="h-8 w-8 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.submitted_count}</p>
-                <p className="text-xs text-muted-foreground">已提交</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="animate-stagger" style={{ '--stagger-index': 2 } as React.CSSProperties}>
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="rounded-full p-2 bg-green-50">
-                <BarChart3 className="h-8 w-8 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{ratePercent}%</p>
-                <p className="text-xs text-muted-foreground">提交率</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Submitted students */}
-      {stats && stats.submissions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">已提交学生</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>学号</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead className="text-right">分数</TableHead>
-                    <TableHead className="text-right">提交次数</TableHead>
-                    <TableHead>提交时间</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats.submissions.map((sub) => (
-                    <TableRow key={sub.student_id}>
-                      <TableCell>
-                        <button
-                          className="text-primary hover:underline font-medium"
-                          onClick={() => navigate(`/admin/students/${sub.student_id}`)}
-                        >
-                          {sub.username}
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={sub.status} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {sub.score !== null ? sub.score : "-"}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {sub.submission_count}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(sub.submitted_at).toLocaleString("zh-CN")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            navigate(`/admin/tasks/${taskId}/submissions/${sub.student_id}`)
-                          }
-                        >
-                          <Eye className="mr-1 h-4 w-4" />
-                          查看
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <div className="flex gap-6 py-5 border-y border-[var(--paper-deep)] mb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--paper-warm)]">
+              <Users className="h-5 w-5 text-[var(--ink-deep)]" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="text-xl font-bold font-heading leading-none">{stats.total_students}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">总人数</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--paper-warm)]">
+              <FileCheck className="h-5 w-5 text-[var(--ink-deep)]" />
+            </div>
+            <div>
+              <p className="text-xl font-bold font-heading leading-none">{stats.submitted_count}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">已提交</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--paper-warm)]">
+              <BarChart3 className="h-5 w-5 text-[var(--ink-deep)]" />
+            </div>
+            <div>
+              <p className="text-xl font-bold font-heading leading-none">{ratePercent}%</p>
+              <p className="text-xs text-muted-foreground mt-0.5">提交率</p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Not submitted students */}
       {stats && stats.not_submitted.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">未提交学生</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {stats.not_submitted.map((sid) => (
-                <span
-                  key={sid}
-                  className="rounded-md bg-muted px-3 py-1 text-sm text-muted-foreground"
-                >
-                  {sid}
-                </span>
+        <div className="mb-6">
+          <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+            未提交学生 ({stats.not_submitted.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {stats.not_submitted.map((sid) => (
+              <span
+                key={sid}
+                className="rounded-md border border-[var(--paper-border)] bg-[var(--paper-warm)] px-3 py-1 text-sm text-muted-foreground"
+              >
+                {sid}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Submitted students table */}
+      {stats && stats.submissions.length > 0 && (
+        <div>
+          <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+            已提交 ({stats.submissions.length})
+          </h3>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>学号</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead className="text-right">分数</TableHead>
+                <TableHead className="text-right">提交次数</TableHead>
+                <TableHead>提交时间</TableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {stats.submissions.map((sub) => (
+                <TableRow key={sub.student_id}>
+                  <TableCell>
+                    <button
+                      className="text-primary hover:underline font-medium"
+                      onClick={() => navigate(`/admin/students/${sub.student_id}`)}
+                    >
+                      {sub.username}
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={sub.status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {sub.score !== null ? sub.score : "-"}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {sub.submission_count}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(sub.submitted_at).toLocaleString("zh-CN")}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        navigate(`/admin/tasks/${taskId}/submissions/${sub.student_id}`)
+                      }
+                    >
+                      <Eye className="mr-1 h-4 w-4" />
+                      查看
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );

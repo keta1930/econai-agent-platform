@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -94,7 +93,7 @@ export default function ClassManagePage() {
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold">班级管理</h1>
+        <h1 className="text-2xl font-heading font-semibold page-title-decorated">班级管理</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" />
@@ -135,48 +134,42 @@ export default function ClassManagePage() {
           description="创建第一个班级，开始管理课程"
         />
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">班级列表 ({classes.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>班级名称</TableHead>
-                    <TableHead>学生数</TableHead>
-                    <TableHead>创建时间</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {classes.map((cls) => (
-                    <TableRow key={cls.id}>
-                      <TableCell className="font-medium">{cls.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {cls.student_count}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(cls.created_at)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTarget({ id: cls.id, name: cls.name })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <>
+          <p className="text-sm text-muted-foreground">共 {classes.length} 个班级</p>
+          <Table className="data-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>班级名称</TableHead>
+                <TableHead>学生数</TableHead>
+                <TableHead>创建时间</TableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {classes.map((cls) => (
+                <TableRow key={cls.id}>
+                  <TableCell className="font-medium">{cls.name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {cls.student_count}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(cls.created_at)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setDeleteTarget({ id: cls.id, name: cls.name })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </>
       )}
 
       <ConfirmDialog
