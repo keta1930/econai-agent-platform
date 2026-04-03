@@ -3,8 +3,14 @@ import { useAuth } from "@/hooks/useAuth";
 import type { ReactNode } from "react";
 
 interface RequireAuthProps {
-  role: "admin" | "student";
+  role: "super_admin" | "admin" | "student";
   children: ReactNode;
+}
+
+function getRedirectPath(role: string | null): string {
+  if (role === "super_admin") return "/super-admin/admins";
+  if (role === "admin") return "/admin/dashboard";
+  return "/student/tasks";
 }
 
 export function RequireAuth({ role, children }: RequireAuthProps) {
@@ -15,8 +21,7 @@ export function RequireAuth({ role, children }: RequireAuthProps) {
   }
 
   if (userRole !== role) {
-    const redirectTo = userRole === "admin" ? "/admin/dashboard" : "/student/tasks";
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to={getRedirectPath(userRole)} replace />;
   }
 
   return <>{children}</>;

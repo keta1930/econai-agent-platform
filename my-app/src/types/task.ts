@@ -4,6 +4,8 @@ export interface Task {
   description: string;
   grading_criteria: string;
   status: "draft" | "published";
+  class_id: number;
+  created_by: number;
   created_at: string;
   updated_at: string | null;
 }
@@ -16,6 +18,7 @@ export interface TaskDraftRequest {
   title: string;
   description?: string;
   grading_criteria?: string;
+  class_id: number;
 }
 
 export interface TaskUpdateRequest {
@@ -26,7 +29,8 @@ export interface TaskUpdateRequest {
 }
 
 export interface TaskSubmissionItem {
-  student_id: string;
+  student_id: number;
+  username: string;
   version: number;
   submission_count: number;
   status: string;
@@ -50,4 +54,16 @@ export interface GenerateCriteriaRequest {
 
 export interface GenerateCriteriaResponse {
   criteria: string;
+}
+
+export interface BatchPublishRequest {
+  title: string;
+  description: string;
+  grading_criteria: string;
+  class_ids: number[];
+  status: "published";
+}
+
+export interface BatchPublishResponse {
+  created: { id: number; class_id: number; class_name: string }[];
 }

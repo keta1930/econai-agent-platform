@@ -1,60 +1,14 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-import { useClassContext } from "@/contexts/ClassContext";
-import {
-  BookOpen, School, LayoutDashboard, PlusCircle, Users, Cpu, Presentation, Database,
-  LogOut, Menu,
-} from "lucide-react";
+import { BookOpen, Shield, LogOut, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const navItems = [
-  { label: "班级管理", href: "/admin/classes", icon: School },
-  { label: "仪表板", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "发布任务", href: "/admin/tasks/new", icon: PlusCircle },
-  { label: "学号名单", href: "/admin/roster", icon: Users },
-  { label: "模型管理", href: "/admin/models", icon: Cpu },
-  { label: "分享管理", href: "/admin/sharing", icon: Presentation },
-  { label: "数据库管理", href: "/admin/backups", icon: Database },
+  { label: "管理员管理", href: "/super-admin/admins", icon: Shield },
 ];
-
-function ClassSelector() {
-  const { currentClass, classes, setCurrentClass } = useClassContext();
-
-  if (classes.length === 0) return null;
-
-  return (
-    <div className="px-3 pb-2">
-      <Select
-        value={currentClass?.name}
-        onValueChange={(name) => {
-          const found = classes.find((c) => c.name === name);
-          if (found) setCurrentClass(found);
-        }}
-      >
-        <SelectTrigger className="w-full text-xs h-8">
-          <SelectValue placeholder="选择班级" />
-        </SelectTrigger>
-        <SelectContent>
-          {classes.map((c) => (
-            <SelectItem key={c.id} value={c.name}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { logout } = useAuth();
@@ -64,16 +18,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <BookOpen className="h-5 w-5 text-primary" />
-        <span className="font-heading font-semibold text-primary">智能体课程平台</span>
+        <span className="font-heading font-semibold text-primary">系统管理</span>
       </div>
-      <ClassSelector />
-      <nav className="flex-1 space-y-1 px-3 py-2">
+      <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.href === "/admin/dashboard"
-              ? location.pathname === "/admin/dashboard" || location.pathname === "/admin"
-              : location.pathname.startsWith(item.href);
+          const isActive = location.pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
@@ -102,12 +52,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AdminLayout() {
+export function SuperAdminLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile header */}
       <header className="sticky top-0 z-40 flex h-16 items-center border-b bg-background/95 backdrop-blur px-4 lg:hidden">
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger
@@ -120,16 +69,14 @@ export function AdminLayout() {
             <SidebarContent onNavigate={() => setSheetOpen(false)} />
           </SheetContent>
         </Sheet>
-        <span className="ml-3 font-heading font-semibold text-primary">智能体课程平台</span>
+        <span className="ml-3 font-heading font-semibold text-primary">系统管理</span>
       </header>
 
       <div className="flex">
-        {/* Desktop sidebar */}
         <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0 border-r">
           <SidebarContent />
         </aside>
 
-        {/* Main content */}
         <main className="flex-1 lg:ml-60">
           <div className="px-4 py-6 lg:px-8">
             <Outlet />

@@ -13,14 +13,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { useApi } from "@/hooks/useApi";
 import { submissionsApi } from "@/api/submissions";
 import { cn } from "@/lib/utils";
+import { scoreColor } from "@/lib/format";
 import { FileText } from "lucide-react";
-
-function scoreColor(score: number | null): string {
-  if (score === null) return "";
-  if (score >= 80) return "text-green-600 font-medium";
-  if (score >= 60) return "text-amber-600 font-medium";
-  return "text-red-600 font-medium";
-}
 
 export default function GradesPage() {
   const navigate = useNavigate();

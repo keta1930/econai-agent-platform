@@ -131,7 +131,7 @@ export default function AdminTaskDetailPage() {
                           className="text-primary hover:underline font-medium"
                           onClick={() => navigate(`/admin/students/${sub.student_id}`)}
                         >
-                          {sub.student_id}
+                          {sub.username}
                         </button>
                       </TableCell>
                       <TableCell>

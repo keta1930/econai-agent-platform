@@ -2,9 +2,12 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarkdownContent } from "@/components/ui/markdown-content";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/FileUpload";
+import { ImageUpload } from "@/components/ImageUpload";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
@@ -17,6 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   History,
+  Eye,
 } from "lucide-react";
 import type { SubmissionDetail } from "@/types/submission";
 
@@ -32,7 +36,11 @@ export default function TaskDetailPage() {
     refetch,
   } = useApi(() => submissionsApi.getMy(id), [id]);
 
+  // Submission form state — independent per tab so switching doesn't lose content
+  const [activeTab, setActiveTab] = useState("text");
+  const [textContent, setTextContent] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -44,13 +52,25 @@ export default function TaskDetailPage() {
   const isLatestPending =
     latestSubmission?.status === "pending" || latestSubmission?.status === "grading";
 
+  const canSubmit =
+    (activeTab === "text" && textContent.trim().length > 0) ||
+    (activeTab === "file" && selectedFile !== null) ||
+    (activeTab === "image" && selectedImage !== null);
+
   async function handleSubmit() {
-    if (!selectedFile) return;
     setSubmitting(true);
     setSubmitError("");
     try {
-      await submissionsApi.submit(id, selectedFile);
-      setSelectedFile(null);
+      if (activeTab === "text") {
+        await submissionsApi.submit(id, "text", textContent);
+        setTextContent("");
+      } else if (activeTab === "file") {
+        await submissionsApi.submit(id, "file", selectedFile!);
+        setSelectedFile(null);
+      } else {
+        await submissionsApi.submit(id, "image", selectedImage!);
+        setSelectedImage(null);
+      }
       await refetch();
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : "提交失败");
@@ -95,7 +115,7 @@ export default function TaskDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Submit section — always visible, label changes based on state */}
+      {/* Submit section */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
@@ -109,9 +129,48 @@ export default function TaskDetailPage() {
             </p>
           ) : (
             <>
-              <FileUpload onFileSelect={setSelectedFile} disabled={submitting} />
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList>
+                  <TabsTrigger value="text">文本粘贴</TabsTrigger>
+                  <TabsTrigger value="file">文件上传</TabsTrigger>
+                  <TabsTrigger value="image">图片上传</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="text">
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder="在此输入作业内容..."
+                      value={textContent}
+                      onChange={(e) => setTextContent(e.target.value)}
+                      disabled={submitting}
+                      className="min-h-[160px] resize-y"
+                    />
+                    <p className="text-xs text-muted-foreground text-right">
+                      {textContent.length} 字
+                    </p>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="file">
+                  <FileUpload
+                    onFileSelect={setSelectedFile}
+                    disabled={submitting}
+                    accept=".md,.txt,.json,.py,.yaml,.jsonl"
+                    maxSize={2 * 1024 * 1024}
+                  />
+                </TabsContent>
+
+                <TabsContent value="image">
+                  <ImageUpload
+                    onFileSelect={setSelectedImage}
+                    onClear={() => setSelectedImage(null)}
+                    disabled={submitting}
+                  />
+                </TabsContent>
+              </Tabs>
+
               {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-              <Button onClick={handleSubmit} disabled={!selectedFile || submitting}>
+              <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {hasSubmitted ? "重新提交" : "提交"}
               </Button>
@@ -130,6 +189,18 @@ export default function TaskDetailPage() {
               {latestSubmission.status === "pending"
                 ? "已提交，等待批改"
                 : "批改进行中，请稍候"}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {latestSubmission?.status === "manual_review" && (
+        <Card>
+          <CardContent className="flex flex-col items-center py-12 text-center">
+            <Eye className="h-10 w-10 text-blue-500" />
+            <p className="mt-4 font-medium">已提交，待人工审核</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              图片类提交需要人工审核，请耐心等待
             </p>
           </CardContent>
         </Card>
@@ -188,7 +259,7 @@ export default function TaskDetailPage() {
       )}
 
       {latestSubmission &&
-        !["pending", "grading", "completed", "failed"].includes(
+        !["pending", "grading", "completed", "failed", "manual_review"].includes(
           latestSubmission.status
         ) && (
           <Card>

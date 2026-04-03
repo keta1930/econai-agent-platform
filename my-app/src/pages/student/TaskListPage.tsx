@@ -6,15 +6,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
 import { submissionsApi } from "@/api/submissions";
+import { formatDate } from "@/lib/format";
 import { ClipboardList } from "lucide-react";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
 
 export default function TaskListPage() {
   const navigate = useNavigate();

@@ -4,34 +4,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/EmptyState";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useApi } from "@/hooks/useApi";
+import { useClassContext } from "@/contexts/ClassContext";
 import { tasksApi } from "@/api/tasks";
 import { toast } from "sonner";
+import { formatDate } from "@/lib/format";
 import { ClipboardList, PlusCircle, Trash2 } from "lucide-react";
 import type { Task, TaskStatsResponse } from "@/types/task";
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
-
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { currentClass } = useClassContext();
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const classId = currentClass?.id;
+
   const { data, loading, error, refetch } = useApi(async () => {
-    const tasksRes = await tasksApi.list("published");
+    if (!classId) return { tasks: [], statsMap: new Map<number, TaskStatsResponse>() };
+
+    const tasksRes = await tasksApi.list("published", classId);
     const tasks = tasksRes.items;
     if (tasks.length === 0) return { tasks, statsMap: new Map<number, TaskStatsResponse>() };
 
@@ -41,7 +34,23 @@ export default function DashboardPage() {
       statsMap.set(s.task_id, s);
     }
     return { tasks, statsMap };
-  }, []);
+  }, [classId]);
+
+  if (!currentClass) {
+    return (
+      <EmptyState
+        icon={<ClipboardList className="h-12 w-12" />}
+        title="请先选择班级"
+        description="在左侧导航栏选择一个班级，或先创建班级"
+        action={
+          <Button onClick={() => navigate("/admin/classes")}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            前往班级管理
+          </Button>
+        }
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -151,25 +160,15 @@ export default function DashboardPage() {
           );
         })
       )}
-      {/* Delete confirmation dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>删除任务</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            确定要删除任务「{deleteTarget?.title}」吗？该任务下所有学生的提交记录和文件将被一并删除，此操作不可撤销。
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              取消
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "删除中..." : "删除"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="删除任务"
+        description={`确定要删除任务「${deleteTarget?.title}」吗？该任务下所有学生的提交记录和文件将被一并删除，此操作不可撤销。`}
+        confirmText="删除"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }

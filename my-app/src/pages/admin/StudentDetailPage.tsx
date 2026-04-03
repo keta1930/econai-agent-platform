@@ -23,20 +23,16 @@ import { useApi } from "@/hooks/useApi";
 import { submissionsApi } from "@/api/submissions";
 import { FileText, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-function scoreColor(score: number | null): string {
-  if (score === null) return "";
-  if (score >= 80) return "text-green-600 font-medium";
-  if (score >= 60) return "text-amber-600 font-medium";
-  return "text-red-600 font-medium";
-}
+import { scoreColor } from "@/lib/format";
 
 export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
 
+  const numericId = Number(studentId);
+
   const { data, loading, error } = useApi(
-    () => submissionsApi.getStudentSubmissions(studentId!),
+    () => submissionsApi.getStudentSubmissions(numericId),
     [studentId],
   );
 
@@ -57,7 +53,7 @@ export default function StudentDetailPage() {
 
   return (
     <div className="space-y-4 animate-fade-in-up">
-      <h1 className="text-2xl font-heading font-semibold">学生 {studentId}</h1>
+      <h1 className="text-2xl font-heading font-semibold">学生详情</h1>
 
       {submissions.length === 0 ? (
         <EmptyState

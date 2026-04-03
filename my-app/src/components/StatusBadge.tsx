@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type Status = "pending" | "grading" | "completed" | "failed" | "not_submitted";
+type Status = "pending" | "grading" | "completed" | "failed" | "manual_review" | "not_submitted";
 
 const statusConfig: Record<Status, { label: string; className: string }> = {
   not_submitted: { label: "未提交", className: "bg-stone-100 text-stone-600 hover:bg-stone-100" },
@@ -9,6 +9,7 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
   grading: { label: "批改中", className: "bg-amber-50 text-amber-700 hover:bg-amber-50" },
   completed: { label: "已完成", className: "bg-green-50 text-green-700 hover:bg-green-50" },
   failed: { label: "批改失败", className: "bg-red-50 text-red-700 hover:bg-red-50" },
+  manual_review: { label: "待人工审核", className: "bg-blue-50 text-blue-700 hover:bg-blue-50" },
 };
 
 interface StatusBadgeProps {

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { label: "任务列表", href: "/student/tasks" },
   { label: "我的成绩", href: "/student/grades" },
+  { label: "课程分享", href: "/student/sharing" },
 ];
 
 export function StudentLayout() {

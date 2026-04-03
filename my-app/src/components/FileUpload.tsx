@@ -1,41 +1,55 @@
-import { useRef, useState, useCallback, type DragEvent } from "react";
+import { useRef, useState, useCallback, useMemo, type DragEvent } from "react";
 import { Upload, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatFileSize } from "@/lib/format";
 
-const ALLOWED_EXTENSIONS = [".md", ".txt"];
+const DEFAULT_ACCEPT = ".md,.txt,.json,.py,.yaml,.jsonl";
+const DEFAULT_MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 
-function isValidFile(file: File): boolean {
-  return ALLOWED_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext));
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+function parseExtensions(accept: string): string[] {
+  return accept.split(",").map((s) => s.trim().toLowerCase());
 }
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
   disabled?: boolean;
+  accept?: string;
+  maxSize?: number;
+  description?: string;
 }
 
-export function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
+export function FileUpload({
+  onFileSelect,
+  disabled,
+  accept = DEFAULT_ACCEPT,
+  maxSize = DEFAULT_MAX_SIZE,
+  description,
+}: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState("");
 
+  const extensions = useMemo(() => parseExtensions(accept), [accept]);
+
   const handleFile = useCallback(
     (file: File) => {
       setError("");
-      if (!isValidFile(file)) {
-        setError("仅支持 .md 和 .txt 格式");
+      const valid = extensions.some((ext) =>
+        file.name.toLowerCase().endsWith(ext),
+      );
+      if (!valid) {
+        setError(`仅支持 ${extensions.join("、")} 格式`);
+        return;
+      }
+      if (file.size > maxSize) {
+        setError(`文件大小超过 ${formatFileSize(maxSize)} 限制`);
         return;
       }
       setSelectedFile(file);
       onFileSelect(file);
     },
-    [onFileSelect],
+    [onFileSelect, extensions, maxSize],
   );
 
   function handleDrop(e: DragEvent) {
@@ -50,6 +64,8 @@ export function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
     e.preventDefault();
     if (!disabled) setDragOver(true);
   }
+
+  const hint = description ?? `支持 ${extensions.join("、")} 格式（最大 ${formatFileSize(maxSize)}）`;
 
   return (
     <div>
@@ -76,7 +92,7 @@ export function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
             <p className="text-sm text-muted-foreground">
               拖拽文件到此处，或<span className="text-primary font-medium">点击选择</span>
             </p>
-            <p className="text-xs text-muted-foreground">支持 .md 和 .txt 格式</p>
+            <p className="text-xs text-muted-foreground">{hint}</p>
           </>
         )}
       </div>
@@ -84,7 +100,7 @@ export function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".md,.txt"
+        accept={accept}
         className="hidden"
         disabled={disabled}
         onChange={(e) => {

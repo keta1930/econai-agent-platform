@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,31 +25,26 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useApi } from "@/hooks/useApi";
+import { useClassContext } from "@/contexts/ClassContext";
 import { tasksApi } from "@/api/tasks";
 import { toast } from "sonner";
+import { formatDate } from "@/lib/format";
 import {
   PlusCircle,
   Loader2,
   Trash2,
   ClipboardList,
   X,
+  Send,
 } from "lucide-react";
 import type { Task } from "@/types/task";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function fieldFilledCount(draft: Task): number {
   let count = 0;
@@ -93,12 +89,16 @@ function formEquals(a: FormValues, b: FormValues): boolean {
 // ---------------------------------------------------------------------------
 
 export default function CreateTaskPage() {
+  const navigate = useNavigate();
+  const { currentClass, classes } = useClassContext();
+  const classId = currentClass?.id;
+
   const {
     data: draftsData,
     loading,
     error,
     refetch,
-  } = useApi(() => tasksApi.list("draft"), []);
+  } = useApi(() => (classId ? tasksApi.list("draft", classId) : Promise.resolve({ items: [] })), [classId]);
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -120,6 +120,11 @@ export default function CreateTaskPage() {
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
+  // Batch publish state
+  const [showBatchDialog, setShowBatchDialog] = useState(false);
+  const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
+  const [batchPublishing, setBatchPublishing] = useState(false);
+
   const drafts = draftsData?.items ?? [];
 
   // Derived values
@@ -130,6 +135,22 @@ export default function CreateTaskPage() {
     title.trim().length > 0 &&
     description.trim().length > 0 &&
     criteria.trim().length > 0;
+
+  if (!currentClass) {
+    return (
+      <EmptyState
+        icon={<ClipboardList className="h-12 w-12" />}
+        title="请先选择班级"
+        description="在左侧导航栏选择一个班级，或先创建班级"
+        action={
+          <Button onClick={() => navigate("/admin/classes")}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            前往班级管理
+          </Button>
+        }
+      />
+    );
+  }
 
   // ------- Sheet open/close -------
 
@@ -165,16 +186,10 @@ export default function CreateTaskPage() {
     setSheetOpen(false);
   }
 
-  // Intercept Sheet's own open-change (backdrop click, Esc)
   const handleSheetOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
-        // Check dirty using ref to avoid stale closure
-        const current: FormValues = {
-          title,
-          description,
-          criteria,
-        };
+        const current: FormValues = { title, description, criteria };
         if (!formEquals(current, initialValuesRef.current)) {
           setShowDiscardDialog(true);
         } else {
@@ -190,11 +205,10 @@ export default function CreateTaskPage() {
   // ------- Save draft -------
 
   async function handleSave() {
-    if (!canSave) return;
+    if (!canSave || !classId) return;
     setSaving(true);
     try {
       if (selectedDraft) {
-        // Edit mode
         const updated = await tasksApi.update(selectedDraft.id, {
           title: title.trim(),
           description: description,
@@ -204,11 +218,11 @@ export default function CreateTaskPage() {
         const newVals = formFromDraft(updated);
         initialValuesRef.current = newVals;
       } else {
-        // Create mode
         const created = await tasksApi.create({
           title: title.trim(),
           description: description,
           grading_criteria: criteria,
+          class_id: classId,
         });
         setSelectedDraft(created);
         const newVals = formFromDraft(created);
@@ -223,13 +237,12 @@ export default function CreateTaskPage() {
     }
   }
 
-  // ------- Publish -------
+  // ------- Publish (single class) -------
 
   async function handlePublish() {
-    if (!canPublish) return;
+    if (!canPublish || !classId) return;
     setPublishing(true);
     try {
-      // Save first if dirty
       let draftId = selectedDraft?.id;
       if (isDirty || !draftId) {
         if (draftId) {
@@ -243,14 +256,13 @@ export default function CreateTaskPage() {
             title: title.trim(),
             description: description,
             grading_criteria: criteria,
+            class_id: classId,
           });
           draftId = created.id;
         }
       }
-      // Publish
       await tasksApi.update(draftId!, { status: "published" });
       toast.success("任务已发布");
-      // Reset and close
       initialValuesRef.current = { title: title.trim(), description, criteria };
       setSheetOpen(false);
       await refetch();
@@ -258,6 +270,36 @@ export default function CreateTaskPage() {
       toast.error(err instanceof Error ? err.message : "发布失败");
     } finally {
       setPublishing(false);
+    }
+  }
+
+  // ------- Batch publish -------
+
+  function openBatchPublish() {
+    setSelectedClassIds(classes.map((c) => c.id));
+    setShowBatchDialog(true);
+  }
+
+  async function handleBatchPublish() {
+    if (!canPublish || selectedClassIds.length === 0) return;
+    setBatchPublishing(true);
+    try {
+      const res = await tasksApi.batchPublish({
+        title: title.trim(),
+        description: description,
+        grading_criteria: criteria,
+        class_ids: selectedClassIds,
+        status: "published",
+      });
+      toast.success(`已发布到 ${res.created.length} 个班级`);
+      setShowBatchDialog(false);
+      initialValuesRef.current = { title: title.trim(), description, criteria };
+      setSheetOpen(false);
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "发布失败");
+    } finally {
+      setBatchPublishing(false);
     }
   }
 
@@ -296,7 +338,6 @@ export default function CreateTaskPage() {
     try {
       await tasksApi.delete(deleteTarget.id);
       toast.success("草稿已删除");
-      // If the deleted draft was being edited, close the sheet
       if (selectedDraft?.id === deleteTarget.id) {
         initialValuesRef.current = EMPTY_FORM;
         setSheetOpen(false);
@@ -310,7 +351,7 @@ export default function CreateTaskPage() {
     }
   }
 
-  // ------- Loading / Error states -------
+  // ------- Loading / Error -------
 
   if (loading) {
     return (
@@ -336,7 +377,6 @@ export default function CreateTaskPage() {
 
   return (
     <div className="space-y-4 animate-fade-in-up">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-heading font-semibold">草稿管理</h1>
         <Button onClick={openSheetForNew}>
@@ -345,7 +385,6 @@ export default function CreateTaskPage() {
         </Button>
       </div>
 
-      {/* Draft card grid */}
       {drafts.length === 0 ? (
         <EmptyState
           icon={<ClipboardList className="h-12 w-12" />}
@@ -360,9 +399,7 @@ export default function CreateTaskPage() {
               <Card
                 key={draft.id}
                 className="group relative cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 animate-stagger"
-                style={
-                  { "--stagger-index": index } as React.CSSProperties
-                }
+                style={{ "--stagger-index": index } as React.CSSProperties}
                 onClick={() => openSheetForEdit(draft)}
               >
                 <CardContent className="py-4">
@@ -383,12 +420,9 @@ export default function CreateTaskPage() {
                     </Button>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {formatDate(draft.created_at)}
+                    {formatDate(draft.created_at, { hour: "2-digit", minute: "2-digit" })}
                   </p>
-                  <Badge
-                    variant={progressVariant(filled)}
-                    className="mt-2"
-                  >
+                  <Badge variant={progressVariant(filled)} className="mt-2">
                     {filled}/3 已填写
                   </Badge>
                 </CardContent>
@@ -454,9 +488,7 @@ export default function CreateTaskPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={
-                    !title.trim() || !description.trim() || generating
-                  }
+                  disabled={!title.trim() || !description.trim() || generating}
                   onClick={handleGenerate}
                 >
                   {generating && (
@@ -485,24 +517,79 @@ export default function CreateTaskPage() {
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               保存草稿
             </Button>
-            <Button
-              disabled={!canPublish || publishing}
-              onClick={handlePublish}
-            >
-              {publishing && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <div className="flex gap-2">
+              {classes.length > 1 && (
+                <Button
+                  variant="outline"
+                  disabled={!canPublish}
+                  onClick={openBatchPublish}
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  批量发布
+                </Button>
               )}
-              发布
-            </Button>
+              <Button
+                disabled={!canPublish || publishing}
+                onClick={handlePublish}
+              >
+                {publishing && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                发布
+              </Button>
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
-      {/* Discard confirmation dialog */}
-      <Dialog
-        open={showDiscardDialog}
-        onOpenChange={setShowDiscardDialog}
-      >
+      {/* Batch publish dialog */}
+      <Dialog open={showBatchDialog} onOpenChange={setShowBatchDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>批量发布到班级</DialogTitle>
+            <DialogDescription>
+              选择要发布此任务的班级，每个班级将生成独立的任务记录
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {classes.map((c) => (
+              <label key={c.id} className="flex items-center gap-2 py-1 cursor-pointer">
+                <Checkbox
+                  checked={selectedClassIds.includes(c.id)}
+                  onCheckedChange={(checked) => {
+                    setSelectedClassIds((prev) =>
+                      checked
+                        ? [...prev, c.id]
+                        : prev.filter((id) => id !== c.id)
+                    );
+                  }}
+                />
+                <span className="text-sm">{c.name}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBatchDialog(false)}
+            >
+              取消
+            </Button>
+            <Button
+              disabled={selectedClassIds.length === 0 || batchPublishing}
+              onClick={handleBatchPublish}
+            >
+              {batchPublishing && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              发布到 {selectedClassIds.length} 个班级
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Discard dialog */}
+      <Dialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>放弃修改？</DialogTitle>
@@ -524,37 +611,17 @@ export default function CreateTaskPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation dialog */}
-      <Dialog
+      <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
-      >
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>删除草稿</DialogTitle>
-            <DialogDescription>
-              确定要删除草稿「{deleteTarget?.title}」吗？此操作不可撤销。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              取消
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleting}
-              onClick={handleDelete}
-            >
-              {deleting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              删除
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title="删除草稿"
+        description={`确定要删除草稿「${deleteTarget?.title}」吗？此操作不可撤销。`}
+        confirmText="删除"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   );
 }

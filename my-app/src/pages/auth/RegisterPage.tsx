@@ -10,11 +10,15 @@ import { Loader2 } from "lucide-react";
 import { AuthLayout } from "@/components/layouts/AuthLayout";
 
 export default function RegisterPage() {
+  const [adminName, setAdminName] = useState("");
+  const [className, setClassName] = useState("");
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const isFormValid = adminName.trim() && className.trim() && studentId.trim() && password;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -22,7 +26,12 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await authApi.register({ student_id: studentId, password });
+      await authApi.register({
+        admin_name: adminName.trim(),
+        class_name: className.trim(),
+        student_id: studentId.trim(),
+        password,
+      });
       toast.success("注册成功，请登录");
       navigate("/login");
     } catch (err) {
@@ -37,10 +46,29 @@ export default function RegisterPage() {
       <Card className="w-full max-w-[400px]">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-semibold">注册</CardTitle>
-
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="adminName">管理员名称</Label>
+              <Input
+                id="adminName"
+                type="text"
+                placeholder="请输入管理员名称"
+                value={adminName}
+                onChange={(e) => setAdminName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="className">班级名称</Label>
+              <Input
+                id="className"
+                type="text"
+                placeholder="请输入班级名称"
+                value={className}
+                onChange={(e) => setClassName(e.target.value)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="studentId">学号</Label>
               <Input
@@ -64,7 +92,7 @@ export default function RegisterPage() {
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading || !studentId || !password}>
+            <Button type="submit" className="w-full" disabled={loading || !isFormValid}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               注册
             </Button>

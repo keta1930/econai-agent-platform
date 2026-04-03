@@ -28,7 +28,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers,
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && !path.startsWith("/auth/")) {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("userId");

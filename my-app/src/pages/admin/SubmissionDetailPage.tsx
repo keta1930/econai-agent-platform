@@ -11,11 +11,14 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MarkdownContent } from "@/components/ui/markdown-content";
+import { CodeBlock, extensionToLanguage } from "@/components/CodeBlock";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
 import { submissionsApi } from "@/api/submissions";
-import type { SubmissionDetail } from "@/types/submission";
-import { ArrowLeft, GitCompareArrows, X, Loader2, AlertTriangle } from "lucide-react";
+import type { SubmissionDetail, SubmissionContentResponse } from "@/types/submission";
+import { ArrowLeft, GitCompareArrows, X, Loader2, AlertTriangle, Eye } from "lucide-react";
+
+const CODE_EXTENSIONS = new Set([".py", ".json", ".yaml", ".jsonl"]);
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("zh-CN");
@@ -25,7 +28,52 @@ function versionLabel(sub: SubmissionDetail): string {
   return `第 ${sub.version} 次提交 · ${formatTime(sub.submitted_at)}`;
 }
 
-// --- Grading result panel (right side in default view) ---
+// --- Content renderer based on content_type and file_extension ---
+
+function ContentRenderer({
+  data,
+  loading,
+}: {
+  data: SubmissionContentResponse | null;
+  loading: boolean;
+}) {
+  if (loading) return <Skeleton className="h-48 w-full" />;
+  if (!data) return <p className="text-sm text-muted-foreground">无法加载内容</p>;
+
+  if (data.content_type === "image") {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <img
+          src={data.content}
+          alt={data.filename}
+          className="max-h-[60vh] rounded-md object-contain"
+        />
+      </div>
+    );
+  }
+
+  if (data.file_extension === ".md") {
+    return <MarkdownContent content={data.content} />;
+  }
+
+  if (CODE_EXTENSIONS.has(data.file_extension)) {
+    return (
+      <CodeBlock
+        code={data.content}
+        language={extensionToLanguage(data.file_extension)}
+      />
+    );
+  }
+
+  // .txt or unknown — plain text
+  return (
+    <pre className="whitespace-pre-wrap text-sm leading-relaxed p-4 rounded-md bg-muted/30">
+      {data.content}
+    </pre>
+  );
+}
+
+// --- Grading result panel ---
 
 function GradingPanel({ submission }: { submission: SubmissionDetail }) {
   if (submission.status === "pending" || submission.status === "grading") {
@@ -42,6 +90,16 @@ function GradingPanel({ submission }: { submission: SubmissionDetail }) {
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-destructive">
         <AlertTriangle className="h-8 w-8" />
         <p className="text-sm">批改失败，请联系管理员</p>
+      </div>
+    );
+  }
+
+  if (submission.status === "manual_review") {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-16 text-blue-600">
+        <Eye className="h-8 w-8" />
+        <p className="text-sm">待人工审核</p>
+        <p className="text-xs text-muted-foreground">图片类提交需要人工评分</p>
       </div>
     );
   }
@@ -76,67 +134,64 @@ export default function SubmissionDetailPage() {
   const { taskId, studentId } = useParams<{ taskId: string; studentId: string }>();
   const navigate = useNavigate();
   const numericTaskId = Number(taskId);
+  const numericStudentId = Number(studentId);
 
   // Fetch task info and all versions
   const { data: task } = useApi(() => tasksApi.get(numericTaskId), [numericTaskId]);
   const { data: versionsData, loading: versionsLoading } = useApi(
-    () => submissionsApi.getStudentTaskSubmissions(numericTaskId, studentId!),
-    [numericTaskId, studentId],
+    () => submissionsApi.getStudentTaskSubmissions(numericTaskId, numericStudentId),
+    [numericTaskId, numericStudentId],
   );
 
   const versions = versionsData?.items ?? [];
 
   // Current selected version
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [content, setContent] = useState<string | null>(null);
+  const [contentData, setContentData] = useState<SubmissionContentResponse | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
 
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false);
   const [compareLeftId, setCompareLeftId] = useState<number | null>(null);
   const [compareRightId, setCompareRightId] = useState<number | null>(null);
-  const [contentLeft, setContentLeft] = useState<string | null>(null);
-  const [contentRight, setContentRight] = useState<string | null>(null);
+  const [contentLeft, setContentLeft] = useState<SubmissionContentResponse | null>(null);
+  const [contentRight, setContentRight] = useState<SubmissionContentResponse | null>(null);
   const [leftLoading, setLeftLoading] = useState(false);
   const [rightLoading, setRightLoading] = useState(false);
 
-  // Default to latest version when data loads
-  useEffect(() => {
-    if (versions.length > 0 && selectedId === null) {
-      setSelectedId(versions[0].id);
-    }
-  }, [versions, selectedId]);
+  // Resolve effective selected ID: use explicit selection, or fall back to latest
+  const effectiveSelectedId = selectedId ?? (versions.length > 0 ? versions[0].id : null);
 
   // Fetch content for current version
   const fetchContent = useCallback(async (submissionId: number) => {
     setContentLoading(true);
     try {
       const res = await submissionsApi.getContent(submissionId);
-      setContent(res.content);
+      setContentData(res);
     } catch {
-      setContent(null);
+      setContentData(null);
     } finally {
       setContentLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (selectedId !== null) {
-      fetchContent(selectedId);
+    if (effectiveSelectedId !== null) {
+      fetchContent(effectiveSelectedId);
     }
-  }, [selectedId, fetchContent]);
+  }, [effectiveSelectedId, fetchContent]);
 
   // Fetch content for compare panels
   const fetchCompareContent = useCallback(
     async (
       submissionId: number,
-      setter: (v: string | null) => void,
+      setter: (v: SubmissionContentResponse | null) => void,
       setLoading: (v: boolean) => void,
     ) => {
       setLoading(true);
       try {
         const res = await submissionsApi.getContent(submissionId);
-        setter(res.content);
+        setter(res);
       } catch {
         setter(null);
       } finally {
@@ -162,7 +217,6 @@ export default function SubmissionDetailPage() {
   function enterCompare() {
     if (versions.length < 2) return;
     setCompareMode(true);
-    // Default: oldest on left, newest on right
     setCompareLeftId(versions[versions.length - 1].id);
     setCompareRightId(versions[0].id);
   }
@@ -175,7 +229,7 @@ export default function SubmissionDetailPage() {
     setContentRight(null);
   }
 
-  const currentVersion = versions.find((v) => v.id === selectedId) ?? null;
+  const currentVersion = versions.find((v) => v.id === effectiveSelectedId) ?? null;
 
   if (versionsLoading) {
     return (
@@ -214,32 +268,38 @@ export default function SubmissionDetailPage() {
           <h1 className="text-lg font-heading font-semibold">版本对比</h1>
           <div className="flex items-center gap-2 ml-auto">
             <Select
-              value={String(compareLeftId)}
-              onValueChange={(v) => setCompareLeftId(Number(v))}
+              value={versions.find((v) => v.id === compareLeftId)?.version?.toString()}
+              onValueChange={(ver) => {
+                const found = versions.find((v) => v.version === Number(ver));
+                if (found) setCompareLeftId(found.id);
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {versions.map((v) => (
-                  <SelectItem key={v.id} value={String(v.id)}>
-                    {versionLabel(v)}
+                  <SelectItem key={v.id} value={String(v.version)}>
+                    第 {v.version} 次提交
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <span className="text-sm text-muted-foreground">vs</span>
             <Select
-              value={String(compareRightId)}
-              onValueChange={(v) => setCompareRightId(Number(v))}
+              value={versions.find((v) => v.id === compareRightId)?.version?.toString()}
+              onValueChange={(ver) => {
+                const found = versions.find((v) => v.version === Number(ver));
+                if (found) setCompareRightId(found.id);
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {versions.map((v) => (
-                  <SelectItem key={v.id} value={String(v.id)}>
-                    {versionLabel(v)}
+                  <SelectItem key={v.id} value={String(v.version)}>
+                    第 {v.version} 次提交
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -260,13 +320,7 @@ export default function SubmissionDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="max-h-[70vh] overflow-y-auto">
-              {leftLoading ? (
-                <Skeleton className="h-48 w-full" />
-              ) : contentLeft ? (
-                <MarkdownContent content={contentLeft} />
-              ) : (
-                <p className="text-sm text-muted-foreground">无法加载内容</p>
-              )}
+              <ContentRenderer data={contentLeft} loading={leftLoading} />
             </CardContent>
           </Card>
           <Card className="overflow-hidden">
@@ -276,13 +330,7 @@ export default function SubmissionDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="max-h-[70vh] overflow-y-auto">
-              {rightLoading ? (
-                <Skeleton className="h-48 w-full" />
-              ) : contentRight ? (
-                <MarkdownContent content={contentRight} />
-              ) : (
-                <p className="text-sm text-muted-foreground">无法加载内容</p>
-              )}
+              <ContentRenderer data={contentRight} loading={rightLoading} />
             </CardContent>
           </Card>
         </div>
@@ -300,20 +348,23 @@ export default function SubmissionDetailPage() {
           返回
         </Button>
         <h1 className="text-lg font-heading font-semibold">
-          学生 {studentId} · {task?.title ?? ""}
+          {versionsData?.student_name ?? `学生 ${studentId}`} · {task?.title ?? ""}
         </h1>
         <div className="flex items-center gap-2 ml-auto">
           <Select
-            value={String(selectedId)}
-            onValueChange={(v) => setSelectedId(Number(v))}
+            value={versions.find((v) => v.id === effectiveSelectedId)?.version?.toString()}
+            onValueChange={(ver) => {
+              const found = versions.find((v) => v.version === Number(ver));
+              if (found) setSelectedId(found.id);
+            }}
           >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {versions.map((v) => (
-                <SelectItem key={v.id} value={String(v.id)}>
-                  {versionLabel(v)}
+                <SelectItem key={v.id} value={String(v.version)}>
+                  第 {v.version} 次提交
                 </SelectItem>
               ))}
             </SelectContent>
@@ -332,23 +383,17 @@ export default function SubmissionDetailPage() {
         {/* Left: document content */}
         <Card className="overflow-hidden">
           <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium">学生提交文档</CardTitle>
+            <CardTitle className="text-sm font-medium">学生提交内容</CardTitle>
           </CardHeader>
           <CardContent className="max-h-[70vh] overflow-y-auto">
-            {contentLoading ? (
-              <Skeleton className="h-48 w-full" />
-            ) : content ? (
-              <MarkdownContent content={content} />
-            ) : (
-              <p className="text-sm text-muted-foreground">无法加载文档内容</p>
-            )}
+            <ContentRenderer data={contentData} loading={contentLoading} />
           </CardContent>
         </Card>
 
         {/* Right: AI grading result */}
         <Card className="overflow-hidden">
           <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium">AI 批改结果</CardTitle>
+            <CardTitle className="text-sm font-medium">批改结果</CardTitle>
           </CardHeader>
           <CardContent className="max-h-[70vh] overflow-y-auto">
             {currentVersion ? (
