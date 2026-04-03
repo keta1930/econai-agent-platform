@@ -44,33 +44,19 @@ export default function AdminTaskDetailPage() {
 
   return (
     <div className="space-y-0 animate-fade-in-up">
-      {/* Page header */}
-      <h1 className="text-2xl font-heading font-semibold page-title-decorated">
-        {task.title}
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        发布于 {new Date(task.created_at).toLocaleDateString("zh-CN")}
-      </p>
+      {/* Page header: title left, stats right */}
+      <div className="flex items-start justify-between gap-8 pb-4 border-b border-[var(--paper-deep,#e8e0d4)]">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-heading font-semibold page-title-decorated">
+            {task.title}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            发布于 {new Date(task.created_at).toLocaleDateString("zh-CN")}
+          </p>
+        </div>
 
-      {/* Task description */}
-      <div className="mt-6 mb-6">
-        <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
-          任务说明
-        </h3>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{task.description}</p>
-      </div>
-
-      {/* Grading criteria */}
-      <div className="mb-6">
-        <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
-          打分标准
-        </h3>
-        <MarkdownContent content={task.grading_criteria} />
-      </div>
-
-      {/* Statistics row */}
       {stats && (
-        <div className="flex gap-6 py-5 border-y border-[var(--paper-deep)] mb-6">
+        <div className="flex shrink-0 gap-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--paper-warm)]">
               <Users className="h-5 w-5 text-[var(--ink-deep)]" />
@@ -100,29 +86,27 @@ export default function AdminTaskDetailPage() {
           </div>
         </div>
       )}
+      </div>
 
-      {/* Not submitted students */}
-      {stats && stats.not_submitted.length > 0 && (
-        <div className="mb-6">
+      {/* Task description + grading criteria side by side */}
+      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div>
           <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
-            未提交学生 ({stats.not_submitted.length})
+            任务说明
           </h3>
-          <div className="flex flex-wrap gap-2">
-            {stats.not_submitted.map((sid) => (
-              <span
-                key={sid}
-                className="rounded-md border border-[var(--paper-border)] bg-[var(--paper-warm)] px-3 py-1 text-sm text-muted-foreground"
-              >
-                {sid}
-              </span>
-            ))}
-          </div>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">{task.description}</p>
         </div>
-      )}
+        <div>
+          <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+            打分标准
+          </h3>
+          <MarkdownContent content={task.grading_criteria} />
+        </div>
+      </div>
 
       {/* Submitted students table */}
       {stats && stats.submissions.length > 0 && (
-        <div>
+        <div className="mt-6">
           <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
             已提交 ({stats.submissions.length})
           </h3>
@@ -176,6 +160,25 @@ export default function AdminTaskDetailPage() {
               ))}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {/* Not submitted students — below the submitted table */}
+      {stats && stats.not_submitted.length > 0 && (
+        <div className="mt-6">
+          <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+            未提交学生 ({stats.not_submitted.length})
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {stats.not_submitted.map((sid) => (
+              <span
+                key={sid}
+                className="rounded-md border border-[var(--paper-border)] bg-[var(--paper-warm)] px-3 py-1 text-sm text-muted-foreground"
+              >
+                {sid}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
