@@ -16,9 +16,9 @@ export function formatDate(
 
 export function scoreColor(score: number | null): string {
   if (score === null) return ""
-  if (score >= 80) return "text-green-600 font-medium"
-  if (score >= 60) return "text-amber-600 font-medium"
-  return "text-red-600 font-medium"
+  if (score >= 80) return "text-success font-medium"
+  if (score >= 60) return "text-warning font-medium"
+  return "text-destructive font-medium"
 }
 
 export function formatFileSize(bytes: number): string {
