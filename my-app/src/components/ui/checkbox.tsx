@@ -16,15 +16,22 @@ function Checkbox({ checked, onCheckedChange, disabled, className }: CheckboxPro
       onCheckedChange={onCheckedChange}
       disabled={disabled}
       className={cn(
-        "peer h-4 w-4 shrink-0 rounded border border-input ring-offset-background",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        // 明确尺寸 + 白底 + 深边框 — 在任何背景上都清晰可见
+        "inline-flex items-center justify-center",
+        "h-4 w-4 min-h-4 min-w-4 shrink-0",
+        "rounded border border-[var(--ink-light)] bg-white",
+        "transition-colors duration-150 cursor-pointer",
+        // focus
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cyan-mid)]/20",
+        // checked: 墨蓝底 + 金色 check
+        "data-[checked]:bg-[var(--ink-deep)] data-[checked]:border-[var(--ink-deep)]",
+        // disabled
         "disabled:cursor-not-allowed disabled:opacity-50",
-        "data-[checked]:bg-primary data-[checked]:border-primary data-[checked]:text-primary-foreground",
         className,
       )}
     >
-      <CheckboxPrimitive.Indicator className="flex items-center justify-center">
-        <Check className="h-3 w-3" />
+      <CheckboxPrimitive.Indicator className="flex items-center justify-center text-[var(--gold)]">
+        <Check className="h-3 w-3" strokeWidth={3} />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

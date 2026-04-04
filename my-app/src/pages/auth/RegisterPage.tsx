@@ -87,7 +87,7 @@ function StudentForm() {
           value={college || undefined}
           onValueChange={(val) => setCollege(val as "lingnan" | "physics")}
         >
-          <SelectTrigger className="auth-input !w-full !h-auto !p-[10px_14px] !rounded-[8px] !border-[var(--paper-border)] !bg-[var(--paper)] cursor-pointer">
+          <SelectTrigger className="w-full h-auto py-2.5 px-3.5 rounded-lg bg-[var(--paper)]">
             <SelectValue placeholder="请选择学院">
               {(value: string | null) => {
                 const match = COLLEGES.find((c) => c.value === value);
@@ -95,13 +95,12 @@ function StudentForm() {
               }}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent className="bg-white border border-[var(--paper-border)] shadow-lg">
+          <SelectContent>
             {COLLEGES.map((c) => (
               <SelectItem
                 key={c.value}
                 value={c.value}
                 label={c.label}
-                className="cursor-pointer text-[var(--ink-mid)] hover:bg-[var(--paper-warm)] focus:bg-[var(--paper-warm)] focus:text-[var(--ink-deep)]"
               >
                 {c.label}
               </SelectItem>
