@@ -90,15 +90,14 @@ function formEquals(a: FormValues, b: FormValues): boolean {
 
 export default function CreateTaskPage() {
   const navigate = useNavigate();
-  const { currentClass, classes } = useClassContext();
-  const classId = currentClass?.id;
+  const { classes, currentClass } = useClassContext();
 
   const {
     data: draftsData,
     loading,
     error,
     refetch,
-  } = useApi(() => (classId ? tasksApi.list("draft", classId) : Promise.resolve({ items: [] })), [classId]);
+  } = useApi(() => tasksApi.list("draft"), []);
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -112,7 +111,6 @@ export default function CreateTaskPage() {
 
   // Async operation state
   const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -136,12 +134,12 @@ export default function CreateTaskPage() {
     description.trim().length > 0 &&
     criteria.trim().length > 0;
 
-  if (!currentClass) {
+  if (classes.length === 0) {
     return (
       <EmptyState
         icon={<ClipboardList className="h-12 w-12" />}
-        title="请先选择班级"
-        description="在左侧导航栏选择一个班级，或先创建班级"
+        title="请先创建班级"
+        description="需要至少一个班级才能发布作业"
         action={
           <Button onClick={() => navigate("/admin/classes")}>
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -205,7 +203,9 @@ export default function CreateTaskPage() {
   // ------- Save draft -------
 
   async function handleSave() {
-    if (!canSave || !classId) return;
+    if (!canSave) return;
+    const draftClassId = selectedDraft?.class_id ?? classes[0]?.id;
+    if (!draftClassId) return;
     setSaving(true);
     try {
       if (selectedDraft) {
@@ -215,18 +215,16 @@ export default function CreateTaskPage() {
           grading_criteria: criteria,
         });
         setSelectedDraft(updated);
-        const newVals = formFromDraft(updated);
-        initialValuesRef.current = newVals;
+        initialValuesRef.current = formFromDraft(updated);
       } else {
         const created = await tasksApi.create({
           title: title.trim(),
           description: description,
           grading_criteria: criteria,
-          class_id: classId,
+          class_id: draftClassId,
         });
         setSelectedDraft(created);
-        const newVals = formFromDraft(created);
-        initialValuesRef.current = newVals;
+        initialValuesRef.current = formFromDraft(created);
       }
       toast.success("草稿已保存");
       await refetch();
@@ -237,46 +235,11 @@ export default function CreateTaskPage() {
     }
   }
 
-  // ------- Publish (single class) -------
+  // ------- Publish (select classes) -------
 
-  async function handlePublish() {
-    if (!canPublish || !classId) return;
-    setPublishing(true);
-    try {
-      let draftId = selectedDraft?.id;
-      if (isDirty || !draftId) {
-        if (draftId) {
-          await tasksApi.update(draftId, {
-            title: title.trim(),
-            description: description,
-            grading_criteria: criteria,
-          });
-        } else {
-          const created = await tasksApi.create({
-            title: title.trim(),
-            description: description,
-            grading_criteria: criteria,
-            class_id: classId,
-          });
-          draftId = created.id;
-        }
-      }
-      await tasksApi.update(draftId!, { status: "published" });
-      toast.success("任务已发布");
-      initialValuesRef.current = { title: title.trim(), description, criteria };
-      setSheetOpen(false);
-      await refetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "发布失败");
-    } finally {
-      setPublishing(false);
-    }
-  }
-
-  // ------- Batch publish -------
-
-  function openBatchPublish() {
-    setSelectedClassIds(classes.map((c) => c.id));
+  function openPublish() {
+    const defaultId = currentClass?.id ?? classes[0]?.id;
+    setSelectedClassIds(defaultId ? [defaultId] : []);
     setShowBatchDialog(true);
   }
 
@@ -291,7 +254,7 @@ export default function CreateTaskPage() {
         class_ids: selectedClassIds,
         status: "published",
       });
-      toast.success(`已发布到 ${res.created.length} 个班级`);
+      toast.success(`已发布到 ${res.created.length} 个班级的作业列表`);
       setShowBatchDialog(false);
       initialValuesRef.current = { title: title.trim(), description, criteria };
       setSheetOpen(false);
@@ -517,50 +480,43 @@ export default function CreateTaskPage() {
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               保存草稿
             </Button>
-            <div className="flex gap-2">
-              {classes.length > 1 && (
-                <Button
-                  variant="outline"
-                  disabled={!canPublish}
-                  onClick={openBatchPublish}
-                >
-                  <Send className="mr-2 h-4 w-4" />
-                  批量发布
-                </Button>
-              )}
-              <Button
-                disabled={!canPublish || publishing}
-                onClick={handlePublish}
-              >
-                {publishing && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                发布
-              </Button>
-            </div>
+            <Button
+              disabled={!canPublish}
+              onClick={openPublish}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              发布
+            </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
-      {/* Batch publish dialog */}
+      {/* Publish dialog */}
       <Dialog open={showBatchDialog} onOpenChange={setShowBatchDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>批量发布到班级</DialogTitle>
+            <DialogTitle>选择发布班级</DialogTitle>
             <DialogDescription>
-              选择要发布此任务的班级，每个班级将生成独立的任务记录
+              每个班级将生成独立的作业记录
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            <label className="flex items-center gap-2 py-1.5 px-1 cursor-pointer border-b border-[var(--paper-border)] mb-1">
+              <Checkbox
+                checked={selectedClassIds.length === classes.length}
+                onCheckedChange={(checked) =>
+                  setSelectedClassIds(checked ? classes.map((c) => c.id) : [])
+                }
+              />
+              <span className="text-sm font-medium">全选</span>
+            </label>
             {classes.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 py-1 cursor-pointer">
+              <label key={c.id} className="flex items-center gap-2 py-1.5 px-1 cursor-pointer">
                 <Checkbox
                   checked={selectedClassIds.includes(c.id)}
                   onCheckedChange={(checked) => {
                     setSelectedClassIds((prev) =>
-                      checked
-                        ? [...prev, c.id]
-                        : prev.filter((id) => id !== c.id)
+                      checked ? [...prev, c.id] : prev.filter((id) => id !== c.id)
                     );
                   }}
                 />
@@ -569,19 +525,14 @@ export default function CreateTaskPage() {
             ))}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowBatchDialog(false)}
-            >
+            <Button variant="outline" onClick={() => setShowBatchDialog(false)}>
               取消
             </Button>
             <Button
               disabled={selectedClassIds.length === 0 || batchPublishing}
               onClick={handleBatchPublish}
             >
-              {batchPublishing && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+              {batchPublishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               发布到 {selectedClassIds.length} 个班级
             </Button>
           </DialogFooter>

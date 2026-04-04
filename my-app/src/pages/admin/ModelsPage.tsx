@@ -100,7 +100,10 @@ export default function ModelsPage() {
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold page-title-decorated">模型管理</h1>
+        <div className="flex items-center gap-6">
+          <h1 className="text-2xl font-heading font-semibold page-title-decorated">模型管理</h1>
+          <span className="text-sm text-muted-foreground">共 {models.length} 个模型配置</span>
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" />
@@ -168,7 +171,6 @@ export default function ModelsPage() {
         </Dialog>
       </div>
 
-      <p className="text-sm text-muted-foreground">共 {models.length} 个模型配置</p>
       <Table className="data-table">
         <TableHeader>
           <TableRow>

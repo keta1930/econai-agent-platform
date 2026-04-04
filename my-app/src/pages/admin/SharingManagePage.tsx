@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -309,26 +309,54 @@ export default function SharingManagePage() {
     return <p className="text-sm text-destructive">{error}</p>;
   }
 
+  const countByStatus = {
+    all: allTopics.length,
+    completed: allTopics.filter((t) => t.status === "completed").length,
+    confirmed: allTopics.filter((t) => t.status === "confirmed").length,
+    voting: allTopics.filter((t) => t.status === "voting").length,
+  };
+
   return (
     <div className="space-y-4 animate-fade-in-up">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold page-title-decorated">分享管理</h1>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <h1 className="text-2xl font-heading font-semibold page-title-decorated">分享管理</h1>
+          <nav className="flex items-center gap-4">
+            {(
+              [
+                ["all", "全部"],
+                ["completed", "已分享"],
+                ["confirmed", "已确定"],
+                ["voting", "投票中"],
+              ] as const
+            ).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setStatusFilter(tab)}
+                className={cn(
+                  "relative pb-1 text-sm transition-colors",
+                  statusFilter === tab
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {label}({countByStatus[tab]})
+                {statusFilter === tab && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--gold)] rounded-full" />
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
         <Button onClick={handleCreate}>
           <PlusCircle className="mr-2 h-4 w-4" />
           创建主题
         </Button>
       </div>
 
-      <Tabs defaultValue="all" onValueChange={setStatusFilter}>
-        <TabsList>
-          <TabsTrigger value="all">全部</TabsTrigger>
-          <TabsTrigger value="completed">已分享</TabsTrigger>
-          <TabsTrigger value="confirmed">已确定</TabsTrigger>
-          <TabsTrigger value="voting">投票中</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={statusFilter}>
-          {filteredTopics.length === 0 ? (
+      <div>
+        {filteredTopics.length === 0 ? (
             <EmptyState
               icon={<Presentation className="h-12 w-12" />}
               title="暂无主题"
@@ -396,8 +424,7 @@ export default function SharingManagePage() {
               </TableBody>
             </Table>
           )}
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <TopicEditSheet
         open={editOpen}

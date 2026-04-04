@@ -6,13 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -58,9 +51,8 @@ const COLLEGE_LABELS: Record<string, string> = {
 };
 
 export default function RosterPage() {
-  const { classes } = useClassContext();
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
+  const { currentClass } = useClassContext();
+  const selectedClassId = currentClass?.id ?? null;
   const [activeTab, setActiveTab] = useState<RosterTab>("expected");
 
   const { data, loading, error, refetch } = useApi(
@@ -160,11 +152,6 @@ export default function RosterPage() {
 
   function switchTab(tab: RosterTab) {
     setActiveTab(tab);
-    clearSelections();
-  }
-
-  function switchClass(classId: string) {
-    setSelectedClassId(classId);
     clearSelections();
   }
 
@@ -386,7 +373,7 @@ export default function RosterPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  批量导入学号到「{selectedClass?.name}」
+                  批量导入学号到「{currentClass?.name}」
                 </DialogTitle>
               </DialogHeader>
               <Textarea
@@ -432,7 +419,7 @@ export default function RosterPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <h1 className="text-2xl font-heading font-semibold page-title-decorated">
-            花名册
+            学生名单
           </h1>
 
           {selectedClassId && !loading && !error && (
@@ -464,28 +451,7 @@ export default function RosterPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <Select
-            value={selectedClass?.name}
-            onValueChange={(name) => {
-              const found = classes.find((c) => c.name === name);
-              if (found) switchClass(found.id);
-            }}
-          >
-            <SelectTrigger className="w-48 h-8 text-sm">
-              <SelectValue placeholder="选择班级" />
-            </SelectTrigger>
-            <SelectContent>
-              {classes.map((c) => (
-                <SelectItem key={c.id} value={c.name}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {selectedClassId && !loading && !error && renderToolbar()}
-        </div>
+        {selectedClassId && !loading && !error && renderToolbar()}
       </div>
 
       {/* Content */}
@@ -493,7 +459,7 @@ export default function RosterPage() {
         <EmptyState
           icon={<Users className="h-12 w-12" />}
           title="请先选择班级"
-          description="在上方选择要管理花名册的班级"
+          description="在侧边栏选择要管理花名册的班级"
         />
       ) : loading ? (
         <div className="space-y-4">

@@ -93,13 +93,13 @@ export default function DashboardPage() {
     <div className="space-y-4 animate-fade-in-up">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold page-title-decorated">仪表板</h1>
+        <h1 className="text-2xl font-heading font-semibold page-title-decorated">作业列表</h1>
         <button
           className="btn-scholarly"
           onClick={() => navigate("/admin/tasks/new")}
         >
           <PlusCircle className="mr-2 h-4 w-4" />
-          发布新任务
+          创建作业
         </button>
       </div>
 
@@ -107,14 +107,14 @@ export default function DashboardPage() {
         <EmptyState
           icon={<ClipboardList className="h-12 w-12" />}
           title="暂无任务"
-          description="发布第一个任务，开始管理课程"
+          description="创建第一个作业，开始管理课程"
           action={
             <button
               className="btn-scholarly"
               onClick={() => navigate("/admin/tasks/new")}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
-              发布第一个任务
+              创建第一个作业
             </button>
           }
         />

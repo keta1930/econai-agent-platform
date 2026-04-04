@@ -91,7 +91,12 @@ export default function BackupManagePage() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold page-title-decorated">数据库管理</h1>
+        <div className="flex items-center gap-6">
+          <h1 className="text-2xl font-heading font-semibold page-title-decorated">数据备份</h1>
+          {!loading && backups.length > 0 && (
+            <span className="text-sm text-muted-foreground">共 {backups.length} 份备份</span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Input
             className="w-56"
@@ -129,7 +134,6 @@ export default function BackupManagePage() {
         />
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">共 {backups.length} 份备份</p>
           <table className="data-table">
             <thead>
               <tr>

@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { useApi } from "@/hooks/useApi";
 import { classesApi } from "@/api/classes";
 import { useClassContext } from "@/contexts/ClassContext";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
 import { Loader2, Plus, Trash2, School, Copy, RefreshCw } from "lucide-react";
@@ -35,8 +36,9 @@ function maskToken(token: string): string {
 }
 
 export default function ClassManagePage() {
+  const navigate = useNavigate();
   const { data, loading, error, refetch } = useApi(() => classesApi.list(), []);
-  const { refetchClasses } = useClassContext();
+  const { refetchClasses, setCurrentClass } = useClassContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -84,7 +86,7 @@ export default function ClassManagePage() {
     setRegenerating(true);
     try {
       await classesApi.regenerateToken(regenerateTarget.id);
-      toast.success("Token 已重新生成");
+      toast.success("凭证已重新生成");
       setRegenerateTarget(null);
       await refetch();
     } catch (err) {
@@ -97,7 +99,7 @@ export default function ClassManagePage() {
   async function copyToken(token: string) {
     try {
       await navigator.clipboard.writeText(token);
-      toast.success("Token 已复制");
+      toast.success("凭证已复制");
     } catch {
       toast.error("复制失败");
     }
@@ -124,7 +126,12 @@ export default function ClassManagePage() {
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold page-title-decorated">班级管理</h1>
+        <div className="flex items-center gap-6">
+          <h1 className="text-2xl font-heading font-semibold page-title-decorated">班级管理</h1>
+          {classes.length > 0 && (
+            <span className="text-sm text-muted-foreground">共 {classes.length} 个班级</span>
+          )}
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger render={<Button />}>
             <Plus className="mr-2 h-4 w-4" />
@@ -166,13 +173,13 @@ export default function ClassManagePage() {
         />
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">共 {classes.length} 个班级</p>
           <Table className="data-table">
             <TableHeader>
               <TableRow>
                 <TableHead>班级名称</TableHead>
-                <TableHead>加入 Token</TableHead>
+                <TableHead>加入凭证</TableHead>
                 <TableHead>学生数</TableHead>
+                <TableHead>作业数</TableHead>
                 <TableHead>创建时间</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
@@ -180,7 +187,14 @@ export default function ClassManagePage() {
             <TableBody>
               {classes.map((cls) => (
                 <TableRow key={cls.id}>
-                  <TableCell className="font-medium">{cls.name}</TableCell>
+                  <TableCell>
+                    <button
+                      className="font-medium hover:text-[var(--gold)] transition-colors"
+                      onClick={() => { setCurrentClass(cls); navigate("/admin/dashboard"); }}
+                    >
+                      {cls.name}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
                       <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
@@ -191,7 +205,7 @@ export default function ClassManagePage() {
                         size="sm"
                         className="h-7 w-7 p-0"
                         onClick={() => copyToken(cls.join_token)}
-                        title="复制 Token"
+                        title="复制凭证"
                       >
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
@@ -200,7 +214,7 @@ export default function ClassManagePage() {
                         size="sm"
                         className="h-7 w-7 p-0"
                         onClick={() => setRegenerateTarget({ id: cls.id, name: cls.name })}
-                        title="重新生成 Token"
+                        title="生成新凭证"
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
                       </Button>
@@ -208,6 +222,9 @@ export default function ClassManagePage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {cls.student_count}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {cls.task_count}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatDate(cls.created_at)}
@@ -242,8 +259,8 @@ export default function ClassManagePage() {
       <ConfirmDialog
         open={!!regenerateTarget}
         onOpenChange={(open) => !open && setRegenerateTarget(null)}
-        title="重新生成 Token"
-        description={`确定要重新生成班级「${regenerateTarget?.name}」的加入 Token 吗？旧 Token 将立即失效。`}
+        title="生成新凭证"
+        description={`确定要为班级「${regenerateTarget?.name}」生成新的加入凭证吗？旧凭证将立即失效。`}
         confirmText="重新生成"
         onConfirm={handleRegenerateToken}
         loading={regenerating}

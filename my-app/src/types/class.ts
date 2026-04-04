@@ -3,6 +3,7 @@ export interface ClassInfo {
   name: string;
   join_token: string;
   student_count: number;
+  task_count: number;
   created_at: string;
 }
 
