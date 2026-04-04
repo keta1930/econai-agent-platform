@@ -58,6 +58,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
         sub=user.id, role=user.role, class_id=user.class_id
     )
     refresh_token = await create_refresh_token_record(db, user.id)
+    await db.commit()
 
     return LoginResponse(
         access_token=token,
@@ -89,6 +90,7 @@ async def select_class(req: SelectClassRequest, db: AsyncSession = Depends(get_d
         sub=user.id, role=user.role, class_id=user.class_id
     )
     refresh_token = await create_refresh_token_record(db, user.id)
+    await db.commit()
 
     return LoginResponse(
         access_token=token,
