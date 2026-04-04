@@ -23,6 +23,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     access_token: str
+    refresh_token: str
     role: str
     class_id: uuid.UUID | None = None
     class_name: str | None = None
@@ -43,3 +44,26 @@ class SelectClassRequest(BaseModel):
     username: str
     password: str
     class_id: uuid.UUID
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class RefreshResponse(BaseModel):
+    access_token: str
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str
+
+
+class TeacherRegisterRequest(BaseModel):
+    invite_code: str
+    username: str
+    password: str
+
+
+class TeacherRegisterResponse(BaseModel):
+    id: uuid.UUID
+    role: str
