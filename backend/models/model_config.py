@@ -1,18 +1,19 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, func
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, Uuid, func
 
 from database import Base
+from utils import uuid7
 
 
 class ModelConfig(Base):
     __tablename__ = "model_configs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Uuid, primary_key=True, default=uuid7)
     name = Column(String, nullable=False)
     api_key = Column(String, nullable=False)
     base_url = Column(String, nullable=False)
     adapter_type = Column(String, nullable=False)
     is_active = Column(Boolean, nullable=False, default=False)
-    admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    admin_id = Column(Uuid, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (

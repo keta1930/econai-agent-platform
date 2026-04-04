@@ -1,14 +1,15 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint, Uuid, func
 
 from database import Base
+from utils import uuid7
 
 
 class StudentRoster(Base):
     __tablename__ = "student_roster"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Uuid, primary_key=True, default=uuid7)
     student_id = Column(String, nullable=False)
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=False)
+    class_id = Column(Uuid, ForeignKey("classes.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (

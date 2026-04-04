@@ -13,3 +13,4 @@ tavily-python
 python-dotenv
 minio
 pgvector
+uuid_utils

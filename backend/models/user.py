@@ -1,16 +1,17 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, func
+from sqlalchemy import Column, String, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, Uuid, func
 
 from database import Base
+from utils import uuid7
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Uuid, primary_key=True, default=uuid7)
     username = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)
-    class_id = Column(Integer, ForeignKey("classes.id"), nullable=True)
+    class_id = Column(Uuid, ForeignKey("classes.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (

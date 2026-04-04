@@ -1,18 +1,19 @@
 from sqlalchemy import (
     Column, Integer, String, Text, Float, DateTime,
-    ForeignKey, UniqueConstraint, CheckConstraint, func,
+    ForeignKey, UniqueConstraint, CheckConstraint, Uuid, func,
 )
 from sqlalchemy.orm import relationship
 
 from database import Base
+from utils import uuid7
 
 
 class Submission(Base):
     __tablename__ = "submissions"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    id = Column(Uuid, primary_key=True, default=uuid7)
+    task_id = Column(Uuid, ForeignKey("tasks.id"), nullable=False)
+    student_id = Column(Uuid, ForeignKey("users.id"), nullable=False)
     version = Column(Integer, nullable=False, default=1)
     file_path = Column(String, nullable=False)
     content_type = Column(String, nullable=False, default="file", server_default="file")
