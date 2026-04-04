@@ -38,3 +38,19 @@ class RosterBatchResponse(BaseModel):
 class ResetStudentPasswordRequest(BaseModel):
     user_id: uuid.UUID
     new_password: str
+
+
+class RosterBatchDeleteRequest(BaseModel):
+    student_ids: list[str]
+
+
+class RosterBatchDeleteResponse(BaseModel):
+    deleted: int
+
+
+class MemberBatchRemoveRequest(BaseModel):
+    user_ids: list[uuid.UUID]
+
+
+class MemberBatchRemoveResponse(BaseModel):
+    removed: int

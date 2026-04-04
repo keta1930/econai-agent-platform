@@ -18,6 +18,8 @@ from schemas.roster import (
     RosterAddRequest, RosterBatchRequest, RosterBatchResponse,
     RosterListResponse, ExpectedRosterItem, ActualRosterItem,
     ResetStudentPasswordRequest,
+    RosterBatchDeleteRequest, RosterBatchDeleteResponse,
+    MemberBatchRemoveRequest, MemberBatchRemoveResponse,
 )
 from services.auth_service import hash_password
 from services.storage import storage_service
@@ -169,6 +171,93 @@ async def delete_student(
 
     await db.delete(entry)
     await db.commit()
+
+
+@router.post("/roster/batch-delete", response_model=RosterBatchDeleteResponse)
+async def batch_delete_students(
+    class_id: uuid.UUID,
+    req: RosterBatchDeleteRequest,
+    admin: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Batch delete student_ids from the class roster."""
+    await _verify_class_ownership(class_id, admin, db)
+
+    result = await db.execute(
+        delete(StudentRoster).where(
+            StudentRoster.class_id == class_id,
+            StudentRoster.student_id.in_(req.student_ids),
+        )
+    )
+    await db.commit()
+    return RosterBatchDeleteResponse(deleted=result.rowcount)
+
+
+@router.post("/members/batch-remove", response_model=MemberBatchRemoveResponse)
+async def batch_remove_members(
+    class_id: uuid.UUID,
+    req: MemberBatchRemoveRequest,
+    admin: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Batch remove students from this class. Deletes memberships + class-scoped data."""
+    await _verify_class_ownership(class_id, admin, db)
+
+    # Verify which user_ids are actual members
+    result = await db.execute(
+        select(ClassMember.user_id).where(
+            ClassMember.class_id == class_id,
+            ClassMember.user_id.in_(req.user_ids),
+        )
+    )
+    verified_ids = [row for row in result.scalars().all()]
+    if not verified_ids:
+        return MemberBatchRemoveResponse(removed=0)
+
+    # Collect submissions for MinIO cleanup
+    task_ids_stmt = select(Task.id).where(Task.class_id == class_id)
+    result = await db.execute(
+        select(Submission).where(
+            Submission.student_id.in_(verified_ids),
+            Submission.task_id.in_(task_ids_stmt),
+        )
+    )
+    submissions = result.scalars().all()
+    file_paths = [s.file_path for s in submissions if s.file_path]
+
+    # Delete submissions
+    if submissions:
+        await db.execute(
+            delete(Submission).where(
+                Submission.student_id.in_(verified_ids),
+                Submission.task_id.in_(task_ids_stmt),
+            )
+        )
+
+    # Delete topic votes
+    topic_ids_stmt = select(SharingTopic.id).where(SharingTopic.class_id == class_id)
+    await db.execute(
+        delete(TopicVote).where(
+            TopicVote.student_id.in_(verified_ids),
+            TopicVote.topic_id.in_(topic_ids_stmt),
+        )
+    )
+
+    # Delete class_members records
+    await db.execute(
+        delete(ClassMember).where(
+            ClassMember.class_id == class_id,
+            ClassMember.user_id.in_(verified_ids),
+        )
+    )
+
+    await db.commit()
+
+    # Clean up MinIO files
+    if file_paths:
+        await asyncio.to_thread(storage_service.remove_objects, file_paths)
+
+    return MemberBatchRemoveResponse(removed=len(verified_ids))
 
 
 @router.post("/roster/reset-password")
