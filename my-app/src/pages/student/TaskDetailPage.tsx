@@ -254,7 +254,7 @@ export default function TaskDetailPage() {
             <XCircle className="h-10 w-10 text-destructive" />
             <p className="mt-4 font-medium">批改失败</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              AI 批改过程中出现错误，请联系管理员
+              AI 批改过程中出现错误，请联系教师
             </p>
           </CardContent>
         </Card>

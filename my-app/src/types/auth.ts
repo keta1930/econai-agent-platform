@@ -5,6 +5,7 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   access_token: string;
+  refresh_token: string;
   role: string;
   class_id: string | null;
   class_name: string | null;
@@ -37,6 +38,21 @@ export interface RegisterRequest {
 export interface RegisterResponse {
   id: string;
   role: string;
+}
+
+export interface TeacherRegisterRequest {
+  invite_code: string;
+  username: string;
+  password: string;
+}
+
+export interface TeacherRegisterResponse {
+  id: string;
+  role: string;
+}
+
+export interface RefreshResponse {
+  access_token: string;
 }
 
 export type LoginResult = LoginResponse | ClassSelectionResponse;

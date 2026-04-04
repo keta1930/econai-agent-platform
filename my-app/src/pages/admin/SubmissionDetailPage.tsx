@@ -88,7 +88,7 @@ function GradingPanel({ submission }: { submission: SubmissionDetail }) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-destructive">
         <AlertTriangle className="h-8 w-8" />
-        <p className="text-sm">批改失败，请联系管理员</p>
+        <p className="text-sm">批改失败，请联系教师</p>
       </div>
     );
   }

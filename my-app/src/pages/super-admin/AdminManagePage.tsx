@@ -15,7 +15,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -27,14 +26,10 @@ import { useApi } from "@/hooks/useApi";
 import { superAdminApi } from "@/api/superAdmin";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
-import { KeyRound, Loader2, Plus, Shield, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
+import { KeyRound, Loader2, Shield, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
 
 export default function AdminManagePage() {
   const { data, loading, error, refetch } = useApi(() => superAdminApi.listAdmins(), []);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; username: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -42,34 +37,11 @@ export default function AdminManagePage() {
   const [newPassword, setNewPassword] = useState("");
   const [resetting, setResetting] = useState(false);
 
-  const isFormValid = username.trim() && password.trim();
-
-  async function handleCreate(e: FormEvent) {
-    e.preventDefault();
-    if (!isFormValid) return;
-    setCreating(true);
-    try {
-      await superAdminApi.createAdmin({
-        username: username.trim(),
-        password: password.trim(),
-      });
-      toast.success("管理员已创建");
-      setDialogOpen(false);
-      setUsername("");
-      setPassword("");
-      await refetch();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "创建失败");
-    } finally {
-      setCreating(false);
-    }
-  }
-
   async function handleToggleActive(adminId: string) {
     setTogglingId(adminId);
     try {
       const updated = await superAdminApi.toggleActive(adminId);
-      toast.success(updated.is_active ? "管理员已启用" : "管理员已禁用");
+      toast.success(updated.is_active ? "教师已启用" : "教师已禁用");
       await refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "操作失败");
@@ -99,7 +71,7 @@ export default function AdminManagePage() {
     setDeleting(true);
     try {
       await superAdminApi.deleteAdmin(deleteTarget.id);
-      toast.success("管理员已删除");
+      toast.success("教师已删除");
       setDeleteTarget(null);
       await refetch();
     } catch (err) {
@@ -112,10 +84,7 @@ export default function AdminManagePage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-10 w-28" />
-        </div>
+        <Skeleton className="h-8 w-32" />
         <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     );
@@ -129,64 +98,22 @@ export default function AdminManagePage() {
 
   return (
     <div className="space-y-4 animate-fade-in-up">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold page-title-decorated">管理员管理</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="mr-2 h-4 w-4" />
-            创建管理员
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>创建管理员</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="admin-username">账号</Label>
-                <Input
-                  id="admin-username"
-                  placeholder="请输入管理员账号"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="admin-password">密码</Label>
-                <Input
-                  id="admin-password"
-                  type="password"
-                  placeholder="请输入密码"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>
-                  取消
-                </DialogClose>
-                <Button type="submit" disabled={!isFormValid || creating}>
-                  {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  创建
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <h1 className="text-2xl font-heading font-semibold page-title-decorated">教师管理</h1>
 
       {admins.length === 0 ? (
         <EmptyState
           icon={<Shield className="h-12 w-12" />}
-          title="暂无管理员"
-          description="创建第一个管理员账号"
+          title="暂无教师"
+          description="教师可通过邀请码自助注册"
         />
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">共 {admins.length} 个管理员</p>
+          <p className="text-sm text-muted-foreground">共 {admins.length} 个教师</p>
           <Table className="data-table">
             <TableHeader>
               <TableRow>
                 <TableHead>账号</TableHead>
+                <TableHead>分类</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead>班级数量</TableHead>
                 <TableHead>创建时间</TableHead>
@@ -197,6 +124,9 @@ export default function AdminManagePage() {
               {admins.map((admin) => (
                 <TableRow key={admin.id}>
                   <TableCell className="font-medium">{admin.username}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {admin.category ?? "\u2014"}
+                  </TableCell>
                   <TableCell>
                     {admin.is_active ? (
                       <Badge variant="default">启用</Badge>
@@ -253,8 +183,8 @@ export default function AdminManagePage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="删除管理员"
-        description={`确定要删除管理员「${deleteTarget?.username}」吗？将级联删除该管理员的所有班级和数据，此操作不可撤销。`}
+        title="删除教师"
+        description={`确定要删除教师「${deleteTarget?.username}」吗？将级联删除该教师的所有班级和数据，此操作不可撤销。`}
         confirmText="删除"
         onConfirm={handleDelete}
         loading={deleting}

@@ -22,6 +22,7 @@ import SharingPage from "@/pages/student/SharingPage";
 import SharingManagePage from "@/pages/admin/SharingManagePage";
 import BackupManagePage from "@/pages/admin/BackupManagePage";
 import AdminManagePage from "@/pages/super-admin/AdminManagePage";
+import InviteCodeManagePage from "@/pages/super-admin/InviteCodeManagePage";
 
 function RootRedirect() {
   const { isAuthenticated, role } = useAuth();
@@ -30,7 +31,7 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  if (role === "super_admin") return <Navigate to="/super-admin/admins" replace />;
+  if (role === "super_admin") return <Navigate to="/super-admin/teachers" replace />;
   if (role === "admin") return <Navigate to="/admin/dashboard" replace />;
   return <Navigate to="/student/tasks" replace />;
 }
@@ -91,8 +92,9 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="admins" replace />} />
-        <Route path="admins" element={<AdminManagePage />} />
+        <Route index element={<Navigate to="teachers" replace />} />
+        <Route path="teachers" element={<AdminManagePage />} />
+        <Route path="invite-codes" element={<InviteCodeManagePage />} />
       </Route>
 
       {/* Root redirect */}

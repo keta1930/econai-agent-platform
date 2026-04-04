@@ -8,7 +8,7 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { AuthLayout } from "@/components/layouts/AuthLayout";
 
 function getRedirectPath(role: string): string {
-  if (role === "super_admin") return "/super-admin/admins";
+  if (role === "super_admin") return "/super-admin/teachers";
   if (role === "admin") return "/admin/dashboard";
   return "/student/tasks";
 }
@@ -44,6 +44,7 @@ export default function LoginPage() {
       const payload = JSON.parse(atob(res.access_token.split(".")[1]));
       auth.login(
         res.access_token,
+        res.refresh_token,
         res.role,
         payload.sub,
         res.class_id ?? undefined,
@@ -71,6 +72,7 @@ export default function LoginPage() {
       const payload = JSON.parse(atob(res.access_token.split(".")[1]));
       auth.login(
         res.access_token,
+        res.refresh_token,
         res.role,
         payload.sub,
         res.class_id ?? undefined,
@@ -151,7 +153,7 @@ export default function LoginPage() {
             <input
               id="username"
               type="text"
-              placeholder="请输入学号或管理员账号"
+              placeholder="请输入学号或教师账号"
               className="auth-input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}

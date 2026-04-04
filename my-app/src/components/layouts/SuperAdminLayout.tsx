@@ -2,12 +2,13 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, LogOut, Menu } from "lucide-react";
+import { Shield, Ticket, LogOut, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const navItems = [
-  { label: "管理员管理", href: "/super-admin/admins", icon: Shield },
+  { label: "邀请码管理", href: "/super-admin/invite-codes", icon: Ticket },
+  { label: "教师管理", href: "/super-admin/teachers", icon: Shield },
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {

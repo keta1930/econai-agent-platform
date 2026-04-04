@@ -1,4 +1,4 @@
-import { createContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 type Role = "super_admin" | "admin" | "student";
@@ -13,42 +13,37 @@ interface AuthState {
 }
 
 export interface AuthContextValue extends AuthState {
-  login: (token: string, role: string, userId: string, classId?: string, className?: string) => void;
+  login: (token: string, refreshToken: string, role: string, userId: string, classId?: string, className?: string) => void;
   logout: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
-function parseToken(token: string): { sub: string; role: string; class_id: string | null; exp: number } | null {
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
 function getInitialState(): AuthState {
   const token = localStorage.getItem("token");
-  if (!token) {
+  const refreshToken = localStorage.getItem("refreshToken");
+
+  if (!token && !refreshToken) {
     return { token: null, role: null, userId: null, classId: null, className: null, isAuthenticated: false };
   }
 
-  const payload = parseToken(token);
-  if (!payload || payload.exp * 1000 < Date.now()) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("classId");
-    localStorage.removeItem("className");
-    return { token: null, role: null, userId: null, classId: null, className: null, isAuthenticated: false };
+  // If we have a refresh token, we consider the user authenticated
+  // even if the access token is expired — the client interceptor will refresh it
+  if (refreshToken) {
+    const role = localStorage.getItem("role") as Role | null;
+    const userId = localStorage.getItem("userId");
+    const classId = localStorage.getItem("classId");
+    const className = localStorage.getItem("className");
+    return { token, role, userId, classId, className, isAuthenticated: true };
   }
 
-  const role = localStorage.getItem("role") as Role | null;
-  const userId = localStorage.getItem("userId");
-  const classId = localStorage.getItem("classId");
-  const className = localStorage.getItem("className");
-  return { token, role, userId, classId, className, isAuthenticated: true };
+  // No refresh token — clear everything
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  localStorage.removeItem("userId");
+  localStorage.removeItem("classId");
+  localStorage.removeItem("className");
+  return { token: null, role: null, userId: null, classId: null, className: null, isAuthenticated: false };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -56,8 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   const login = useCallback(
-    (token: string, role: string, userId: string, classId?: string, className?: string) => {
+    (token: string, refreshToken: string, role: string, userId: string, classId?: string, className?: string) => {
       localStorage.setItem("token", token);
+      localStorage.setItem("refreshToken", refreshToken);
       localStorage.setItem("role", role);
       localStorage.setItem("userId", String(userId));
       if (classId !== undefined) {
@@ -83,7 +79,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    // Best-effort server-side logout — don't block on failure
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (refreshToken) {
+      fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }).catch(() => {});
+    }
+
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     localStorage.removeItem("role");
     localStorage.removeItem("userId");
     localStorage.removeItem("classId");
@@ -92,23 +99,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ token: null, role: null, userId: null, classId: null, className: null, isAuthenticated: false });
     navigate("/login");
   }, [navigate]);
-
-  // Check token expiry periodically
-  useEffect(() => {
-    if (!state.token) return;
-
-    const payload = parseToken(state.token);
-    if (!payload) return;
-
-    const msUntilExpiry = payload.exp * 1000 - Date.now();
-    if (msUntilExpiry <= 0) {
-      logout();
-      return;
-    }
-
-    const timer = setTimeout(logout, msUntilExpiry);
-    return () => clearTimeout(timer);
-  }, [state.token, logout]);
 
   return (
     <AuthContext value={{ ...state, login, logout }}>
