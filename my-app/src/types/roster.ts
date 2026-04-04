@@ -1,11 +1,19 @@
-export interface RosterItem {
+export interface ExpectedRosterItem {
   student_id: string;
-  registered: boolean;
+  matched: boolean;
+}
+
+export interface ActualRosterItem {
+  user_id: string;
+  student_id: string;
+  display_name: string | null;
+  college: string | null;
+  joined_at: string;
 }
 
 export interface RosterListResponse {
-  items: RosterItem[];
-  total: number;
+  expected: ExpectedRosterItem[];
+  actual: ActualRosterItem[];
 }
 
 export interface RosterBatchResponse {

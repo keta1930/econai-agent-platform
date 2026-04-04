@@ -1,6 +1,7 @@
 export interface ClassInfo {
   id: string;
   name: string;
+  join_token: string;
   student_count: number;
   created_at: string;
 }

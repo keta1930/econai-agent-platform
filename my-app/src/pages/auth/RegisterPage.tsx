@@ -8,30 +8,34 @@ import { cn } from "@/lib/utils";
 
 type TabType = "student" | "teacher";
 
+const COLLEGES = [
+  { value: "lingnan" as const, label: "岭南学院" },
+  { value: "physics" as const, label: "物理学院" },
+];
+
 function StudentForm() {
-  const [adminName, setAdminName] = useState("");
-  const [className, setClassName] = useState("");
   const [studentId, setStudentId] = useState("");
+  const [college, setCollege] = useState<"lingnan" | "physics" | "">("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const isFormValid = adminName.trim() && className.trim() && studentId.trim() && password;
+  const isFormValid = studentId.trim() && college && password;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!college) return;
     setError("");
     setLoading(true);
 
     try {
       await authApi.register({
-        admin_name: adminName.trim(),
-        class_name: className.trim(),
         student_id: studentId.trim(),
+        college,
         password,
       });
-      toast.success("注册成功，请登录");
+      toast.success("注册成功，请登录后加入班级");
       navigate("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "注册失败");
@@ -42,34 +46,6 @@ function StudentForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="space-y-1.5">
-        <label htmlFor="adminName" className="auth-label">
-          教师名称
-        </label>
-        <input
-          id="adminName"
-          type="text"
-          placeholder="请输入教师名称"
-          className="auth-input"
-          value={adminName}
-          onChange={(e) => setAdminName(e.target.value)}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <label htmlFor="className" className="auth-label">
-          班级名称
-        </label>
-        <input
-          id="className"
-          type="text"
-          placeholder="请输入班级名称"
-          className="auth-input"
-          value={className}
-          onChange={(e) => setClassName(e.target.value)}
-        />
-      </div>
-
       <div className="space-y-1.5">
         <label htmlFor="studentId" className="auth-label">
           学号
@@ -82,6 +58,27 @@ function StudentForm() {
           value={studentId}
           onChange={(e) => setStudentId(e.target.value)}
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <label htmlFor="college" className="auth-label">
+          学院
+        </label>
+        <select
+          id="college"
+          className="auth-input"
+          value={college}
+          onChange={(e) => setCollege(e.target.value as "lingnan" | "physics" | "")}
+        >
+          <option value="" disabled>
+            请选择学院
+          </option>
+          {COLLEGES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="space-y-1.5">
@@ -98,9 +95,7 @@ function StudentForm() {
         />
       </div>
 
-      {error && (
-        <p className="text-sm text-[var(--danger)]">{error}</p>
-      )}
+      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
       <button
         type="submit"
@@ -188,9 +183,7 @@ function TeacherForm() {
         />
       </div>
 
-      {error && (
-        <p className="text-sm text-[var(--danger)]">{error}</p>
-      )}
+      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
       <button
         type="submit"

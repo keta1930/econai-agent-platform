@@ -27,7 +27,12 @@ import { classesApi } from "@/api/classes";
 import { useClassContext } from "@/contexts/ClassContext";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
-import { Loader2, Plus, Trash2, School } from "lucide-react";
+import { Loader2, Plus, Trash2, School, Copy, RefreshCw } from "lucide-react";
+
+function maskToken(token: string): string {
+  if (token.length <= 8) return token;
+  return token.slice(0, 4) + "..." + token.slice(-4);
+}
 
 export default function ClassManagePage() {
   const { data, loading, error, refetch } = useApi(() => classesApi.list(), []);
@@ -37,6 +42,8 @@ export default function ClassManagePage() {
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [regenerateTarget, setRegenerateTarget] = useState<{ id: string; name: string } | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -69,6 +76,30 @@ export default function ClassManagePage() {
       toast.error(err instanceof Error ? err.message : "删除失败");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleRegenerateToken() {
+    if (!regenerateTarget) return;
+    setRegenerating(true);
+    try {
+      await classesApi.regenerateToken(regenerateTarget.id);
+      toast.success("Token 已重新生成");
+      setRegenerateTarget(null);
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "重新生成失败");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  async function copyToken(token: string) {
+    try {
+      await navigator.clipboard.writeText(token);
+      toast.success("Token 已复制");
+    } catch {
+      toast.error("复制失败");
     }
   }
 
@@ -140,6 +171,7 @@ export default function ClassManagePage() {
             <TableHeader>
               <TableRow>
                 <TableHead>班级名称</TableHead>
+                <TableHead>加入 Token</TableHead>
                 <TableHead>学生数</TableHead>
                 <TableHead>创建时间</TableHead>
                 <TableHead className="text-right">操作</TableHead>
@@ -149,6 +181,31 @@ export default function ClassManagePage() {
               {classes.map((cls) => (
                 <TableRow key={cls.id}>
                   <TableCell className="font-medium">{cls.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                        {maskToken(cls.join_token)}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => copyToken(cls.join_token)}
+                        title="复制 Token"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setRegenerateTarget({ id: cls.id, name: cls.name })}
+                        title="重新生成 Token"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {cls.student_count}
                   </TableCell>
@@ -180,6 +237,16 @@ export default function ClassManagePage() {
         confirmText="删除"
         onConfirm={handleDelete}
         loading={deleting}
+      />
+
+      <ConfirmDialog
+        open={!!regenerateTarget}
+        onOpenChange={(open) => !open && setRegenerateTarget(null)}
+        title="重新生成 Token"
+        description={`确定要重新生成班级「${regenerateTarget?.name}」的加入 Token 吗？旧 Token 将立即失效。`}
+        confirmText="重新生成"
+        onConfirm={handleRegenerateToken}
+        loading={regenerating}
       />
     </div>
   );

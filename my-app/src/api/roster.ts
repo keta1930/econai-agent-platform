@@ -12,4 +12,11 @@ export const rosterApi = {
     }),
   delete: (classId: string, studentId: string) =>
     api.delete<void>(`/admin/classes/${classId}/roster/${studentId}`),
+  resetPassword: (classId: string, userId: string, newPassword: string) =>
+    api.post<void>(`/admin/classes/${classId}/roster/reset-password`, {
+      user_id: userId,
+      new_password: newPassword,
+    }),
+  removeMember: (classId: string, userId: string) =>
+    api.delete<void>(`/admin/classes/${classId}/members/${userId}`),
 };

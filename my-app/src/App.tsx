@@ -19,6 +19,7 @@ import SubmissionDetailPage from "@/pages/admin/SubmissionDetailPage";
 import RosterPage from "@/pages/admin/RosterPage";
 import ModelsPage from "@/pages/admin/ModelsPage";
 import SharingPage from "@/pages/student/SharingPage";
+import JoinClassPage from "@/pages/student/JoinClassPage";
 import SharingManagePage from "@/pages/admin/SharingManagePage";
 import BackupManagePage from "@/pages/admin/BackupManagePage";
 import AdminManagePage from "@/pages/super-admin/AdminManagePage";
@@ -42,6 +43,16 @@ export default function App() {
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+
+      {/* Student join-class (standalone, no full layout needed) */}
+      <Route
+        path="/student/join-class"
+        element={
+          <RequireAuth role="student">
+            <JoinClassPage />
+          </RequireAuth>
+        }
+      />
 
       {/* Student routes */}
       <Route

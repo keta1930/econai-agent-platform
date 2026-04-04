@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { authApi } from "@/api/auth";
 import { useAuth } from "@/hooks/useAuth";
-import { isClassSelection } from "@/types/auth";
+import { isClassSelection, isJoinClassRequired } from "@/types/auth";
 import type { ClassOption } from "@/types/auth";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { AuthLayout } from "@/components/layouts/AuthLayout";
@@ -24,8 +24,9 @@ export default function LoginPage() {
   // Class selection state
   const [classOptions, setClassOptions] = useState<ClassOption[] | null>(null);
 
-  if (auth.isAuthenticated) {
-    return <Navigate to={getRedirectPath(auth.role!)} replace />;
+  // Only redirect if we have a valid session (role must exist)
+  if (auth.isAuthenticated && auth.role && !classOptions) {
+    return <Navigate to={getRedirectPath(auth.role)} replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -36,7 +37,28 @@ export default function LoginPage() {
     try {
       const res = await authApi.login({ username, password });
 
+      if (isJoinClassRequired(res)) {
+        // Login with no class — student can join a class from the student dashboard
+        const tempPayload = JSON.parse(atob(res.temp_access_token.split(".")[1]));
+        auth.login(
+          res.temp_access_token,
+          res.temp_refresh_token,
+          "student",
+          tempPayload.sub,
+        );
+        navigate("/student/tasks", { replace: true });
+        return;
+      }
+
       if (isClassSelection(res)) {
+        // Store temp tokens for Bearer auth on select-class
+        const tempPayload = JSON.parse(atob(res.temp_access_token.split(".")[1]));
+        auth.login(
+          res.temp_access_token,
+          res.temp_refresh_token,
+          "student",
+          tempPayload.sub,
+        );
         setClassOptions(res.classes);
         return;
       }
@@ -64,8 +86,6 @@ export default function LoginPage() {
 
     try {
       const res = await authApi.selectClass({
-        username,
-        password,
         class_id: option.class_id,
       });
 
@@ -191,15 +211,20 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-5 text-center text-[13px] text-[var(--muted-foreground)]">
-          还没有账号？{" "}
-          <Link
-            to="/register"
-            className="text-[var(--cyan-mid)] hover:text-[var(--cyan-light)] hover:underline transition-colors"
-          >
-            注册
-          </Link>
-        </p>
+        <div className="mt-5 space-y-2 text-center">
+          <p className="text-[13px] text-[var(--muted-foreground)]">
+            忘记密码？请联系您的任课老师重置密码
+          </p>
+          <p className="text-[13px] text-[var(--muted-foreground)]">
+            还没有账号？{" "}
+            <Link
+              to="/register"
+              className="text-[var(--cyan-mid)] hover:text-[var(--cyan-light)] hover:underline transition-colors"
+            >
+              注册
+            </Link>
+          </p>
+        </div>
       </div>
     </AuthLayout>
   );
