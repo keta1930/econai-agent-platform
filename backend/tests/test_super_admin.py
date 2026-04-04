@@ -1,17 +1,17 @@
-"""Tests for super admin operations (10 cases)."""
+"""Tests for super admin operations."""
 
 import uuid
 
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import auth_header
+from tests.conftest import auth_header, _login_full
 
 
 async def test_super_admin_list_admins(
     client: AsyncClient, super_admin_token: str, admin_token: str
 ):
-    """#26 — List all admins with class counts."""
+    """#26 — List all admins with class counts and category."""
     resp = await client.get(
         "/api/super-admin/admins",
         headers=auth_header(super_admin_token),
@@ -23,52 +23,37 @@ async def test_super_admin_list_admins(
     assert "username" in item
     assert "is_active" in item
     assert "class_count" in item
-
-
-async def test_super_admin_create_admin(
-    client: AsyncClient, super_admin_token: str
-):
-    """#27 — Create a new admin."""
-    resp = await client.post(
-        "/api/super-admin/admins",
-        json={"username": "newadmin", "password": "newpass"},
-        headers=auth_header(super_admin_token),
-    )
-    assert resp.status_code == 201
-    data = resp.json()
-    assert data["username"] == "newadmin"
-    assert data["role"] == "admin"
-
-
-async def test_super_admin_create_admin_duplicate(
-    client: AsyncClient, super_admin_token: str, admin_token: str
-):
-    """#28 — Duplicate admin username."""
-    resp = await client.post(
-        "/api/super-admin/admins",
-        json={"username": "testadmin", "password": "x"},
-        headers=auth_header(super_admin_token),
-    )
-    assert resp.status_code == 400
-    assert "该账号已存在" in resp.json()["detail"]
+    assert "category" in item
 
 
 async def test_super_admin_toggle_admin_active(
     client: AsyncClient, super_admin_token: str, admin_token: str
 ):
-    """#29 — Toggle admin active status."""
+    """#29 — Toggle admin active status; disabling revokes refresh tokens."""
+    # Login to get refresh token
+    login_data = await _login_full(client, "testadmin", "adminpass")
+    refresh_token = login_data["refresh_token"]
+
     resp = await client.get(
         "/api/super-admin/admins",
         headers=auth_header(super_admin_token),
     )
     admin_id = resp.json()["items"][0]["id"]
 
+    # Disable
     resp = await client.put(
         f"/api/super-admin/admins/{admin_id}/toggle-active",
         headers=auth_header(super_admin_token),
     )
     assert resp.status_code == 200
     assert resp.json()["is_active"] is False
+
+    # Verify refresh token was revoked
+    resp = await client.post(
+        "/api/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert resp.status_code == 401
 
     # Toggle back
     resp = await client.put(
@@ -161,7 +146,6 @@ async def test_super_admin_delete_nonexistent_admin(
     assert resp.status_code == 404
 
 
-@pytest.mark.xfail(reason="功能未实现: 超级管理员重置老师密码")
 async def test_super_admin_reset_admin_password(
     client: AsyncClient, super_admin_token: str, admin_token: str
 ):

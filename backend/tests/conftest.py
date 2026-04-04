@@ -71,6 +71,8 @@ from models.submission import Submission  # noqa: E402,F401
 from models.sharing import SharingTopic, TopicVote  # noqa: E402,F401
 from models.model_config import ModelConfig  # noqa: E402,F401
 from models.backup import Backup  # noqa: E402,F401
+from models.invite_code import InviteCode  # noqa: E402,F401
+from models.refresh_token import RefreshToken  # noqa: E402,F401
 
 
 @pytest_asyncio.fixture
@@ -156,6 +158,15 @@ async def _login(client: AsyncClient, username: str, password: str) -> str:
     return resp.json()["access_token"]
 
 
+async def _login_full(client: AsyncClient, username: str, password: str) -> dict:
+    """Log in via the API and return the full response body."""
+    resp = await client.post(
+        "/api/auth/login", json={"username": username, "password": password}
+    )
+    assert resp.status_code == 200
+    return resp.json()
+
+
 # ---------------------------------------------------------------------------
 # Role-specific fixtures
 # ---------------------------------------------------------------------------
@@ -173,15 +184,41 @@ async def super_admin_token(client: AsyncClient, db_session: AsyncSession) -> st
     return await _login(client, "superadmin", "superpass")
 
 
-@pytest_asyncio.fixture
-async def admin_token(client: AsyncClient, super_admin_token: str) -> str:
-    """Create an admin via the super_admin API and return its JWT token."""
+async def _create_invite_code(
+    client: AsyncClient, super_admin_token: str, category: str = "默认分类"
+) -> str:
+    """Create an invite code via API and return the plaintext code."""
     resp = await client.post(
-        "/api/super-admin/admins",
-        json={"username": "testadmin", "password": "adminpass"},
+        "/api/super-admin/invite-codes",
+        json={"category": category},
         headers=auth_header(super_admin_token),
     )
     assert resp.status_code == 201
+    return resp.json()["code"]
+
+
+async def _register_teacher(
+    client: AsyncClient, invite_code: str, username: str, password: str
+) -> None:
+    """Register a teacher via invite code."""
+    resp = await client.post(
+        "/api/auth/register-teacher",
+        json={
+            "invite_code": invite_code,
+            "username": username,
+            "password": password,
+        },
+    )
+    assert resp.status_code == 201
+
+
+@pytest_asyncio.fixture
+async def admin_token(
+    client: AsyncClient, super_admin_token: str
+) -> str:
+    """Create an admin via invite code registration and return its JWT token."""
+    code = await _create_invite_code(client, super_admin_token)
+    await _register_teacher(client, code, "testadmin", "adminpass")
     return await _login(client, "testadmin", "adminpass")
 
 
@@ -236,13 +273,9 @@ async def student_token(
 async def another_admin_token(
     client: AsyncClient, super_admin_token: str
 ) -> str:
-    """Create a second admin and return its JWT token."""
-    resp = await client.post(
-        "/api/super-admin/admins",
-        json={"username": "otheradmin", "password": "otherpass"},
-        headers=auth_header(super_admin_token),
-    )
-    assert resp.status_code == 201
+    """Create a second admin via invite code registration and return its JWT token."""
+    code = await _create_invite_code(client, super_admin_token, "其他分类")
+    await _register_teacher(client, code, "otheradmin", "otherpass")
     return await _login(client, "otheradmin", "otherpass")
 
 

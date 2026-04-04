@@ -200,6 +200,7 @@ async def test_login_admin_success(client: AsyncClient, admin_token: str):
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
+    assert "refresh_token" in data
     assert data["role"] == "admin"
 
 
@@ -215,6 +216,7 @@ async def test_login_super_admin_success(
     data = resp.json()
     assert data["role"] == "super_admin"
     assert "access_token" in data
+    assert "refresh_token" in data
 
 
 async def test_login_student_single_class(
@@ -228,6 +230,7 @@ async def test_login_student_single_class(
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
+    assert "refresh_token" in data
     assert data["class_id"] is not None
     assert data["class_name"] is not None
 
@@ -306,7 +309,14 @@ async def test_login_disabled_admin(
     admin_token: str,
     db_session,
 ):
-    """#14 — Disabled admin cannot use token on protected endpoints."""
+    """#14 — Disabled admin: access token still works, refresh is rejected."""
+    # Login to get refresh token
+    login_resp = await client.post(
+        "/api/auth/login",
+        json={"username": "testadmin", "password": "adminpass"},
+    )
+    refresh_token = login_resp.json()["refresh_token"]
+
     # Get admin id
     resp = await client.get(
         "/api/super-admin/admins",
@@ -320,13 +330,19 @@ async def test_login_disabled_admin(
         headers=auth_header(super_admin_token),
     )
 
-    # Try to use admin token
+    # Access token still works (stateless, within validity period)
     resp = await client.get(
         "/api/admin/classes",
         headers=auth_header(admin_token),
     )
-    assert resp.status_code == 403
-    assert "账号已被禁用" in resp.json()["detail"]
+    assert resp.status_code == 200
+
+    # But refresh token is rejected (all tokens revoked on disable)
+    resp = await client.post(
+        "/api/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert resp.status_code == 401
 
 
 # ============================================================================
@@ -455,12 +471,19 @@ async def test_admin_cannot_access_student_endpoint(
     assert "需要学生权限" in resp.json()["detail"]
 
 
-async def test_disabled_user_token_rejected(
+async def test_disabled_user_access_token_still_works(
     client: AsyncClient,
     super_admin_token: str,
     admin_token: str,
 ):
-    """#22 — Disabled user's valid token is rejected."""
+    """#22 — Disabled user's access token still works (stateless), but refresh fails."""
+    # Login to get refresh token
+    login_resp = await client.post(
+        "/api/auth/login",
+        json={"username": "testadmin", "password": "adminpass"},
+    )
+    refresh_token = login_resp.json()["refresh_token"]
+
     resp = await client.get(
         "/api/super-admin/admins",
         headers=auth_header(super_admin_token),
@@ -472,12 +495,19 @@ async def test_disabled_user_token_rejected(
         headers=auth_header(super_admin_token),
     )
 
+    # Access token still valid (design: stateless, expires naturally)
     resp = await client.get(
         "/api/admin/classes",
         headers=auth_header(admin_token),
     )
-    assert resp.status_code == 403
-    assert "账号已被禁用" in resp.json()["detail"]
+    assert resp.status_code == 200
+
+    # Refresh is rejected because all refresh tokens were revoked
+    resp = await client.post(
+        "/api/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert resp.status_code == 401
 
 
 # ============================================================================
