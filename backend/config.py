@@ -10,7 +10,8 @@ PORT: int = int(os.getenv("PORT", "25002"))
 ENV: str = os.getenv("ENV", "development")
 _DEFAULT_SECRET_KEY = "hw-grading-secret-key-change-in-production"
 SECRET_KEY: str = os.getenv("SECRET_KEY", _DEFAULT_SECRET_KEY)
-TOKEN_EXPIRE_HOURS: int = int(os.getenv("TOKEN_EXPIRE_HOURS", "24"))
+ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "3"))
+REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 # PostgreSQL
 DB_HOST: str = os.getenv("DB_HOST", "localhost")

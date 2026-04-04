@@ -1,21 +1,26 @@
 import uuid
+from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
-from models.user import User
 from auth.jwt import decode_access_token
 
 bearer_scheme = HTTPBearer()
 
 
+@dataclass(frozen=True, slots=True)
+class TokenPayload:
+    """Identity extracted from a JWT access token. No database query."""
+
+    id: uuid.UUID
+    role: str
+    class_id: uuid.UUID | None
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: AsyncSession = Depends(get_db),
-) -> User:
+) -> TokenPayload:
     try:
         payload = decode_access_token(credentials.credentials)
     except Exception:
@@ -31,22 +36,14 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="无效的认证凭证",
         )
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在",
-        )
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="账号已被禁用",
-        )
-    return user
+
+    class_id_raw = payload.get("class_id")
+    class_id = uuid.UUID(class_id_raw) if class_id_raw else None
+
+    return TokenPayload(id=user_id, role=payload.get("role", ""), class_id=class_id)
 
 
-def require_admin(user: User = Depends(get_current_user)) -> User:
+def require_admin(user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
     if user.role not in ("admin", "super_admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -55,7 +52,7 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-def require_student(user: User = Depends(get_current_user)) -> User:
+def require_student(user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
     if user.role != "student":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -64,7 +61,7 @@ def require_student(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-def require_super_admin(user: User = Depends(get_current_user)) -> User:
+def require_super_admin(user: TokenPayload = Depends(get_current_user)) -> TokenPayload:
     if user.role != "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

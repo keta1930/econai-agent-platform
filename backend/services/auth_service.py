@@ -1,14 +1,19 @@
 import asyncio
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.user import User
 from models.class_ import Class
+from models.invite_code import InviteCode
 from models.roster import StudentRoster
+from models.refresh_token import RefreshToken
+from auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
+from config import REFRESH_TOKEN_EXPIRE_DAYS
 
 
 def hash_password(password: str) -> str:
@@ -177,4 +182,163 @@ async def authenticate_user_with_class(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
         )
+    return user
+
+
+# ---------------------------------------------------------------------------
+# Refresh token management
+# ---------------------------------------------------------------------------
+
+
+async def create_refresh_token_record(db: AsyncSession, user_id: uuid.UUID) -> str:
+    """Generate a refresh token, store its hash, and return the raw token."""
+    raw_token, token_hash = create_refresh_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+
+    record = RefreshToken(
+        user_id=user_id,
+        token_hash=token_hash,
+        expires_at=expires_at,
+    )
+    db.add(record)
+    await db.flush()
+    return raw_token
+
+
+async def refresh_access_token(db: AsyncSession, refresh_token_plain: str) -> str:
+    """Validate a refresh token and issue a new access token.
+
+    Also cleans up expired tokens for the same user.
+    """
+    token_hash = hash_refresh_token(refresh_token_plain)
+    result = await db.execute(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="refresh token 无效",
+        )
+
+    now = datetime.now(timezone.utc)
+    if record.expires_at < now:
+        await db.delete(record)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="refresh token 已过期",
+        )
+
+    # Check user is_active
+    user_result = await db.execute(
+        select(User).where(User.id == record.user_id)
+    )
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户不存在",
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="账号已被禁用",
+        )
+
+    # Issue new access token from current user data
+    access_token = create_access_token(
+        sub=user.id, role=user.role, class_id=user.class_id
+    )
+
+    # Clean up expired tokens for this user
+    await db.execute(
+        delete(RefreshToken).where(
+            RefreshToken.user_id == record.user_id,
+            RefreshToken.expires_at < now,
+        )
+    )
+    await db.commit()
+
+    return access_token
+
+
+async def revoke_refresh_token(db: AsyncSession, refresh_token_plain: str) -> None:
+    """Delete a specific refresh token record."""
+    token_hash = hash_refresh_token(refresh_token_plain)
+    await db.execute(
+        delete(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    await db.commit()
+
+
+async def revoke_all_user_tokens(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Delete all refresh tokens for a user."""
+    await db.execute(
+        delete(RefreshToken).where(RefreshToken.user_id == user_id)
+    )
+    await db.flush()
+
+
+# ---------------------------------------------------------------------------
+# Teacher registration via invite code
+# ---------------------------------------------------------------------------
+
+
+async def register_teacher(
+    db: AsyncSession,
+    invite_code: str,
+    username: str,
+    password: str,
+) -> User:
+    """Register a teacher using an invite code.
+
+    Finds the invite code by prefix match + bcrypt verification,
+    checks username uniqueness among admins/super_admins, then creates
+    the user with role=admin.
+    """
+    prefix = invite_code[:8]
+    result = await db.execute(
+        select(InviteCode).where(InviteCode.code_prefix == prefix)
+    )
+    candidates = result.scalars().all()
+
+    matched_invite: InviteCode | None = None
+    for candidate in candidates:
+        valid = await asyncio.to_thread(
+            verify_password, invite_code, candidate.code_hash
+        )
+        if valid:
+            matched_invite = candidate
+            break
+
+    if not matched_invite:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="邀请码无效",
+        )
+
+    # Check username uniqueness among admins and super_admins
+    existing = await db.execute(
+        select(User).where(
+            User.username == username,
+            User.role.in_(("admin", "super_admin")),
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户名已存在，请联系管理员。",
+        )
+
+    pw_hash = await asyncio.to_thread(hash_password, password)
+    user = User(
+        username=username,
+        password_hash=pw_hash,
+        role="admin",
+        invite_code_id=matched_invite.id,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
     return user
