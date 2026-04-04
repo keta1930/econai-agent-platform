@@ -14,3 +14,6 @@ python-dotenv
 minio
 pgvector
 uuid_utils
+pytest
+pytest-asyncio
+httpx
