@@ -4,7 +4,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { authApi } from "@/api/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Loader2, ChevronDown, KeyRound, ArrowLeftRight } from "lucide-react";
+import {
+  Loader2, ClipboardList, BarChart3, Share2,
+  UserPlus, ArrowLeftRight, KeyRound, LogOut, Menu,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -16,13 +19,25 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import type { MyClassItem } from "@/types/auth";
 
-const navItems = [
-  { label: "任务列表", href: "/student/tasks" },
-  { label: "我的成绩", href: "/student/grades" },
-  { label: "课程分享", href: "/student/sharing" },
-  { label: "加入班级", href: "/student/join-class" },
+interface NavItem {
+  label: string;
+  href: string;
+  icon: typeof ClipboardList;
+}
+
+interface ActionItem {
+  label: string;
+  icon: typeof ClipboardList;
+  onClick: () => void;
+}
+
+const learningNav: NavItem[] = [
+  { label: "任务列表", href: "/student/tasks", icon: ClipboardList },
+  { label: "我的成绩", href: "/student/grades", icon: BarChart3 },
+  { label: "课程分享", href: "/student/sharing", icon: Share2 },
 ];
 
 function ProfileDialog({
@@ -171,6 +186,90 @@ function ChangePasswordDialog({
   );
 }
 
+function JoinClassDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const auth = useAuth();
+  const [joinToken, setJoinToken] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  function handleClose() {
+    setJoinToken("");
+    setError("");
+    onOpenChange(false);
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!joinToken.trim()) return;
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await authApi.joinClass({ join_token: joinToken.trim() });
+
+      const payload = JSON.parse(atob(res.access_token.split(".")[1]));
+      auth.login(
+        res.access_token,
+        res.refresh_token,
+        "student",
+        payload.sub,
+        res.class_id,
+        res.class_name,
+      );
+      toast.success(`已加入班级「${res.class_name}」`);
+      handleClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加入失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>加入班级</DialogTitle>
+          <DialogDescription>
+            请输入老师提供的班级 Token 加入班级
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="join-token">班级 Token</Label>
+            <Input
+              id="join-token"
+              placeholder="请输入班级 Token"
+              value={joinToken}
+              onChange={(e) => setJoinToken(e.target.value)}
+              autoFocus
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={handleClose}>
+              取消
+            </Button>
+            <Button
+              type="submit"
+              disabled={!joinToken.trim() || loading}
+            >
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              加入班级
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SwitchClassDialog({
   open,
   onOpenChange,
@@ -260,14 +359,145 @@ function SwitchClassDialog({
   );
 }
 
+function NavSection({
+  label,
+  items,
+  onNavigate,
+}: {
+  label: string;
+  items: NavItem[];
+  onNavigate?: () => void;
+}) {
+  const location = useLocation();
+
+  return (
+    <>
+      <div className="px-6 pt-3 pb-2 text-[10px] font-semibold text-[var(--text-on-dark-secondary)] tracking-[3px] uppercase">
+        {label}
+      </div>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const isActive = location.pathname.startsWith(item.href);
+        return (
+          <Link
+            key={item.href}
+            to={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 border-l-2 px-6 py-2.5 text-[13px] transition-colors",
+              isActive
+                ? "text-gold bg-[rgba(201,169,110,0.06)] border-l-gold"
+                : "border-l-transparent text-[var(--text-on-dark-secondary)] hover:text-[var(--text-on-dark)] hover:bg-[var(--ink-mid)]",
+            )}
+          >
+            <Icon className="h-[18px] w-[18px] opacity-70" />
+            {item.label}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
+function ActionSection({
+  label,
+  items,
+  onNavigate,
+}: {
+  label: string;
+  items: ActionItem[];
+  onNavigate?: () => void;
+}) {
+  return (
+    <>
+      <div className="px-6 pt-3 pb-2 text-[10px] font-semibold text-[var(--text-on-dark-secondary)] tracking-[3px] uppercase">
+        {label}
+      </div>
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => {
+              onNavigate?.();
+              item.onClick();
+            }}
+            className="flex w-full items-center gap-3 border-l-2 border-l-transparent px-6 py-2.5 text-[13px] text-[var(--text-on-dark-secondary)] transition-colors hover:text-[var(--text-on-dark)] hover:bg-[var(--ink-mid)]"
+          >
+            <Icon className="h-[18px] w-[18px] opacity-70" />
+            {item.label}
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+function SidebarContent({
+  onNavigate,
+  classActions,
+  accountActions,
+  logout,
+}: {
+  onNavigate?: () => void;
+  classActions: ActionItem[];
+  accountActions: ActionItem[];
+  logout: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col pt-6">
+      {/* Brand area */}
+      <div className="px-6 pb-6 border-b border-[var(--ink-mid)] mb-4">
+        <span className="font-heading text-base font-semibold text-gold tracking-[2px]">
+          智能体课程
+        </span>
+        <p className="text-[11px] text-[var(--text-on-dark-secondary)] mt-1 tracking-[1px]">
+          学生学习平台
+        </p>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1">
+        <NavSection label="学 习" items={learningNav} onNavigate={onNavigate} />
+        <ActionSection label="班 级" items={classActions} onNavigate={onNavigate} />
+        <ActionSection label="账 号" items={accountActions} onNavigate={onNavigate} />
+      </nav>
+
+      {/* Footer logout */}
+      <div className="border-t border-[var(--ink-mid)] px-6 py-4">
+        <button
+          onClick={() => {
+            onNavigate?.();
+            logout();
+          }}
+          className="flex items-center gap-3 text-[13px] text-[var(--text-on-dark-secondary)] hover:text-[var(--text-on-dark)] transition-colors"
+        >
+          <LogOut className="h-[18px] w-[18px] opacity-70" />
+          登出
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function StudentLayout() {
   const { logout, className: currentClassName, classId } = useAuth();
-  const location = useLocation();
 
   const [needsProfile, setNeedsProfile] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showClassDialog, setShowClassDialog] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const classActions: ActionItem[] = [
+    { label: "加入班级", icon: UserPlus, onClick: () => setShowJoinDialog(true) },
+    { label: "切换班级", icon: ArrowLeftRight, onClick: () => setShowClassDialog(true) },
+  ];
+
+  const accountActions: ActionItem[] = [
+    { label: "修改密码", icon: KeyRound, onClick: () => setShowPasswordDialog(true) },
+  ];
 
   // Check if display_name needs to be filled by decoding the JWT
   useEffect(() => {
@@ -290,108 +520,47 @@ export function StudentLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 flex h-14 items-center border-b border-[var(--paper-border)] bg-white px-4 md:px-8">
-        {/* Brand */}
-        <Link
-          to="/student/tasks"
-          className="mr-10 flex items-center gap-2 font-heading text-[15px] font-semibold text-[var(--ink-deep)]"
-        >
-          <span className="flex h-6 w-6 items-center justify-center rounded-sm border-[1.5px] border-gold font-heading text-xs font-bold text-gold -rotate-[3deg]">
-            学
-          </span>
-          <span className="hidden sm:inline">智能体课程平台</span>
-        </Link>
-
-        {/* Nav items */}
-        <nav className="flex items-center gap-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={cn(
-                  "rounded-lg px-4 py-2 text-[13px] font-medium transition-colors",
-                  isActive
-                    ? "bg-[rgba(201,169,110,0.15)] text-[var(--ink-deep)]"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Right section: class name + user menu */}
-        <div className="ml-auto flex items-center gap-2">
-          {/* Class indicator */}
-          {currentClassName && (
-            <button
-              type="button"
-              onClick={() => setShowClassDialog(true)}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium text-[var(--ink-deep)] transition-colors hover:bg-muted"
-              title="切换班级"
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5 text-muted-foreground" />
-              {currentClassName}
-            </button>
-          )}
-
-          {/* User menu dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              更多
-              <ChevronDown
-                className={cn(
-                  "h-3.5 w-3.5 transition-transform",
-                  menuOpen && "rotate-180",
-                )}
-              />
-            </button>
-            {menuOpen && (
-              <>
-                {/* Click-away backdrop */}
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-border bg-white py-1 shadow-lg">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-foreground transition-colors hover:bg-muted"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setShowPasswordDialog(true);
-                    }}
-                  >
-                    <KeyRound className="h-3.5 w-3.5" />
-                    修改密码
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-destructive transition-colors hover:bg-muted"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      logout();
-                    }}
-                  >
-                    登出
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+      {/* Mobile header */}
+      <header className="sticky top-0 z-40 flex h-14 items-center border-b border-[var(--paper-border)] bg-background/95 backdrop-blur px-4 lg:hidden">
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetTrigger
+            render={<Button variant="ghost" size="icon" />}
+          >
+            <Menu className="h-5 w-5" />
+          </SheetTrigger>
+          <SheetContent side="left" className="w-60 p-0 bg-[var(--ink-deep)]">
+            <SheetTitle className="sr-only">导航菜单</SheetTitle>
+            <SidebarContent
+              onNavigate={() => setSheetOpen(false)}
+              classActions={classActions}
+              accountActions={accountActions}
+              logout={logout}
+            />
+          </SheetContent>
+        </Sheet>
+        <span className="ml-3 font-heading font-semibold text-primary tracking-[2px]">智能体课程</span>
+        {currentClassName && (
+          <span className="ml-auto text-[13px] text-muted-foreground">{currentClassName}</span>
+        )}
       </header>
 
-      <main className="mx-auto max-w-[720px] px-6 py-12">
-        <Outlet />
-      </main>
+      <div className="flex">
+        {/* Desktop sidebar */}
+        <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0 border-r border-[var(--ink-mid)] bg-[var(--ink-deep)]">
+          <SidebarContent
+            classActions={classActions}
+            accountActions={accountActions}
+            logout={logout}
+          />
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 lg:ml-60">
+          <div className="min-w-0 px-6 py-8 lg:px-12 lg:py-12">
+            <Outlet />
+          </div>
+        </main>
+      </div>
 
       {/* Profile completion (non-dismissible) */}
       <ProfileDialog open={needsProfile} onComplete={handleProfileComplete} />
@@ -407,6 +576,12 @@ export function StudentLayout() {
         open={showClassDialog}
         onOpenChange={setShowClassDialog}
         currentClassId={classId}
+      />
+
+      {/* Join class */}
+      <JoinClassDialog
+        open={showJoinDialog}
+        onOpenChange={setShowJoinDialog}
       />
     </div>
   );
