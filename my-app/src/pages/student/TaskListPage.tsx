@@ -41,7 +41,7 @@ export default function TaskListPage() {
     );
   }
 
-  const submissionMap = new Map<number, string>();
+  const submissionMap = new Map<string, string>();
   if (subsData?.items) {
     for (const sub of subsData.items) {
       if (!submissionMap.has(sub.task_id)) {

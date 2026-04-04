@@ -35,7 +35,7 @@ export default function GradesPage() {
 
   const allSubmissions = data?.items ?? [];
   const submissions = (() => {
-    const seen = new Set<number>();
+    const seen = new Set<string>();
     return allSubmissions.filter((sub) => {
       if (seen.has(sub.task_id)) return false;
       seen.add(sub.task_id);
@@ -43,7 +43,7 @@ export default function GradesPage() {
     });
   })();
 
-  const versionCountByTask = new Map<number, number>();
+  const versionCountByTask = new Map<string, number>();
   for (const sub of allSubmissions) {
     versionCountByTask.set(sub.task_id, (versionCountByTask.get(sub.task_id) ?? 0) + 1);
   }

@@ -26,7 +26,7 @@ import type { SubmissionDetail } from "@/types/submission";
 
 export default function TaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
-  const id = Number(taskId);
+  const id = taskId!;
 
   const { data: task, loading: taskLoading } = useApi(() => tasksApi.get(id), [id]);
 

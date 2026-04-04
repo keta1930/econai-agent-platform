@@ -28,10 +28,8 @@ export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
 
-  const numericId = Number(studentId);
-
   const { data, loading, error } = useApi(
-    () => submissionsApi.getStudentSubmissions(numericId),
+    () => submissionsApi.getStudentSubmissions(studentId!),
     [studentId],
   );
 

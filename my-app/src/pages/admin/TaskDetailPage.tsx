@@ -18,7 +18,7 @@ import { Users, FileCheck, BarChart3, Eye } from "lucide-react";
 export default function AdminTaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
-  const id = Number(taskId);
+  const id = taskId!;
 
   const { data: task, loading: taskLoading } = useApi(() => tasksApi.get(id), [id]);
   const { data: stats, loading: statsLoading } = useApi(() => tasksApi.stats(id), [id]);

@@ -132,27 +132,27 @@ function GradingPanel({ submission }: { submission: SubmissionDetail }) {
 export default function SubmissionDetailPage() {
   const { taskId, studentId } = useParams<{ taskId: string; studentId: string }>();
   const navigate = useNavigate();
-  const numericTaskId = Number(taskId);
-  const numericStudentId = Number(studentId);
+  const safeTaskId = taskId!;
+  const safeStudentId = studentId!;
 
   // Fetch task info and all versions
-  const { data: task } = useApi(() => tasksApi.get(numericTaskId), [numericTaskId]);
+  const { data: task } = useApi(() => tasksApi.get(safeTaskId), [safeTaskId]);
   const { data: versionsData, loading: versionsLoading } = useApi(
-    () => submissionsApi.getStudentTaskSubmissions(numericTaskId, numericStudentId),
-    [numericTaskId, numericStudentId],
+    () => submissionsApi.getStudentTaskSubmissions(safeTaskId, safeStudentId),
+    [safeTaskId, safeStudentId],
   );
 
   const versions = versionsData?.items ?? [];
 
   // Current selected version
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contentData, setContentData] = useState<SubmissionContentResponse | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
 
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false);
-  const [compareLeftId, setCompareLeftId] = useState<number | null>(null);
-  const [compareRightId, setCompareRightId] = useState<number | null>(null);
+  const [compareLeftId, setCompareLeftId] = useState<string | null>(null);
+  const [compareRightId, setCompareRightId] = useState<string | null>(null);
   const [contentLeft, setContentLeft] = useState<SubmissionContentResponse | null>(null);
   const [contentRight, setContentRight] = useState<SubmissionContentResponse | null>(null);
   const [leftLoading, setLeftLoading] = useState(false);
@@ -162,7 +162,7 @@ export default function SubmissionDetailPage() {
   const effectiveSelectedId = selectedId ?? (versions.length > 0 ? versions[0].id : null);
 
   // Fetch content for current version
-  const fetchContent = useCallback(async (submissionId: number) => {
+  const fetchContent = useCallback(async (submissionId: string) => {
     setContentLoading(true);
     try {
       const res = await submissionsApi.getContent(submissionId);
@@ -183,7 +183,7 @@ export default function SubmissionDetailPage() {
   // Fetch content for compare panels
   const fetchCompareContent = useCallback(
     async (
-      submissionId: number,
+      submissionId: string,
       setter: (v: SubmissionContentResponse | null) => void,
       setLoading: (v: boolean) => void,
     ) => {
@@ -343,7 +343,7 @@ export default function SubmissionDetailPage() {
           返回
         </Button>
         <h1 className="text-lg font-heading font-semibold">
-          {versionsData?.student_name ?? `学生 ${studentId}`} · {task?.title ?? ""}
+          {versionsData?.student_name ?? "未知学生"} · {task?.title ?? ""}
         </h1>
         <div className="flex items-center gap-2 ml-auto">
           <Select

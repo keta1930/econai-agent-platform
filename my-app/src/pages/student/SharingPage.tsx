@@ -207,10 +207,10 @@ function VotingTab({
 }: {
   topics: TopicListItem[];
   totalVotes: number;
-  onVoteChange: (topicId: number, voted: boolean, newCount: number) => void;
+  onVoteChange: (topicId: string, voted: boolean, newCount: number) => void;
   onRefresh: () => void;
 }) {
-  const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set());
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const atLimit = totalVotes >= MAX_VOTES;
 
   async function handleToggleVote(topic: TopicListItem) {
@@ -309,7 +309,7 @@ function VotingTab({
 
 export default function SharingPage() {
   const { data, loading, error, refetch } = useApi(() => sharingApi.list(), []);
-  const [topicsOverride, setTopicsOverride] = useState<Map<number, { voted: boolean; count: number }>>(new Map());
+  const [topicsOverride, setTopicsOverride] = useState<Map<string, { voted: boolean; count: number }>>(new Map());
 
   const allTopics = data?.items ?? [];
   const serverTotalVotes = data?.total_votes ?? 0;
@@ -339,7 +339,7 @@ export default function SharingPage() {
     .sort((a, b) => b.vote_count - a.vote_count);
 
   const handleVoteChange = useCallback(
-    (topicId: number, voted: boolean, newCount: number) => {
+    (topicId: string, voted: boolean, newCount: number) => {
       setTopicsOverride((prev) => {
         const next = new Map(prev);
         next.set(topicId, { voted, count: newCount });

@@ -63,7 +63,7 @@ interface EditSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   topic: AdminTopicListItem | null;
-  classId: number;
+  classId: string;
   onSaved: () => void;
 }
 

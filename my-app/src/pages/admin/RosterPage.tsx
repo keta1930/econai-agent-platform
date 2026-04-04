@@ -41,7 +41,7 @@ export default function RosterPage() {
   const { classes } = useClassContext();
 
   // Selected class for this page (independent of global selector)
-  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const selectedClass = classes.find((c) => c.id === selectedClassId) ?? null;
 
   const { data, loading, error, refetch } = useApi(

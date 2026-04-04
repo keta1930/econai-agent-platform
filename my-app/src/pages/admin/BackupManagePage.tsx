@@ -18,7 +18,7 @@ export default function BackupManagePage() {
   const [customName, setCustomName] = useState("");
 
   // Inline rename state
-  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
   // Delete state
@@ -43,7 +43,7 @@ export default function BackupManagePage() {
     }
   }
 
-  async function handleDownload(id: number) {
+  async function handleDownload(id: string) {
     try {
       const res = await backupsApi.getDownloadUrl(id);
       window.open(res.download_url, "_blank");
@@ -57,7 +57,7 @@ export default function BackupManagePage() {
     setRenameValue(backup.display_name);
   }
 
-  async function handleRename(id: number) {
+  async function handleRename(id: string) {
     const trimmed = renameValue.trim();
     if (!trimmed) {
       setRenamingId(null);

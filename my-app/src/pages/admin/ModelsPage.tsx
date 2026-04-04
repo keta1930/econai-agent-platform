@@ -44,7 +44,7 @@ export default function ModelsPage() {
     adapter_type: "openai",
   });
   const [creating, setCreating] = useState(false);
-  const [activatingId, setActivatingId] = useState<number | null>(null);
+  const [activatingId, setActivatingId] = useState<string | null>(null);
 
   const isFormValid = form.name.trim() && form.api_key.trim() && form.base_url.trim();
 
@@ -69,7 +69,7 @@ export default function ModelsPage() {
     }
   }
 
-  async function handleActivate(modelId: number) {
+  async function handleActivate(modelId: string) {
     setActivatingId(modelId);
     try {
       const res = await modelsApi.activate(modelId);

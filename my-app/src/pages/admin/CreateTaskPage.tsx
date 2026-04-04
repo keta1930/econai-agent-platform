@@ -122,7 +122,7 @@ export default function CreateTaskPage() {
 
   // Batch publish state
   const [showBatchDialog, setShowBatchDialog] = useState(false);
-  const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [batchPublishing, setBatchPublishing] = useState(false);
 
   const drafts = draftsData?.items ?? [];

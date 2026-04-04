@@ -45,7 +45,7 @@ export default function LoginPage() {
       auth.login(
         res.access_token,
         res.role,
-        Number(payload.sub),
+        payload.sub,
         res.class_id ?? undefined,
         res.class_name ?? undefined,
       );
@@ -72,7 +72,7 @@ export default function LoginPage() {
       auth.login(
         res.access_token,
         res.role,
-        Number(payload.sub),
+        payload.sub,
         res.class_id ?? undefined,
         res.class_name ?? undefined,
       );

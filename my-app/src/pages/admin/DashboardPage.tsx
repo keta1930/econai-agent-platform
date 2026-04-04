@@ -20,14 +20,14 @@ export default function DashboardPage() {
   const classId = currentClass?.id;
 
   const { data, loading, error, refetch } = useApi(async () => {
-    if (!classId) return { tasks: [], statsMap: new Map<number, TaskStatsResponse>() };
+    if (!classId) return { tasks: [], statsMap: new Map<string, TaskStatsResponse>() };
 
     const tasksRes = await tasksApi.list("published", classId);
     const tasks = tasksRes.items;
-    if (tasks.length === 0) return { tasks, statsMap: new Map<number, TaskStatsResponse>() };
+    if (tasks.length === 0) return { tasks, statsMap: new Map<string, TaskStatsResponse>() };
 
     const statsArr = await Promise.all(tasks.map((t) => tasksApi.stats(t.id)));
-    const statsMap = new Map<number, TaskStatsResponse>();
+    const statsMap = new Map<string, TaskStatsResponse>();
     for (const s of statsArr) {
       statsMap.set(s.task_id, s);
     }
