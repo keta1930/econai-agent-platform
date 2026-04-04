@@ -1,5 +1,5 @@
 export interface BackupInfo {
-  id: number;
+  id: string;
   display_name: string;
   size: number;
   created_at: string;

@@ -26,7 +26,7 @@ export function ClassProvider({ children }: { children: ReactNode }) {
       // Restore persisted selection if valid
       const savedId = localStorage.getItem("currentClassId");
       if (savedId) {
-        const found = res.items.find((c) => c.id === Number(savedId));
+        const found = res.items.find((c) => c.id === savedId);
         if (found) {
           setCurrentClassState(found);
         } else if (res.items.length > 0) {

@@ -1,16 +1,17 @@
 export interface SubmissionCreateResponse {
-  id: number;
-  task_id: number;
-  student_id: number;
+  id: string;
+  task_id: string;
+  student_id: string;
   version: number;
   content_type: string;
   status: string;
   submitted_at: string;
+  task_title: string;
 }
 
 export interface SubmissionDetail {
-  id: number;
-  task_id: number;
+  id: string;
+  task_id: string;
   task_title: string;
   version: number;
   content_type: string;
@@ -27,7 +28,7 @@ export interface SubmissionListResponse {
 }
 
 export interface SubmissionContentResponse {
-  submission_id: number;
+  submission_id: string;
   filename: string;
   content: string;
   content_type: string;

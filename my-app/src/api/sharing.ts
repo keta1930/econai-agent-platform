@@ -13,18 +13,18 @@ import type {
 export const sharingApi = {
   list: (status?: string) =>
     api.get<TopicListResponse>(status ? `/sharing/topics?status=${status}` : "/sharing/topics"),
-  getMaterials: (topicId: number) =>
+  getMaterials: (topicId: string) =>
     api.get<TopicMaterialsResponse>(`/sharing/topics/${topicId}/materials`),
-  vote: (topicId: number) =>
+  vote: (topicId: string) =>
     api.post<VoteResponse>(`/sharing/topics/${topicId}/vote`),
-  unvote: (topicId: number) =>
+  unvote: (topicId: string) =>
     api.delete<VoteResponse>(`/sharing/topics/${topicId}/vote`),
   suggest: (data: TopicSuggestRequest) =>
     api.post<VoteResponse>("/sharing/topics/suggest", data),
 };
 
 export const adminSharingApi = {
-  list: (status?: string, classId?: number) => {
+  list: (status?: string, classId?: string) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (classId !== undefined) params.set("class_id", String(classId));
@@ -35,8 +35,8 @@ export const adminSharingApi = {
   },
   create: (data: TopicCreateRequest) =>
     api.post<AdminTopicListItem>("/admin/sharing/topics", data),
-  update: (topicId: number, data: TopicUpdateRequest) =>
+  update: (topicId: string, data: TopicUpdateRequest) =>
     api.patch<AdminTopicListItem>(`/admin/sharing/topics/${topicId}`, data),
-  delete: (topicId: number) =>
+  delete: (topicId: string) =>
     api.delete<void>(`/admin/sharing/topics/${topicId}`),
 };

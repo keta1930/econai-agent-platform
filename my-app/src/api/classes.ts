@@ -4,5 +4,5 @@ import type { ClassListResponse, ClassCreateRequest, ClassInfo } from "@/types/c
 export const classesApi = {
   list: () => api.get<ClassListResponse>("/admin/classes"),
   create: (data: ClassCreateRequest) => api.post<ClassInfo>("/admin/classes", data),
-  delete: (classId: number) => api.delete<void>(`/admin/classes/${classId}`),
+  delete: (classId: string) => api.delete<void>(`/admin/classes/${classId}`),
 };

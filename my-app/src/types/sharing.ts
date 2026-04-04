@@ -1,7 +1,7 @@
 export type TopicStatus = "voting" | "confirmed" | "completed";
 
 export interface TopicListItem {
-  id: number;
+  id: string;
   title: string;
   status: TopicStatus;
   presenters: string | null;
@@ -20,7 +20,7 @@ export interface TopicListResponse {
 }
 
 export interface TopicMaterialsResponse {
-  topic_id: number;
+  topic_id: string;
   title: string;
   materials_content: string;
 }
@@ -39,7 +39,7 @@ export interface AdminTopicListResponse {
 
 export interface TopicCreateRequest {
   title: string;
-  class_id: number;
+  class_id: string;
   status?: TopicStatus;
   presenters?: string | null;
   session_number?: number | null;

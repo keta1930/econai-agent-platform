@@ -4,5 +4,5 @@ import type { ModelConfig, ModelConfigListResponse, ModelConfigCreateRequest, Mo
 export const modelsApi = {
   list: () => api.get<ModelConfigListResponse>("/admin/models"),
   create: (data: ModelConfigCreateRequest) => api.post<ModelConfig>("/admin/models", data),
-  activate: (modelId: number) => api.put<ModelActivateResponse>(`/admin/models/${modelId}/activate`),
+  activate: (modelId: string) => api.put<ModelActivateResponse>(`/admin/models/${modelId}/activate`),
 };

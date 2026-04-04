@@ -1,5 +1,5 @@
 export interface ModelConfig {
-  id: number;
+  id: string;
   name: string;
   base_url: string;
   adapter_type: string;

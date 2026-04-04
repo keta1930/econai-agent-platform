@@ -14,13 +14,13 @@ export const backupsApi = {
       displayName ? { display_name: displayName } : undefined,
     ),
 
-  getDownloadUrl: (id: number) =>
+  getDownloadUrl: (id: string) =>
     api.get<BackupDownloadResponse>(`/admin/backups/${id}/download`),
 
-  rename: (id: number, displayName: string) =>
+  rename: (id: string, displayName: string) =>
     api.patch<BackupInfo>(`/admin/backups/${id}`, {
       display_name: displayName,
     }),
 
-  delete: (id: number) => api.delete(`/admin/backups/${id}`),
+  delete: (id: string) => api.delete(`/admin/backups/${id}`),
 };

@@ -1,5 +1,5 @@
 export interface ClassInfo {
-  id: number;
+  id: string;
   name: string;
   student_count: number;
   created_at: string;

@@ -1,13 +1,15 @@
 export interface Task {
-  id: number;
+  id: string;
   title: string;
   description: string;
   grading_criteria: string;
   status: "draft" | "published";
-  class_id: number;
-  created_by: number;
+  class_id: string;
+  created_by: string;
   created_at: string;
   updated_at: string | null;
+  class_name: string;
+  created_by_name: string;
 }
 
 export interface TaskListResponse {
@@ -18,7 +20,7 @@ export interface TaskDraftRequest {
   title: string;
   description?: string;
   grading_criteria?: string;
-  class_id: number;
+  class_id: string;
 }
 
 export interface TaskUpdateRequest {
@@ -29,7 +31,7 @@ export interface TaskUpdateRequest {
 }
 
 export interface TaskSubmissionItem {
-  student_id: number;
+  student_id: string;
   username: string;
   version: number;
   submission_count: number;
@@ -39,7 +41,7 @@ export interface TaskSubmissionItem {
 }
 
 export interface TaskStatsResponse {
-  task_id: number;
+  task_id: string;
   total_students: number;
   submitted_count: number;
   submission_rate: number;
@@ -60,10 +62,10 @@ export interface BatchPublishRequest {
   title: string;
   description: string;
   grading_criteria: string;
-  class_ids: number[];
+  class_ids: string[];
   status: "published";
 }
 
 export interface BatchPublishResponse {
-  created: { id: number; class_id: number; class_name: string }[];
+  created: { id: string; class_id: string; class_name: string }[];
 }

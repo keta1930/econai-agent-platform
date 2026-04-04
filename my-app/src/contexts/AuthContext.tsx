@@ -6,20 +6,20 @@ type Role = "super_admin" | "admin" | "student";
 interface AuthState {
   token: string | null;
   role: Role | null;
-  userId: number | null;
-  classId: number | null;
+  userId: string | null;
+  classId: string | null;
   className: string | null;
   isAuthenticated: boolean;
 }
 
 export interface AuthContextValue extends AuthState {
-  login: (token: string, role: string, userId: number, classId?: number, className?: string) => void;
+  login: (token: string, role: string, userId: string, classId?: string, className?: string) => void;
   logout: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
-function parseToken(token: string): { sub: number; role: string; class_id: number | null; exp: number } | null {
+function parseToken(token: string): { sub: string; role: string; class_id: string | null; exp: number } | null {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
     return payload;
@@ -45,10 +45,8 @@ function getInitialState(): AuthState {
   }
 
   const role = localStorage.getItem("role") as Role | null;
-  const userIdStr = localStorage.getItem("userId");
-  const userId = userIdStr ? Number(userIdStr) : null;
-  const classIdStr = localStorage.getItem("classId");
-  const classId = classIdStr ? Number(classIdStr) : null;
+  const userId = localStorage.getItem("userId");
+  const classId = localStorage.getItem("classId");
   const className = localStorage.getItem("className");
   return { token, role, userId, classId, className, isAuthenticated: true };
 }
@@ -58,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   const login = useCallback(
-    (token: string, role: string, userId: number, classId?: number, className?: string) => {
+    (token: string, role: string, userId: string, classId?: string, className?: string) => {
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
       localStorage.setItem("userId", String(userId));

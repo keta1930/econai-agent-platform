@@ -1,7 +1,7 @@
 import { api } from "./client";
 
 export interface AdminInfo {
-  id: number;
+  id: string;
   username: string;
   role: string;
   class_count: number;

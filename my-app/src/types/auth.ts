@@ -6,12 +6,12 @@ export interface LoginRequest {
 export interface LoginResponse {
   access_token: string;
   role: string;
-  class_id: number | null;
+  class_id: string | null;
   class_name: string | null;
 }
 
 export interface ClassOption {
-  class_id: number;
+  class_id: string;
   class_name: string;
   admin_name: string;
 }
@@ -24,7 +24,7 @@ export interface ClassSelectionResponse {
 export interface SelectClassRequest {
   username: string;
   password: string;
-  class_id: number;
+  class_id: string;
 }
 
 export interface RegisterRequest {
@@ -35,7 +35,7 @@ export interface RegisterRequest {
 }
 
 export interface RegisterResponse {
-  id: number;
+  id: string;
   role: string;
 }
 
