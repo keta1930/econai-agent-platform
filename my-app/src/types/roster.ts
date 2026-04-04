@@ -20,3 +20,11 @@ export interface RosterBatchResponse {
   added: number;
   duplicates: number;
 }
+
+export interface RosterBatchDeleteResponse {
+  deleted: number;
+}
+
+export interface MemberBatchRemoveResponse {
+  removed: number;
+}
