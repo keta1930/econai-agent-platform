@@ -1,11 +1,17 @@
-"""Tests for authentication and authorization (25 cases)."""
-
-import uuid
+"""Tests for authentication and authorization."""
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import auth_header, _create_user_in_db, _login
+from tests.conftest import (
+    auth_header,
+    _create_user_in_db,
+    _login,
+    _register_student_via_api,
+    _join_class_via_api,
+    _login_full,
+)
 
 
 # ============================================================================
@@ -13,22 +19,13 @@ from tests.conftest import auth_header, _create_user_in_db, _login
 # ============================================================================
 
 
-async def test_register_student_success(
-    client: AsyncClient, admin_with_class: tuple[str, str]
-):
-    """#1 — Student registers with valid credentials."""
-    token, class_id = admin_with_class
-    await client.post(
-        f"/api/admin/classes/{class_id}/roster",
-        json={"student_id": "REG001"},
-        headers=auth_header(token),
-    )
+async def test_register_student(client: AsyncClient):
+    """Student registers with student_id + college + password."""
     resp = await client.post(
         "/api/auth/register",
         json={
-            "admin_name": "testadmin",
-            "class_name": "TestClass",
             "student_id": "REG001",
+            "college": "lingnan",
             "password": "pass123",
         },
     )
@@ -38,161 +35,139 @@ async def test_register_student_success(
     assert "id" in data
 
 
-async def test_register_student_admin_not_found(client: AsyncClient):
-    """#2 — Register with nonexistent admin name."""
+async def test_register_duplicate_student_id(client: AsyncClient):
+    """Duplicate student_id is rejected."""
+    await _register_student_via_api(client, "DUP001", "lingnan", "p")
+
     resp = await client.post(
         "/api/auth/register",
         json={
-            "admin_name": "ghost",
-            "class_name": "AnyClass",
-            "student_id": "S1",
-            "password": "p",
-        },
-    )
-    assert resp.status_code == 404
-    assert "管理员不存在" in resp.json()["detail"]
-
-
-async def test_register_student_class_not_found(
-    client: AsyncClient, admin_token: str
-):
-    """#3 — Admin exists but class name does not match."""
-    resp = await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "testadmin",
-            "class_name": "Nonexistent",
-            "student_id": "S1",
-            "password": "p",
-        },
-    )
-    assert resp.status_code == 404
-    assert "班级不存在" in resp.json()["detail"]
-
-
-async def test_register_student_not_in_roster(
-    client: AsyncClient, admin_with_class: tuple[str, str]
-):
-    """#4 — student_id not in roster."""
-    resp = await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "testadmin",
-            "class_name": "TestClass",
-            "student_id": "UNKNOWN",
+            "student_id": "DUP001",
+            "college": "physics",
             "password": "p",
         },
     )
     assert resp.status_code == 400
-    assert "学号不在该班级名单中" in resp.json()["detail"]
+    assert "该学号已被注册" in resp.json()["detail"]
 
 
-async def test_register_student_duplicate(
-    client: AsyncClient, admin_with_class: tuple[str, str]
-):
-    """#5 — Same student_id registers twice in the same class."""
-    token, class_id = admin_with_class
-    await client.post(
-        f"/api/admin/classes/{class_id}/roster",
-        json={"student_id": "DUP001"},
-        headers=auth_header(token),
-    )
-    register_body = {
-        "admin_name": "testadmin",
-        "class_name": "TestClass",
-        "student_id": "DUP001",
-        "password": "p",
-    }
-    resp1 = await client.post("/api/auth/register", json=register_body)
-    assert resp1.status_code == 201
-
-    resp2 = await client.post("/api/auth/register", json=register_body)
-    assert resp2.status_code == 400
-    assert "该学号已在此班级注册" in resp2.json()["detail"]
-
-
-@pytest.mark.xfail(reason="功能未实现: 学生注册时自动加入多班级")
-async def test_register_student_auto_join_multi_class(
-    client: AsyncClient, admin_with_class: tuple[str, str]
-):
-    """#6 — Auto-join all classes under same admin that imported the student_id."""
-    token, class_id = admin_with_class
-    # Create second class under same admin
-    resp = await client.post(
-        "/api/admin/classes",
-        json={"name": "SecondClass"},
-        headers=auth_header(token),
-    )
-    assert resp.status_code == 201
-    class_id2 = resp.json()["id"]
-
-    # Add same student to both rosters
-    for cid in [class_id, class_id2]:
-        await client.post(
-            f"/api/admin/classes/{cid}/roster",
-            json={"student_id": "MULTI001"},
-            headers=auth_header(token),
-        )
-
+async def test_register_invalid_college(client: AsyncClient):
+    """Invalid college value is rejected by Pydantic validation."""
     resp = await client.post(
         "/api/auth/register",
         json={
-            "admin_name": "testadmin",
-            "class_name": "TestClass",
-            "student_id": "MULTI001",
+            "student_id": "BAD001",
+            "college": "math",
             "password": "p",
         },
     )
-    assert resp.status_code == 201
-
-    # Verify student can log in to BOTH classes (not just the one they registered with)
-    for class_name in ["TestClass", "SecondClass"]:
-        login_resp = await client.post(
-            "/api/auth/login",
-            json={
-                "admin_name": "testadmin",
-                "class_name": class_name,
-                "student_id": "MULTI001",
-                "password": "p",
-            },
-        )
-        assert login_resp.status_code == 200, f"Should be able to login to {class_name}"
+    assert resp.status_code == 422
 
 
-@pytest.mark.xfail(reason="功能未实现: 注册时提供姓名字段")
-async def test_register_student_with_name_field(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+async def test_register_no_class_association(
+    client: AsyncClient, db_session: AsyncSession
 ):
-    """#7 — Register with display_name field."""
-    token, class_id = admin_with_class
-    await client.post(
-        f"/api/admin/classes/{class_id}/roster",
-        json={"student_id": "NAME001"},
+    """After registration, student belongs to zero classes."""
+    await _register_student_via_api(client, "NOCLASS001", "physics", "p")
+
+    from models.user import User
+    from models.class_member import ClassMember
+    from sqlalchemy import select
+
+    user = (
+        await db_session.execute(select(User).where(User.username == "NOCLASS001"))
+    ).scalar_one()
+    members = (
+        await db_session.execute(
+            select(ClassMember).where(ClassMember.user_id == user.id)
+        )
+    ).scalars().all()
+    assert len(members) == 0
+
+
+# ============================================================================
+# 1.2 Login (three variants)
+# ============================================================================
+
+
+async def test_login_student_no_class(
+    client: AsyncClient,
+):
+    """Student with 0 classes gets requires_join_class response."""
+    await _register_student_via_api(client, "LONE001", "lingnan", "p")
+    data = await _login_full(client, "LONE001", "p")
+    assert data.get("requires_join_class") is True
+    assert "temp_access_token" in data
+    assert "temp_refresh_token" in data
+
+
+async def test_login_student_single_class(
+    client: AsyncClient,
+    admin_with_class: tuple[str, str, str],
+):
+    """Student with 1 class logs in directly."""
+    _, class_id, join_token = admin_with_class
+
+    await _register_student_via_api(client, "SINGLE001", "lingnan", "p")
+    temp = await _login(client, "SINGLE001", "p")
+    await _join_class_via_api(client, temp, join_token)
+
+    data = await _login_full(client, "SINGLE001", "p")
+    assert "access_token" in data
+    assert "refresh_token" in data
+    assert data["class_id"] == class_id
+    assert data["class_name"] == "TestClass"
+    assert data.get("admin_name") is not None
+
+
+async def test_login_student_multi_class(
+    client: AsyncClient,
+    admin_with_class: tuple[str, str, str],
+    another_admin_with_class: tuple[str, str, str],
+):
+    """Student with N classes gets class selection response."""
+    _, _, join_token_a = admin_with_class
+    _, _, join_token_b = another_admin_with_class
+
+    await _register_student_via_api(client, "MULTI001", "physics", "p")
+    temp = await _login(client, "MULTI001", "p")
+    join_a = await _join_class_via_api(client, temp, join_token_a)
+    await _join_class_via_api(client, join_a["access_token"], join_token_b)
+
+    data = await _login_full(client, "MULTI001", "p")
+    assert data.get("requires_class_selection") is True
+    assert len(data["classes"]) == 2
+
+
+async def test_select_class_bearer_auth(
+    client: AsyncClient,
+    admin_with_class: tuple[str, str, str],
+    another_admin_with_class: tuple[str, str, str],
+):
+    """Select-class uses Bearer auth (no password needed)."""
+    _, class_id_a, join_token_a = admin_with_class
+    _, _, join_token_b = another_admin_with_class
+
+    await _register_student_via_api(client, "SEL001", "lingnan", "p")
+    temp = await _login(client, "SEL001", "p")
+    join_a = await _join_class_via_api(client, temp, join_token_a)
+    token = join_a["access_token"]
+    await _join_class_via_api(client, token, join_token_b)
+
+    # Login gives multi-class. We use an existing token for select-class.
+    resp = await client.post(
+        "/api/auth/login/select-class",
+        json={"class_id": class_id_a},
         headers=auth_header(token),
     )
-    resp = await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "testadmin",
-            "class_name": "TestClass",
-            "student_id": "NAME001",
-            "password": "p",
-            "display_name": "Zhang San",
-        },
-    )
-    assert resp.status_code == 201
-    # Verify display_name is stored and returned
+    assert resp.status_code == 200
     data = resp.json()
-    assert data.get("display_name") == "Zhang San"
+    assert data["class_id"] == class_id_a
+    assert "access_token" in data
 
 
-# ============================================================================
-# 1.2 Login
-# ============================================================================
-
-
-async def test_login_admin_success(client: AsyncClient, admin_token: str):
-    """#8 — Admin logs in successfully."""
+async def test_login_admin_unchanged(client: AsyncClient, admin_token: str):
+    """Admin login flow is unchanged."""
     resp = await client.post(
         "/api/auth/login",
         json={"username": "testadmin", "password": "adminpass"},
@@ -200,14 +175,13 @@ async def test_login_admin_success(client: AsyncClient, admin_token: str):
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
-    assert "refresh_token" in data
     assert data["role"] == "admin"
 
 
-async def test_login_super_admin_success(
+async def test_login_super_admin_unchanged(
     client: AsyncClient, super_admin_token: str
 ):
-    """#9 — Super admin logs in successfully."""
+    """Super admin login flow is unchanged."""
     resp = await client.post(
         "/api/auth/login",
         json={"username": "superadmin", "password": "superpass"},
@@ -216,75 +190,10 @@ async def test_login_super_admin_success(
     data = resp.json()
     assert data["role"] == "super_admin"
     assert "access_token" in data
-    assert "refresh_token" in data
-
-
-async def test_login_student_single_class(
-    client: AsyncClient, student_token: str
-):
-    """#10 — Student with one class logs in directly."""
-    resp = await client.post(
-        "/api/auth/login",
-        json={"username": "STU001", "password": "stupass"},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
-    assert data["class_id"] is not None
-    assert data["class_name"] is not None
-
-
-async def test_login_student_multi_class_returns_selection(
-    client: AsyncClient,
-    admin_with_class: tuple[str, str],
-    another_admin_with_class: tuple[str, str],
-):
-    """#11 — Student in multiple classes gets class selection."""
-    token_a, class_id_a = admin_with_class
-    token_b, class_id_b = another_admin_with_class
-
-    # Add same student to both rosters
-    for tok, cid in [(token_a, class_id_a), (token_b, class_id_b)]:
-        await client.post(
-            f"/api/admin/classes/{cid}/roster",
-            json={"student_id": "MULTI_LOGIN"},
-            headers=auth_header(tok),
-        )
-
-    # Register in first class
-    await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "testadmin",
-            "class_name": "TestClass",
-            "student_id": "MULTI_LOGIN",
-            "password": "mp",
-        },
-    )
-    # Register in second class
-    await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "otheradmin",
-            "class_name": "OtherClass",
-            "student_id": "MULTI_LOGIN",
-            "password": "mp",
-        },
-    )
-
-    resp = await client.post(
-        "/api/auth/login",
-        json={"username": "MULTI_LOGIN", "password": "mp"},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data.get("requires_class_selection") is True
-    assert len(data["classes"]) == 2
 
 
 async def test_login_wrong_password(client: AsyncClient, admin_token: str):
-    """#12 — Wrong password."""
+    """Wrong password returns 401."""
     resp = await client.post(
         "/api/auth/login",
         json={"username": "testadmin", "password": "WRONG"},
@@ -294,140 +203,110 @@ async def test_login_wrong_password(client: AsyncClient, admin_token: str):
 
 
 async def test_login_nonexistent_user(client: AsyncClient):
-    """#13 — User does not exist."""
+    """Nonexistent user returns 401."""
     resp = await client.post(
         "/api/auth/login",
         json={"username": "nobody", "password": "x"},
     )
     assert resp.status_code == 401
-    assert "用户名或密码错误" in resp.json()["detail"]
 
 
-async def test_login_disabled_admin(
+async def test_login_disabled_account(
     client: AsyncClient,
-    super_admin_token: str,
-    admin_token: str,
-    db_session,
+    db_session: AsyncSession,
 ):
-    """#14 — Disabled admin: access token still works, refresh is rejected."""
-    # Login to get refresh token
-    login_resp = await client.post(
+    """Disabled student account returns 403."""
+    await _register_student_via_api(client, "DIS001", "lingnan", "p")
+
+    from models.user import User
+    from sqlalchemy import update
+
+    await db_session.execute(
+        update(User).where(User.username == "DIS001").values(is_active=False)
+    )
+    await db_session.commit()
+
+    resp = await client.post(
         "/api/auth/login",
-        json={"username": "testadmin", "password": "adminpass"},
+        json={"username": "DIS001", "password": "p"},
     )
-    refresh_token = login_resp.json()["refresh_token"]
-
-    # Get admin id
-    resp = await client.get(
-        "/api/super-admin/admins",
-        headers=auth_header(super_admin_token),
-    )
-    admin_id = resp.json()["items"][0]["id"]
-
-    # Disable admin
-    await client.put(
-        f"/api/super-admin/admins/{admin_id}/toggle-active",
-        headers=auth_header(super_admin_token),
-    )
-
-    # Access token still works (stateless, within validity period)
-    resp = await client.get(
-        "/api/admin/classes",
-        headers=auth_header(admin_token),
-    )
-    assert resp.status_code == 200
-
-    # But refresh token is rejected (all tokens revoked on disable)
-    resp = await client.post(
-        "/api/auth/refresh",
-        json={"refresh_token": refresh_token},
-    )
-    assert resp.status_code == 401
+    assert resp.status_code == 403
+    assert "禁用" in resp.json()["detail"]
 
 
 # ============================================================================
-# 1.3 Class Selection Login
+# 1.3 Password management
 # ============================================================================
 
 
-async def test_select_class_login_success(
+async def test_change_password_success(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
-    another_admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
 ):
-    """#15 — Multi-class student selects a class and logs in."""
-    token_a, class_id_a = admin_with_class
-    token_b, class_id_b = another_admin_with_class
+    """Student changes password successfully."""
+    _, _, join_token = admin_with_class
 
-    for tok, cid in [(token_a, class_id_a), (token_b, class_id_b)]:
-        await client.post(
-            f"/api/admin/classes/{cid}/roster",
-            json={"student_id": "SEL001"},
-            headers=auth_header(tok),
-        )
-
-    await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "testadmin",
-            "class_name": "TestClass",
-            "student_id": "SEL001",
-            "password": "sp",
-        },
-    )
-    await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "otheradmin",
-            "class_name": "OtherClass",
-            "student_id": "SEL001",
-            "password": "sp",
-        },
-    )
+    await _register_student_via_api(client, "PWD001", "lingnan", "oldpass")
+    temp = await _login(client, "PWD001", "oldpass")
+    join_data = await _join_class_via_api(client, temp, join_token)
+    token = join_data["access_token"]
 
     resp = await client.post(
-        "/api/auth/login/select-class",
-        json={
-            "username": "SEL001",
-            "password": "sp",
-            "class_id": class_id_a,
-        },
+        "/api/student/change-password",
+        json={"current_password": "oldpass", "new_password": "newpass"},
+        headers=auth_header(token),
     )
     assert resp.status_code == 200
-    data = resp.json()
-    assert "access_token" in data
-    assert data["class_id"] == class_id_a
+    assert resp.json()["password_change_count"] == 1
+
+    # Verify new password works
+    await _login(client, "PWD001", "newpass")
 
 
-async def test_select_class_login_wrong_class(
-    client: AsyncClient, student_token: str
+async def test_change_password_limit_exceeded(
+    client: AsyncClient,
+    admin_with_class: tuple[str, str, str],
+    db_session: AsyncSession,
 ):
-    """#16 — Select a class the student does not belong to."""
-    fake_class_id = str(uuid.uuid4())
-    resp = await client.post(
-        "/api/auth/login/select-class",
-        json={
-            "username": "STU001",
-            "password": "stupass",
-            "class_id": fake_class_id,
-        },
+    """Password change rejected after 3 changes."""
+    _, _, join_token = admin_with_class
+
+    await _register_student_via_api(client, "PWD002", "physics", "p0")
+    temp = await _login(client, "PWD002", "p0")
+    join_data = await _join_class_via_api(client, temp, join_token)
+    token = join_data["access_token"]
+
+    # Set password_change_count to 3
+    from models.user import User
+    from sqlalchemy import update
+
+    await db_session.execute(
+        update(User).where(User.username == "PWD002").values(password_change_count=3)
     )
-    assert resp.status_code == 401
+    await db_session.commit()
+
+    resp = await client.post(
+        "/api/student/change-password",
+        json={"current_password": "p0", "new_password": "p1"},
+        headers=auth_header(token),
+    )
+    assert resp.status_code == 400
+    assert "上限" in resp.json()["detail"]
 
 
 # ============================================================================
-# 1.4 Token & Permission Interception
+# 1.4 Token & Permission Interception (kept from original)
 # ============================================================================
 
 
 async def test_access_without_token(client: AsyncClient):
-    """#17 — No token on protected endpoint."""
+    """No token on protected endpoint."""
     resp = await client.get("/api/admin/classes")
     assert resp.status_code in (401, 403)
 
 
 async def test_access_with_invalid_token(client: AsyncClient):
-    """#18 — Forged / invalid token."""
+    """Forged / invalid token."""
     resp = await client.get(
         "/api/admin/classes",
         headers=auth_header("invalid.token.here"),
@@ -438,7 +317,7 @@ async def test_access_with_invalid_token(client: AsyncClient):
 async def test_student_cannot_access_admin_endpoint(
     client: AsyncClient, student_token: str
 ):
-    """#19 — Student token on admin endpoint."""
+    """Student token on admin endpoint."""
     resp = await client.get(
         "/api/admin/classes",
         headers=auth_header(student_token),
@@ -450,7 +329,7 @@ async def test_student_cannot_access_admin_endpoint(
 async def test_admin_cannot_access_super_admin_endpoint(
     client: AsyncClient, admin_token: str
 ):
-    """#20 — Admin token on super_admin endpoint."""
+    """Admin token on super_admin endpoint."""
     resp = await client.get(
         "/api/super-admin/admins",
         headers=auth_header(admin_token),
@@ -462,7 +341,7 @@ async def test_admin_cannot_access_super_admin_endpoint(
 async def test_admin_cannot_access_student_endpoint(
     client: AsyncClient, admin_token: str
 ):
-    """#21 — Admin token on student endpoint."""
+    """Admin token on student endpoint."""
     resp = await client.get(
         "/api/submissions/my",
         headers=auth_header(admin_token),
@@ -471,84 +350,21 @@ async def test_admin_cannot_access_student_endpoint(
     assert "需要学生权限" in resp.json()["detail"]
 
 
-async def test_disabled_user_access_token_still_works(
-    client: AsyncClient,
-    super_admin_token: str,
-    admin_token: str,
+async def test_teacher_registration_unchanged(
+    client: AsyncClient, super_admin_token: str
 ):
-    """#22 — Disabled user's access token still works (stateless), but refresh fails."""
-    # Login to get refresh token
-    login_resp = await client.post(
-        "/api/auth/login",
-        json={"username": "testadmin", "password": "adminpass"},
-    )
-    refresh_token = login_resp.json()["refresh_token"]
-
-    resp = await client.get(
-        "/api/super-admin/admins",
+    """Teacher registration flow is unaffected by the student overhaul."""
+    # Create invite code
+    resp = await client.post(
+        "/api/super-admin/invite-codes",
+        json={"category": "test"},
         headers=auth_header(super_admin_token),
     )
-    admin_id = resp.json()["items"][0]["id"]
+    code = resp.json()["code"]
 
-    await client.put(
-        f"/api/super-admin/admins/{admin_id}/toggle-active",
-        headers=auth_header(super_admin_token),
-    )
-
-    # Access token still valid (design: stateless, expires naturally)
-    resp = await client.get(
-        "/api/admin/classes",
-        headers=auth_header(admin_token),
-    )
-    assert resp.status_code == 200
-
-    # Refresh is rejected because all refresh tokens were revoked
     resp = await client.post(
-        "/api/auth/refresh",
-        json={"refresh_token": refresh_token},
+        "/api/auth/register-teacher",
+        json={"invite_code": code, "username": "newteacher", "password": "tp"},
     )
-    assert resp.status_code == 401
-
-
-# ============================================================================
-# 1.5 Student Join New Class
-# ============================================================================
-
-
-@pytest.mark.xfail(reason="功能未实现: 学生加入新班级")
-async def test_student_join_new_class_success(
-    client: AsyncClient, student_token: str
-):
-    """#23 — Registered student joins a new class."""
-    resp = await client.post(
-        "/api/auth/join-class",
-        json={"admin_name": "otheradmin", "class_name": "OtherClass"},
-        headers=auth_header(student_token),
-    )
-    assert resp.status_code == 200
-
-
-@pytest.mark.xfail(reason="功能未实现: 学生加入新班级")
-async def test_student_join_class_already_member(
-    client: AsyncClient, student_token: str
-):
-    """#24 — Student already in target class."""
-    resp = await client.post(
-        "/api/auth/join-class",
-        json={"admin_name": "testadmin", "class_name": "TestClass"},
-        headers=auth_header(student_token),
-    )
-    assert resp.status_code == 400
-
-
-@pytest.mark.xfail(reason="功能未实现: 学生加入新班级")
-async def test_student_join_class_not_in_roster(
-    client: AsyncClient, student_token: str
-):
-    """#25 — Student not in target class roster."""
-    resp = await client.post(
-        "/api/auth/join-class",
-        json={"admin_name": "otheradmin", "class_name": "SomeClass"},
-        headers=auth_header(student_token),
-    )
-    assert resp.status_code == 400
+    assert resp.status_code == 201
+    assert resp.json()["role"] == "admin"

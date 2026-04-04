@@ -93,7 +93,7 @@ async def test_super_admin_toggle_nonexistent_admin(
 
 
 async def test_super_admin_delete_admin(
-    client: AsyncClient, super_admin_token: str, admin_with_class: tuple[str, str]
+    client: AsyncClient, super_admin_token: str, admin_with_class: tuple[str, str, str]
 ):
     """#32 — Delete admin and all associated data."""
     # Get admin id

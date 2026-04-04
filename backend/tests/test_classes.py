@@ -9,10 +9,10 @@ from tests.conftest import auth_header
 
 
 async def test_admin_list_classes(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#36 — Admin lists own classes."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     resp = await client.get(
         "/api/admin/classes",
         headers=auth_header(token),
@@ -38,10 +38,10 @@ async def test_admin_create_class(client: AsyncClient, admin_token: str):
 
 
 async def test_admin_create_class_duplicate_name(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#38 — Duplicate class name under same admin."""
-    token, _ = admin_with_class
+    token, _, _ = admin_with_class
     resp = await client.post(
         "/api/admin/classes",
         json={"name": "TestClass"},
@@ -53,7 +53,7 @@ async def test_admin_create_class_duplicate_name(
 
 async def test_different_admins_can_create_same_class_name(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     another_admin_token: str,
 ):
     """#39 — Different admins can create classes with the same name."""
@@ -66,10 +66,10 @@ async def test_different_admins_can_create_same_class_name(
 
 
 async def test_admin_delete_class_cascade(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#40 — Delete class cascades all related data."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
 
     # Add some data: roster entry
     await client.post(
@@ -106,11 +106,11 @@ async def test_admin_delete_nonexistent_class(
 
 async def test_admin_delete_other_admins_class(
     client: AsyncClient,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
     admin_token: str,
 ):
     """#42 — Cannot delete another admin's class."""
-    _, other_class_id = another_admin_with_class
+    _, other_class_id, _ = another_admin_with_class
     resp = await client.delete(
         f"/api/admin/classes/{other_class_id}",
         headers=auth_header(admin_token),
@@ -120,10 +120,10 @@ async def test_admin_delete_other_admins_class(
 
 @pytest.mark.xfail(reason="功能未实现: 归档班级")
 async def test_admin_archive_class(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#43 — Archive a class."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     resp = await client.patch(
         f"/api/admin/classes/{class_id}",
         json={"status": "archived"},

@@ -65,6 +65,7 @@ def pytest_configure(config: pytest.Config) -> None:
 from database import Base  # noqa: E402
 from models.user import User  # noqa: E402,F401 — ensure models loaded
 from models.class_ import Class  # noqa: E402,F401
+from models.class_member import ClassMember  # noqa: E402,F401
 from models.roster import StudentRoster  # noqa: E402,F401
 from models.task import Task  # noqa: E402,F401
 from models.submission import Submission  # noqa: E402,F401
@@ -131,7 +132,8 @@ async def _create_user_in_db(
     username: str,
     password: str,
     role: str,
-    class_id: uuid.UUID | None = None,
+    display_name: str | None = None,
+    college: str | None = None,
 ) -> User:
     """Insert a user directly via the ORM (bypasses API)."""
     from services.auth_service import hash_password
@@ -141,7 +143,8 @@ async def _create_user_in_db(
         username=username,
         password_hash=pw_hash,
         role=role,
-        class_id=class_id,
+        display_name=display_name,
+        college=college,
     )
     db.add(user)
     await db.commit()
@@ -149,13 +152,67 @@ async def _create_user_in_db(
     return user
 
 
+async def _create_class_member(
+    db: AsyncSession, user_id: uuid.UUID, class_id: uuid.UUID
+) -> ClassMember:
+    """Create a class_members record directly."""
+    member = ClassMember(user_id=user_id, class_id=class_id)
+    db.add(member)
+    await db.commit()
+    await db.refresh(member)
+    return member
+
+
+async def _register_student_via_api(
+    client: AsyncClient,
+    student_id: str,
+    college: str,
+    password: str,
+) -> dict:
+    """Register a student via API. Returns response JSON."""
+    resp = await client.post(
+        "/api/auth/register",
+        json={
+            "student_id": student_id,
+            "college": college,
+            "password": password,
+        },
+    )
+    assert resp.status_code == 201, f"Registration failed: {resp.text}"
+    return resp.json()
+
+
+async def _join_class_via_api(
+    client: AsyncClient, token: str, join_token: str
+) -> dict:
+    """Join a class via API. Returns response JSON."""
+    resp = await client.post(
+        "/api/student/join-class",
+        json={"join_token": join_token},
+        headers=auth_header(token),
+    )
+    assert resp.status_code == 200, f"Join class failed: {resp.text}"
+    return resp.json()
+
+
 async def _login(client: AsyncClient, username: str, password: str) -> str:
-    """Log in via the API and return the access_token."""
+    """Log in via the API and return the access_token.
+
+    Handles the three login response variants:
+    - Direct login (has access_token)
+    - requires_join_class (return temp_access_token)
+    - requires_class_selection (raise — caller should handle)
+    """
     resp = await client.post(
         "/api/auth/login", json={"username": username, "password": password}
     )
     assert resp.status_code == 200
-    return resp.json()["access_token"]
+    data = resp.json()
+    if "access_token" in data:
+        return data["access_token"]
+    if "temp_access_token" in data:
+        return data["temp_access_token"]
+    raise ValueError(f"Unexpected login response: {data}")
 
 
 async def _login_full(client: AsyncClient, username: str, password: str) -> dict:
@@ -225,48 +282,37 @@ async def admin_token(
 @pytest_asyncio.fixture
 async def admin_with_class(
     client: AsyncClient, admin_token: str
-) -> tuple[str, str]:
-    """Create admin + one class. Returns (admin_token, class_id)."""
+) -> tuple[str, str, str]:
+    """Create admin + one class. Returns (admin_token, class_id, join_token)."""
     resp = await client.post(
         "/api/admin/classes",
         json={"name": "TestClass"},
         headers=auth_header(admin_token),
     )
     assert resp.status_code == 201
-    class_id = resp.json()["id"]
-    return admin_token, class_id
+    data = resp.json()
+    return admin_token, data["id"], data["join_token"]
 
 
 @pytest_asyncio.fixture
 async def student_token(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     db_session: AsyncSession,
 ) -> str:
-    """Register a student in the test class and return its JWT token."""
-    token, class_id = admin_with_class
+    """Register a student, join the test class, and return its JWT token."""
+    admin_tok, class_id, join_token = admin_with_class
 
-    # Add student to roster
-    resp = await client.post(
-        f"/api/admin/classes/{class_id}/roster",
-        json={"student_id": "STU001"},
-        headers=auth_header(token),
-    )
-    assert resp.status_code == 201
+    await _register_student_via_api(client, "STU001", "lingnan", "stupass")
 
-    # Register student
-    resp = await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "testadmin",
-            "class_name": "TestClass",
-            "student_id": "STU001",
-            "password": "stupass",
-        },
-    )
-    assert resp.status_code == 201
+    # Login to get temp token (student has 0 classes)
+    temp_token = await _login(client, "STU001", "stupass")
 
-    return await _login(client, "STU001", "stupass")
+    # Join class via token
+    join_data = await _join_class_via_api(client, temp_token, join_token)
+
+    # Return the token from join-class (scoped to the class)
+    return join_data["access_token"]
 
 
 @pytest_asyncio.fixture
@@ -282,13 +328,13 @@ async def another_admin_token(
 @pytest_asyncio.fixture
 async def another_admin_with_class(
     client: AsyncClient, another_admin_token: str
-) -> tuple[str, str]:
-    """Second admin with its own class. Returns (token, class_id)."""
+) -> tuple[str, str, str]:
+    """Second admin with its own class. Returns (token, class_id, join_token)."""
     resp = await client.post(
         "/api/admin/classes",
         json={"name": "OtherClass"},
         headers=auth_header(another_admin_token),
     )
     assert resp.status_code == 201
-    class_id = resp.json()["id"]
-    return another_admin_token, class_id
+    data = resp.json()
+    return another_admin_token, data["id"], data["join_token"]

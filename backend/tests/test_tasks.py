@@ -53,10 +53,10 @@ async def _create_published_task(
 
 
 async def test_admin_list_tasks(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#54 — Admin lists tasks."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     await _create_draft_task(client, token, class_id)
 
     resp = await client.get("/api/tasks", headers=auth_header(token))
@@ -69,10 +69,10 @@ async def test_admin_list_tasks(
 
 
 async def test_admin_list_tasks_filter_by_status(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#55 — Filter tasks by status."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     await _create_published_task(client, token, class_id)
     await _create_draft_task(client, token, class_id, title="Draft Only")
 
@@ -85,10 +85,10 @@ async def test_admin_list_tasks_filter_by_status(
 
 
 async def test_admin_list_tasks_filter_by_class(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#56 — Filter tasks by class_id."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     await _create_draft_task(client, token, class_id)
 
     resp = await client.get(
@@ -101,11 +101,11 @@ async def test_admin_list_tasks_filter_by_class(
 
 async def test_student_list_tasks_only_own_class(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#57 — Student only sees own class tasks."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     await _create_published_task(client, token, class_id)
 
     resp = await client.get("/api/tasks", headers=auth_header(student_token))
@@ -116,11 +116,11 @@ async def test_student_list_tasks_only_own_class(
 
 async def test_student_cannot_see_draft_tasks(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#58 — Student cannot access draft tasks."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_draft_task(client, token, class_id)
 
     resp = await client.get(
@@ -135,10 +135,10 @@ async def test_student_cannot_see_draft_tasks(
 
 
 async def test_admin_create_task_draft(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#59 — Create a draft task."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_draft_task(client, token, class_id)
     assert task["status"] == "draft"
 
@@ -162,10 +162,10 @@ async def test_admin_create_task_invalid_class(
 
 
 async def test_admin_update_draft_task(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#61 — Update draft task fields."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_draft_task(client, token, class_id)
 
     resp = await client.patch(
@@ -178,10 +178,10 @@ async def test_admin_update_draft_task(
 
 
 async def test_admin_publish_task(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#62 — Publish a draft task."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_draft_task(
         client,
         token,
@@ -201,10 +201,10 @@ async def test_admin_publish_task(
 
 
 async def test_admin_publish_task_missing_fields(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#63 — Publish without required fields."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_draft_task(
         client, token, class_id, title="T", description="D", grading_criteria=""
     )
@@ -219,10 +219,10 @@ async def test_admin_publish_task_missing_fields(
 
 
 async def test_admin_cannot_edit_published_task(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#64 — Published task cannot be edited."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     resp = await client.patch(
@@ -235,10 +235,10 @@ async def test_admin_cannot_edit_published_task(
 
 
 async def test_admin_batch_publish(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#65 — Batch publish to multiple classes."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
 
     # Create a second class
     resp = await client.post(
@@ -264,10 +264,10 @@ async def test_admin_batch_publish(
 
 
 async def test_admin_batch_publish_invalid_class(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#66 — Batch publish with invalid class_id."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     resp = await client.post(
         "/api/tasks/batch-publish",
         json={
@@ -283,10 +283,10 @@ async def test_admin_batch_publish_invalid_class(
 
 
 async def test_admin_delete_task_cascade(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#67 — Delete task cascades submissions."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_draft_task(client, token, class_id)
 
     resp = await client.delete(
@@ -313,11 +313,11 @@ async def test_admin_delete_nonexistent_task(
 
 async def test_admin_get_task_stats(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#69 — Get task submission statistics."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     resp = await client.get(
@@ -332,10 +332,10 @@ async def test_admin_get_task_stats(
 
 
 async def test_admin_generate_criteria(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#70 — Generate grading criteria with AI model configured."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
 
     # Create and activate a model config
     resp = await client.post(

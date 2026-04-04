@@ -28,11 +28,11 @@ async def _create_voting_topic(
 
 async def test_student_list_topics(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#89 — Student lists topics."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     await _create_voting_topic(client, token, class_id)
 
     resp = await client.get(
@@ -49,11 +49,11 @@ async def test_student_list_topics(
 
 async def test_student_list_topics_filter_by_status(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#90 — Filter topics by status."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     await _create_voting_topic(client, token, class_id, "Voting Topic")
 
     resp = await client.get(
@@ -67,11 +67,11 @@ async def test_student_list_topics_filter_by_status(
 
 async def test_student_vote_topic(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#91 — Student votes on a topic."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     topic = await _create_voting_topic(client, token, class_id)
 
     resp = await client.post(
@@ -84,11 +84,11 @@ async def test_student_vote_topic(
 
 async def test_student_vote_topic_duplicate(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#92 — Duplicate vote."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     topic = await _create_voting_topic(client, token, class_id)
 
     await client.post(
@@ -105,11 +105,11 @@ async def test_student_vote_topic_duplicate(
 
 async def test_student_vote_topic_max_reached(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#93 — Exceeds max votes per student (3)."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
 
     # Vote on 3 topics
     for i in range(3):
@@ -131,11 +131,11 @@ async def test_student_vote_topic_max_reached(
 
 async def test_student_vote_non_voting_topic(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#94 — Vote on non-voting topic."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     resp = await client.post(
         "/api/admin/sharing/topics",
         json={
@@ -158,10 +158,10 @@ async def test_student_vote_non_voting_topic(
 async def test_student_vote_other_class_topic(
     client: AsyncClient,
     student_token: str,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#95 — Vote on another class's topic."""
-    other_token, other_class_id = another_admin_with_class
+    other_token, other_class_id, _ = another_admin_with_class
     topic = await _create_voting_topic(client, other_token, other_class_id)
 
     resp = await client.post(
@@ -173,11 +173,11 @@ async def test_student_vote_other_class_topic(
 
 async def test_student_unvote_topic(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#96 — Unvote a topic."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     topic = await _create_voting_topic(client, token, class_id)
 
     await client.post(
@@ -194,11 +194,11 @@ async def test_student_unvote_topic(
 
 async def test_student_unvote_not_voted(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#97 — Unvote a topic not voted on."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     topic = await _create_voting_topic(client, token, class_id)
 
     resp = await client.delete(
@@ -211,7 +211,7 @@ async def test_student_unvote_not_voted(
 
 async def test_student_suggest_topic(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#98 — Student suggests a topic (auto-votes)."""
@@ -226,7 +226,7 @@ async def test_student_suggest_topic(
 
 async def test_student_suggest_topic_empty_title(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#99 — Suggest with empty title."""
@@ -241,11 +241,11 @@ async def test_student_suggest_topic_empty_title(
 
 async def test_student_suggest_topic_max_votes_reached(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#100 — Suggest topic when votes are exhausted."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
 
     # Use up all 3 votes
     for i in range(3):
@@ -265,11 +265,11 @@ async def test_student_suggest_topic_max_votes_reached(
 
 async def test_student_get_topic_materials(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#101 — View completed topic's materials."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     resp = await client.post(
         "/api/admin/sharing/topics",
         json={
@@ -294,11 +294,11 @@ async def test_student_get_topic_materials(
 
 async def test_student_get_topic_materials_not_completed(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#102 — View materials of non-completed topic."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     topic = await _create_voting_topic(client, token, class_id)
 
     resp = await client.get(
@@ -315,10 +315,10 @@ async def test_student_get_topic_materials_not_completed(
 
 
 async def test_admin_list_topics(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#103 — Admin lists all topics."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     await _create_voting_topic(client, token, class_id)
 
     resp = await client.get(
@@ -329,10 +329,10 @@ async def test_admin_list_topics(
 
 
 async def test_admin_list_topics_filter_by_class(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#104 — Admin filters topics by class."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     await _create_voting_topic(client, token, class_id)
 
     resp = await client.get(
@@ -343,10 +343,10 @@ async def test_admin_list_topics_filter_by_class(
 
 
 async def test_admin_create_topic(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#105 — Admin creates a topic."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     resp = await client.post(
         "/api/admin/sharing/topics",
         json={"title": "Admin Topic", "class_id": class_id},
@@ -356,10 +356,10 @@ async def test_admin_create_topic(
 
 
 async def test_admin_create_completed_topic_missing_presenters(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#106 — Completed topic without presenters."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     resp = await client.post(
         "/api/admin/sharing/topics",
         json={
@@ -374,10 +374,10 @@ async def test_admin_create_completed_topic_missing_presenters(
 
 
 async def test_admin_create_completed_topic_missing_session_number(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#107 — Completed topic without session_number."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     resp = await client.post(
         "/api/admin/sharing/topics",
         json={
@@ -392,10 +392,10 @@ async def test_admin_create_completed_topic_missing_session_number(
 
 
 async def test_admin_update_topic(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#108 — Update a topic."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     topic = await _create_voting_topic(client, token, class_id)
 
     resp = await client.patch(
@@ -409,14 +409,14 @@ async def test_admin_update_topic(
 
 async def test_admin_update_topic_other_admins(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
-    another_admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#109 — Cannot update another admin's topic."""
-    other_token, other_class_id = another_admin_with_class
+    other_token, other_class_id, _ = another_admin_with_class
     topic = await _create_voting_topic(client, other_token, other_class_id)
 
-    token, _ = admin_with_class
+    token, _, _ = admin_with_class
     resp = await client.patch(
         f"/api/admin/sharing/topics/{topic['id']}",
         json={"title": "Hijack"},
@@ -426,10 +426,10 @@ async def test_admin_update_topic_other_admins(
 
 
 async def test_admin_delete_topic(
-    client: AsyncClient, admin_with_class: tuple[str, str]
+    client: AsyncClient, admin_with_class: tuple[str, str, str]
 ):
     """#110 — Delete topic cascades votes."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     topic = await _create_voting_topic(client, token, class_id)
 
     resp = await client.delete(

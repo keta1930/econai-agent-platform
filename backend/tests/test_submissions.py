@@ -50,11 +50,11 @@ def _mock_storage():
 
 async def test_student_submit_text(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#72 — Student submits text assignment."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():
@@ -75,11 +75,11 @@ async def test_student_submit_text(
 
 async def test_student_submit_file(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#73 — Student submits file assignment."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():
@@ -95,11 +95,11 @@ async def test_student_submit_file(
 
 async def test_student_submit_image(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#74 — Student submits image assignment (manual_review status)."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     # Minimal valid PNG header
@@ -122,10 +122,10 @@ async def test_student_submit_image(
 async def test_student_submit_wrong_task_class(
     client: AsyncClient,
     student_token: str,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#75 — Submit to a task in another class."""
-    other_token, other_class_id = another_admin_with_class
+    other_token, other_class_id, _ = another_admin_with_class
     task = await _create_published_task(client, other_token, other_class_id)
 
     with _mock_storage():
@@ -160,11 +160,11 @@ async def test_student_submit_nonexistent_task(
 
 async def test_student_submit_invalid_content_type(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#77 — Invalid content_type value."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     resp = await client.post(
@@ -181,11 +181,11 @@ async def test_student_submit_invalid_content_type(
 
 async def test_student_submit_empty_text(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#78 — Submit empty text content."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     resp = await client.post(
@@ -203,11 +203,11 @@ async def test_student_submit_empty_text(
 
 async def test_student_submit_text_exceeds_limit(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#79 — Text exceeds size limit."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     huge_text = "x" * (3 * 1024 * 1024)  # 3MB > 2MB limit
@@ -226,11 +226,11 @@ async def test_student_submit_text_exceeds_limit(
 
 async def test_student_submit_invalid_file_extension(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#80 — Unsupported file extension."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     resp = await client.post(
@@ -245,11 +245,11 @@ async def test_student_submit_invalid_file_extension(
 
 async def test_student_submit_version_increment(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#81 — Multiple submissions increment version."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():
@@ -283,11 +283,11 @@ async def test_student_submit_version_increment(
 
 async def test_student_list_my_submissions(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#82 — Student lists own submissions."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():
@@ -310,11 +310,11 @@ async def test_student_list_my_submissions(
 
 async def test_student_list_my_task_submissions(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#83 — Student lists submissions for a specific task."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():
@@ -351,12 +351,12 @@ async def test_student_list_my_task_submissions(
 
 async def test_admin_get_student_submissions(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
     db_session,
 ):
     """#84 — Admin views a student's submissions."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():
@@ -380,13 +380,13 @@ async def test_admin_get_student_submissions(
 
 async def test_admin_get_student_submissions_other_class(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
     another_admin_token: str,
     db_session,
 ):
     """#85 — Admin cannot view other class student's submissions."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():
@@ -410,11 +410,11 @@ async def test_admin_get_student_submissions_other_class(
 
 async def test_admin_get_submission_content_text(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#86 — Admin views text submission content."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():
@@ -442,11 +442,11 @@ async def test_admin_get_submission_content_text(
 
 async def test_admin_get_submission_content_image(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#87 — Admin views image submission content (presigned URL)."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     png_bytes = (
@@ -476,11 +476,11 @@ async def test_admin_get_submission_content_image(
 
 async def test_admin_get_student_task_submissions(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
 ):
     """#88 — Admin views a student's submissions for a specific task."""
-    token, class_id = admin_with_class
+    token, class_id, _ = admin_with_class
     task = await _create_published_task(client, token, class_id)
 
     with _mock_storage():

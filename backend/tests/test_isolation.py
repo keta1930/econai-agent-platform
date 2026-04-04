@@ -6,7 +6,12 @@ from unittest.mock import patch, MagicMock
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import auth_header
+from tests.conftest import (
+    auth_header,
+    _register_student_via_api,
+    _join_class_via_api,
+    _login,
+)
 
 
 def _mock_storage():
@@ -23,8 +28,8 @@ def _mock_storage():
 
 async def _setup_two_admins(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
-    another_admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
+    another_admin_with_class: tuple[str, str, str],
 ) -> tuple[tuple[str, str], tuple[str, str]]:
     """Return (token_a, class_id_a), (token_b, class_id_b)."""
     return admin_with_class, another_admin_with_class
@@ -37,12 +42,12 @@ async def _setup_two_admins(
 
 async def test_admin_cannot_see_other_admins_classes(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
-    another_admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#126 — Admin A cannot see Admin B's classes."""
-    token_a, class_id_a = admin_with_class
-    _, class_id_b = another_admin_with_class
+    token_a, class_id_a, _ = admin_with_class
+    _, class_id_b, _ = another_admin_with_class
 
     resp = await client.get(
         "/api/admin/classes", headers=auth_header(token_a)
@@ -55,12 +60,12 @@ async def test_admin_cannot_see_other_admins_classes(
 
 async def test_admin_cannot_see_other_admins_tasks(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
-    another_admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#127 — Admin A cannot see Admin B's tasks."""
-    token_a, class_id_a = admin_with_class
-    token_b, class_id_b = another_admin_with_class
+    token_a, class_id_a, _ = admin_with_class
+    token_b, class_id_b, _ = another_admin_with_class
 
     # Create task in each class
     await client.post(
@@ -92,12 +97,12 @@ async def test_admin_cannot_see_other_admins_tasks(
 
 async def test_admin_cannot_see_other_admins_topics(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
-    another_admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#128 — Admin A cannot see Admin B's sharing topics."""
-    token_a, class_id_a = admin_with_class
-    token_b, class_id_b = another_admin_with_class
+    token_a, class_id_a, _ = admin_with_class
+    token_b, class_id_b, _ = another_admin_with_class
 
     resp_b = await client.post(
         "/api/admin/sharing/topics",
@@ -161,10 +166,10 @@ async def test_admin_cannot_see_other_admins_backups(
 async def test_admin_cannot_access_other_admins_roster(
     client: AsyncClient,
     admin_token: str,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#131 — Admin A cannot access Admin B's roster."""
-    _, other_class_id = another_admin_with_class
+    _, other_class_id, _ = another_admin_with_class
     resp = await client.get(
         f"/api/admin/classes/{other_class_id}/roster",
         headers=auth_header(admin_token),
@@ -175,10 +180,10 @@ async def test_admin_cannot_access_other_admins_roster(
 async def test_admin_cannot_delete_other_admins_task(
     client: AsyncClient,
     admin_token: str,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#132 — Admin A cannot delete Admin B's task."""
-    other_token, other_class_id = another_admin_with_class
+    other_token, other_class_id, _ = another_admin_with_class
     resp = await client.post(
         "/api/tasks",
         json={
@@ -199,12 +204,12 @@ async def test_admin_cannot_delete_other_admins_task(
 
 async def test_admin_cannot_view_other_admins_student_submissions(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
     another_admin_token: str,
 ):
     """#133 — Admin A cannot view Admin B's student submissions."""
-    token_a, class_id_a = admin_with_class
+    token_a, class_id_a, _ = admin_with_class
     # Create task and submission
     resp = await client.post(
         "/api/tasks",
@@ -250,10 +255,10 @@ async def test_admin_cannot_view_other_admins_student_submissions(
 async def test_student_cannot_see_other_class_tasks(
     client: AsyncClient,
     student_token: str,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#134 — Student cannot see other class tasks."""
-    other_token, other_class_id = another_admin_with_class
+    other_token, other_class_id, _ = another_admin_with_class
     resp = await client.post(
         "/api/tasks",
         json={
@@ -280,10 +285,10 @@ async def test_student_cannot_see_other_class_tasks(
 async def test_student_cannot_submit_to_other_class_task(
     client: AsyncClient,
     student_token: str,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#135 — Student cannot submit to other class task."""
-    other_token, other_class_id = another_admin_with_class
+    other_token, other_class_id, _ = another_admin_with_class
     resp = await client.post(
         "/api/tasks",
         json={
@@ -315,12 +320,12 @@ async def test_student_cannot_submit_to_other_class_task(
 
 async def test_student_cannot_see_other_class_topics(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
     student_token: str,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#136 — Student cannot see other class topics."""
-    other_token, other_class_id = another_admin_with_class
+    other_token, other_class_id, _ = another_admin_with_class
     resp = await client.post(
         "/api/admin/sharing/topics",
         json={"title": "Other Topic", "class_id": other_class_id},
@@ -338,10 +343,10 @@ async def test_student_cannot_see_other_class_topics(
 async def test_student_cannot_vote_other_class_topic(
     client: AsyncClient,
     student_token: str,
-    another_admin_with_class: tuple[str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#137 — Student cannot vote on other class topic."""
-    other_token, other_class_id = another_admin_with_class
+    other_token, other_class_id, _ = another_admin_with_class
     resp = await client.post(
         "/api/admin/sharing/topics",
         json={
@@ -362,14 +367,17 @@ async def test_student_cannot_vote_other_class_topic(
 
 async def test_delete_student_only_affects_current_class(
     client: AsyncClient,
-    admin_with_class: tuple[str, str],
-    another_admin_with_class: tuple[str, str],
+    admin_with_class: tuple[str, str, str],
+    another_admin_with_class: tuple[str, str, str],
 ):
     """#138 — Deleting a student in one class does not affect another."""
-    token_a, class_id_a = admin_with_class
-    token_b, class_id_b = another_admin_with_class
+    token_a, class_id_a, _ = admin_with_class
+    token_b, class_id_b, _ = another_admin_with_class
 
-    # Add same student to both rosters
+    _, _, join_token_a = admin_with_class
+    _, _, join_token_b = another_admin_with_class
+
+    # Add same student to both expected rosters
     for tok, cid in [(token_a, class_id_a), (token_b, class_id_b)]:
         await client.post(
             f"/api/admin/classes/{cid}/roster",
@@ -377,25 +385,13 @@ async def test_delete_student_only_affects_current_class(
             headers=auth_header(tok),
         )
 
-    # Register in both classes
-    await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "testadmin",
-            "class_name": "TestClass",
-            "student_id": "ISO_STU",
-            "password": "p",
-        },
-    )
-    await client.post(
-        "/api/auth/register",
-        json={
-            "admin_name": "otheradmin",
-            "class_name": "OtherClass",
-            "student_id": "ISO_STU",
-            "password": "p",
-        },
-    )
+    # Register once, then join both classes
+    await _register_student_via_api(client, "ISO_STU", "lingnan", "p")
+    temp_token = await _login(client, "ISO_STU", "p")
+    await _join_class_via_api(client, temp_token, join_token_a)
+    # Re-login to get updated token, then join class B
+    token_after_a = await _login(client, "ISO_STU", "p")
+    await _join_class_via_api(client, token_after_a, join_token_b)
 
     # Delete from class A
     resp = await client.delete(
@@ -404,13 +400,13 @@ async def test_delete_student_only_affects_current_class(
     )
     assert resp.status_code == 204
 
-    # Student should still exist in class B
+    # Student should still exist in class B's expected roster
     resp = await client.get(
         f"/api/admin/classes/{class_id_b}/roster",
         headers=auth_header(token_b),
     )
-    student_ids = [i["student_id"] for i in resp.json()["items"]]
-    assert "ISO_STU" in student_ids
+    expected_ids = [i["student_id"] for i in resp.json()["expected"]]
+    assert "ISO_STU" in expected_ids
 
     # Student can still log in for class B
     resp = await client.post(
