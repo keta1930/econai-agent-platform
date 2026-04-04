@@ -25,15 +25,15 @@ interface NavItem {
 
 const teachingNav: NavItem[] = [
   { label: "班级管理", href: "/admin/classes", icon: School },
-  { label: "仪表板", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "发布任务", href: "/admin/tasks/new", icon: PlusCircle },
-  { label: "学号名单", href: "/admin/roster", icon: Users },
+  { label: "作业列表", href: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "创建作业", href: "/admin/tasks/new", icon: PlusCircle },
+  { label: "学生名单", href: "/admin/roster", icon: Users },
+  { label: "分享管理", href: "/admin/sharing", icon: Presentation },
 ];
 
 const systemNav: NavItem[] = [
   { label: "模型管理", href: "/admin/models", icon: Cpu },
-  { label: "分享管理", href: "/admin/sharing", icon: Presentation },
-  { label: "数据库管理", href: "/admin/backups", icon: Database },
+  { label: "数据备份", href: "/admin/backups", icon: Database },
 ];
 
 function ClassSelector() {
@@ -50,12 +50,34 @@ function ClassSelector() {
           if (found) setCurrentClass(found);
         }}
       >
-        <SelectTrigger className="w-full text-xs h-9 rounded-lg bg-[var(--ink-mid)] border-[rgba(201,169,110,0.15)] text-[var(--text-on-dark)]">
+        <SelectTrigger
+          className={cn(
+            "w-full text-xs h-9 rounded-lg",
+            "bg-[var(--ink-mid)] border-[rgba(201,169,110,0.15)] text-[var(--text-on-dark)]",
+            // hover / focus 融入墨蓝 + 金色体系
+            "hover:border-[var(--gold-dim)] hover:bg-[var(--ink-light)]",
+            "focus-visible:border-[var(--gold)]/30 focus-visible:ring-2 focus-visible:ring-[var(--gold)]/10",
+            // 下拉箭头适配浅色
+            "[&_svg]:text-[var(--text-on-dark-secondary)]",
+          )}
+        >
           <SelectValue placeholder="选择班级" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent
+          className={cn(
+            "bg-[var(--ink-light)] border-[rgba(201,169,110,0.12)]",
+            "shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
+          )}
+        >
           {classes.map((c) => (
-            <SelectItem key={c.id} value={c.name}>
+            <SelectItem
+              key={c.id}
+              value={c.name}
+              className={cn(
+                "text-xs text-[var(--text-on-dark-secondary)] rounded-none",
+                "focus:bg-[var(--ink-mid)] focus:text-[var(--text-on-dark)]",
+              )}
+            >
               {c.name}
             </SelectItem>
           ))}

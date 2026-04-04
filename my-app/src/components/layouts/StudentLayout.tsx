@@ -237,15 +237,15 @@ function JoinClassDialog({
         <DialogHeader>
           <DialogTitle>加入班级</DialogTitle>
           <DialogDescription>
-            请输入老师提供的班级 Token 加入班级
+            请输入老师提供的加入凭证
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="join-token">班级 Token</Label>
+            <Label htmlFor="join-token">加入凭证</Label>
             <Input
               id="join-token"
-              placeholder="请输入班级 Token"
+              placeholder="请输入加入凭证"
               value={joinToken}
               onChange={(e) => setJoinToken(e.target.value)}
               autoFocus
