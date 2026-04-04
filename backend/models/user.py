@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, Uuid, func
+from sqlalchemy import Boolean, Column, String, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, Uuid, func
 
 from database import Base
 from utils import uuid7
@@ -12,6 +12,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)
     class_id = Column(Uuid, ForeignKey("classes.id"), nullable=True)
+    is_active = Column(Boolean, nullable=False, server_default="true")
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
