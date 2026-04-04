@@ -16,6 +16,7 @@ from models.roster import StudentRoster
 from models.sharing import SharingTopic, TopicVote
 from models.submission import Submission
 from models.task import Task
+from models.class_member import ClassMember
 from models.user import User
 from services.storage import storage_service
 from utils import uuid7
@@ -88,10 +89,17 @@ async def export_admin_data(
             )
         ).scalars().all()
 
-        # 3. Student users
+        # 3. Student users (via class_members join)
+        student_ids_stmt = (
+            select(ClassMember.user_id)
+            .where(ClassMember.class_id.in_(class_ids))
+        )
         users = (
             await db.execute(
-                select(User).where(User.class_id.in_(class_ids), User.role == "student")
+                select(User).where(
+                    User.id.in_(student_ids_stmt),
+                    User.role == "student",
+                )
             )
         ).scalars().all()
 

@@ -1,4 +1,5 @@
 import asyncio
+import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from auth.deps import require_admin, TokenPayload
 from models.class_ import Class
+from models.class_member import ClassMember
 from models.user import User
 from models.roster import StudentRoster
 from models.task import Task
@@ -35,9 +37,9 @@ async def list_classes(
     student_counts: dict[uuid.UUID, int] = {}
     if class_ids:
         result = await db.execute(
-            select(User.class_id, func.count(User.id))
-            .where(User.class_id.in_(class_ids), User.role == "student")
-            .group_by(User.class_id)
+            select(ClassMember.class_id, func.count(ClassMember.id))
+            .where(ClassMember.class_id.in_(class_ids))
+            .group_by(ClassMember.class_id)
         )
         student_counts = {cid: cnt for cid, cnt in result.all()}
 
@@ -45,6 +47,7 @@ async def list_classes(
         ClassResponse(
             id=c.id,
             name=c.name,
+            join_token=c.join_token,
             student_count=student_counts.get(c.id, 0),
             created_at=c.created_at,
         )
@@ -73,7 +76,10 @@ async def create_class(
     db.add(cls)
     await db.commit()
     await db.refresh(cls)
-    return ClassResponse(id=cls.id, name=cls.name, student_count=0, created_at=cls.created_at)
+    return ClassResponse(
+        id=cls.id, name=cls.name, join_token=cls.join_token,
+        student_count=0, created_at=cls.created_at,
+    )
 
 
 @router.delete("/{class_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -110,9 +116,9 @@ async def delete_class(
     # 4. Delete tasks
     await db.execute(delete(Task).where(Task.class_id == class_id))
 
-    # 5. Delete student users in this class
+    # 5. Delete class_members records
     await db.execute(
-        delete(User).where(User.class_id == class_id, User.role == "student")
+        delete(ClassMember).where(ClassMember.class_id == class_id)
     )
 
     # 6. Delete roster entries
@@ -127,3 +133,37 @@ async def delete_class(
         await asyncio.to_thread(storage_service.remove_objects, file_paths)
 
     return Response(status_code=204)
+
+
+@router.get("/{class_id}/token")
+async def get_class_token(
+    class_id: uuid.UUID,
+    admin: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Class).where(Class.id == class_id, Class.created_by == admin.id)
+    )
+    cls = result.scalar_one_or_none()
+    if not cls:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="班级不存在")
+    return {"join_token": cls.join_token}
+
+
+@router.post("/{class_id}/token/regenerate")
+async def regenerate_class_token(
+    class_id: uuid.UUID,
+    admin: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Class).where(Class.id == class_id, Class.created_by == admin.id)
+    )
+    cls = result.scalar_one_or_none()
+    if not cls:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="班级不存在")
+
+    cls.join_token = secrets.token_urlsafe(16)
+    await db.commit()
+    await db.refresh(cls)
+    return {"join_token": cls.join_token}

@@ -9,6 +9,7 @@ from database import get_db
 from auth.deps import require_super_admin, TokenPayload
 from models.backup import Backup
 from models.class_ import Class
+from models.class_member import ClassMember
 from models.invite_code import InviteCode
 from models.model_config import ModelConfig
 from models.roster import StudentRoster
@@ -190,9 +191,9 @@ async def delete_admin(
         # 4. Delete tasks
         await db.execute(delete(Task).where(Task.class_id.in_(class_ids)))
 
-        # 5. Delete student users in admin's classes
+        # 5. Delete class_members records (students keep their User accounts)
         await db.execute(
-            delete(User).where(User.class_id.in_(class_ids), User.role == "student")
+            delete(ClassMember).where(ClassMember.class_id.in_(class_ids))
         )
 
         # 6. Delete roster entries

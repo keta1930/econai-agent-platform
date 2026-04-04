@@ -14,6 +14,7 @@ from config import MAX_TEXT_SIZE, MAX_IMAGE_SIZE
 from models.user import User
 from models.task import Task
 from models.class_ import Class
+from models.class_member import ClassMember
 from models.submission import Submission
 from schemas.submission import (
     SubmissionCreateResponse, SubmissionDetail, SubmissionListResponse,
@@ -274,16 +275,22 @@ async def get_student_submissions(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify admin owns the student's class
+    # Verify student exists and is in one of the admin's classes
     result = await db.execute(select(User).where(User.id == student_id))
     student = result.scalar_one_or_none()
-    if not student or not student.class_id:
+    if not student:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="学生不存在")
 
+    # Check if student is a member of any class owned by this admin
     result = await db.execute(
-        select(Class).where(Class.id == student.class_id, Class.created_by == admin.id)
+        select(ClassMember).where(
+            ClassMember.user_id == student_id,
+            ClassMember.class_id.in_(
+                select(Class.id).where(Class.created_by == admin.id)
+            ),
+        )
     )
-    if not result.scalar_one_or_none():
+    if not result.first():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="学生不存在")
 
     result = await db.execute(
