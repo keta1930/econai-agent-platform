@@ -12,6 +12,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)
     class_id = Column(Uuid, ForeignKey("classes.id"), nullable=True)
+    invite_code_id = Column(Uuid, ForeignKey("invite_codes.id", ondelete="SET NULL"), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default="true")
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
