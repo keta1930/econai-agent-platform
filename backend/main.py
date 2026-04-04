@@ -7,9 +7,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from config import ENV, PORT
+from database import engine
 from init_db import init_database
+from services.cleanup_service import start_cleanup_scheduler, shutdown_cleanup_scheduler
 from services.storage import storage_service
-from routers.auth import router as auth_router
+from routers.auth import router as auth_router, student_router as student_auth_router
 from routers.classes import router as classes_router
 from routers.super_admin import router as super_admin_router
 from routers.roster import router as roster_router
@@ -32,8 +34,10 @@ async def lifespan(app: FastAPI):
     await init_backups_bucket()
     logger.info("Startup: initializing database...")
     await init_database()
+    start_cleanup_scheduler(engine)
     logger.info("Startup: complete")
     yield
+    shutdown_cleanup_scheduler()
 
 
 _is_dev = ENV != "production"
@@ -48,6 +52,7 @@ app = FastAPI(
 
 # Register API routers (must come before static file mount)
 app.include_router(auth_router)
+app.include_router(student_auth_router)
 app.include_router(classes_router)
 app.include_router(super_admin_router)
 app.include_router(roster_router)
@@ -76,4 +81,4 @@ if dist_path.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=_is_dev)
+    uvicorn.run("main:app", host="0.0.0.0", port=PORT)
