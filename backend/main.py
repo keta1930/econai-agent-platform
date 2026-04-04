@@ -18,15 +18,21 @@ from routers.submissions import router as submissions_router, admin_submissions_
 from routers.model_config import router as model_config_router
 from routers.sharing import router as sharing_router, admin_sharing_router
 from routers.backups import router as backups_router
+from routers.invite_codes import router as invite_codes_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Startup: initializing MinIO homework bucket...")
     await asyncio.to_thread(storage_service.ensure_bucket)
+    logger.info("Startup: initializing MinIO backups bucket...")
     from services.backup_service import init_backups_bucket
     await init_backups_bucket()
+    logger.info("Startup: initializing database...")
     await init_database()
+    logger.info("Startup: complete")
     yield
 
 
@@ -52,6 +58,7 @@ app.include_router(model_config_router)
 app.include_router(sharing_router)
 app.include_router(admin_sharing_router)
 app.include_router(backups_router)
+app.include_router(invite_codes_router)
 
 # Mount frontend static files
 dist_path = Path(__file__).resolve().parent / "dist"

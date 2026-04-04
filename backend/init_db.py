@@ -1,15 +1,11 @@
-import asyncio
 import logging
-from pathlib import Path
-
-from alembic import command
-from alembic.config import Config
 
 from config import ENV, SECRET_KEY, _DEFAULT_SECRET_KEY
-from database import async_session_factory
+from database import engine, async_session_factory, Base
 from seed import run_seed
 
-_ALEMBIC_INI = str(Path(__file__).resolve().parent / "alembic.ini")
+# Import all models so Base.metadata knows about them
+import models  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +29,9 @@ def _check_secret_key() -> None:
 async def init_database():
     _check_secret_key()
 
-    cfg = Config(_ALEMBIC_INI)
-    await asyncio.to_thread(command.upgrade, cfg, "head")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables ensured")
 
     async with async_session_factory() as db:
         await run_seed(db)
