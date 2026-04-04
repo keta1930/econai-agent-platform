@@ -320,7 +320,7 @@ export default function SharingManagePage() {
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-6">
-          <h1 className="text-2xl font-heading font-semibold page-title-decorated">分享管理</h1>
+          <h1 className="text-2xl font-heading font-semibold page-title-decorated">分享管理（{currentClass.name}）</h1>
           <nav className="flex items-center gap-4">
             {(
               [

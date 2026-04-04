@@ -93,7 +93,7 @@ export default function DashboardPage() {
     <div className="space-y-4 animate-fade-in-up">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading font-semibold page-title-decorated">作业列表</h1>
+        <h1 className="text-2xl font-heading font-semibold page-title-decorated">作业列表（{currentClass.name}）</h1>
         <button
           className="btn-scholarly"
           onClick={() => navigate("/admin/tasks/new")}

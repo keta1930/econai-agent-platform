@@ -419,7 +419,7 @@ export default function RosterPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <h1 className="text-2xl font-heading font-semibold page-title-decorated">
-            学生名单
+            学生名单{currentClass ? `（${currentClass.name}）` : ""}
           </h1>
 
           {selectedClassId && !loading && !error && (
