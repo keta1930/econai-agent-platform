@@ -1,6 +1,6 @@
 import asyncio
-import io
 import os
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -50,7 +50,7 @@ _IMAGE_CONTENT_TYPES: dict[str, str] = {
 
 
 async def _handle_text_submission(
-    text_content: str | None, task_id: int, student_id: int, timestamp: str,
+    text_content: str | None, task_id: uuid.UUID, student_id: uuid.UUID, timestamp: str,
 ) -> str:
     """Validate and upload a text submission. Returns the storage path."""
     if not text_content or not text_content.strip():
@@ -72,7 +72,7 @@ async def _handle_text_submission(
 
 
 async def _handle_file_submission(
-    file: UploadFile | None, task_id: int, student_id: int, timestamp: str,
+    file: UploadFile | None, task_id: uuid.UUID, student_id: uuid.UUID, timestamp: str,
 ) -> str:
     """Validate and upload a file submission. Returns the storage path."""
     if not file:
@@ -100,7 +100,7 @@ async def _handle_file_submission(
 
 
 async def _handle_image_submission(
-    file: UploadFile | None, task_id: int, student_id: int, timestamp: str,
+    file: UploadFile | None, task_id: uuid.UUID, student_id: uuid.UUID, timestamp: str,
 ) -> str:
     """Validate and upload an image submission. Returns the storage path."""
     if not file:
@@ -153,7 +153,7 @@ async def _verify_admin_owns_task(task: Task, admin: User, db: AsyncSession) -> 
 
 @router.post("", response_model=SubmissionCreateResponse, status_code=status.HTTP_201_CREATED)
 async def submit_assignment(
-    task_id: int = Form(...),
+    task_id: uuid.UUID = Form(...),
     content_type: str = Form(...),
     text_content: str | None = Form(None),
     file: UploadFile | None = File(None),
@@ -214,7 +214,16 @@ async def submit_assignment(
         from services.grading_service import grade_submission
         asyncio.create_task(grade_submission(submission.id))
 
-    return SubmissionCreateResponse.model_validate(submission)
+    return SubmissionCreateResponse(
+        id=submission.id,
+        task_id=submission.task_id,
+        student_id=submission.student_id,
+        version=submission.version,
+        content_type=submission.content_type,
+        status=submission.status,
+        submitted_at=submission.submitted_at,
+        task_title=task.title,
+    )
 
 
 @router.get("/my", response_model=SubmissionListResponse)
@@ -238,7 +247,7 @@ async def list_my_submissions(
 
 @router.get("/my/{task_id}", response_model=SubmissionListResponse)
 async def get_my_submission(
-    task_id: int,
+    task_id: uuid.UUID,
     student: User = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
@@ -261,7 +270,7 @@ async def get_my_submission(
     response_model=SubmissionListResponse,
 )
 async def get_student_submissions(
-    student_id: int,
+    student_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -296,7 +305,7 @@ async def get_student_submissions(
     response_model=SubmissionContentResponse,
 )
 async def get_submission_content(
-    submission_id: int,
+    submission_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -350,8 +359,8 @@ async def get_submission_content(
     response_model=SubmissionListResponse,
 )
 async def get_student_task_submissions(
-    task_id: int,
-    student_id: int,
+    task_id: uuid.UUID,
+    student_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):

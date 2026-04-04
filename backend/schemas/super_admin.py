@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ class AdminCreateRequest(BaseModel):
 
 
 class AdminResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     username: str
     role: str
     class_count: int

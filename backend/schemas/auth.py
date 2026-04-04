@@ -1,3 +1,4 @@
+import uuid
 from typing import Literal
 
 from pydantic import BaseModel
@@ -11,7 +12,7 @@ class RegisterRequest(BaseModel):
 
 
 class RegisterResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     role: str
 
 
@@ -23,12 +24,12 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     role: str
-    class_id: int | None = None
+    class_id: uuid.UUID | None = None
     class_name: str | None = None
 
 
 class ClassOption(BaseModel):
-    class_id: int
+    class_id: uuid.UUID
     class_name: str
     admin_name: str
 
@@ -41,4 +42,4 @@ class ClassSelectionResponse(BaseModel):
 class SelectClassRequest(BaseModel):
     username: str
     password: str
-    class_id: int
+    class_id: uuid.UUID

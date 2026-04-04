@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Literal
 
@@ -8,7 +9,7 @@ class TaskDraftRequest(BaseModel):
     title: str
     description: str = ""
     grading_criteria: str = ""
-    class_id: int
+    class_id: uuid.UUID
 
 
 class TaskUpdateRequest(BaseModel):
@@ -19,17 +20,17 @@ class TaskUpdateRequest(BaseModel):
 
 
 class TaskResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     title: str
     description: str
     grading_criteria: str
     status: str
-    class_id: int
-    created_by: int
+    class_id: uuid.UUID
+    created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime | None
-
-    model_config = {"from_attributes": True}
+    class_name: str
+    created_by_name: str
 
 
 class TaskListResponse(BaseModel):
@@ -37,7 +38,7 @@ class TaskListResponse(BaseModel):
 
 
 class TaskSubmissionItem(BaseModel):
-    student_id: int
+    student_id: uuid.UUID
     username: str
     version: int
     submission_count: int
@@ -47,7 +48,7 @@ class TaskSubmissionItem(BaseModel):
 
 
 class TaskStatsResponse(BaseModel):
-    task_id: int
+    task_id: uuid.UUID
     total_students: int
     submitted_count: int
     submission_rate: float
@@ -68,13 +69,13 @@ class BatchPublishRequest(BaseModel):
     title: str
     description: str
     grading_criteria: str
-    class_ids: list[int]
+    class_ids: list[uuid.UUID]
     status: Literal["published"]
 
 
 class BatchPublishItem(BaseModel):
-    id: int
-    class_id: int
+    id: uuid.UUID
+    class_id: uuid.UUID
     class_name: str
 
 

@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
@@ -31,7 +32,7 @@ async def list_classes(
 
     # Batch count students per class
     class_ids = [c.id for c in classes]
-    student_counts: dict[int, int] = {}
+    student_counts: dict[uuid.UUID, int] = {}
     if class_ids:
         result = await db.execute(
             select(User.class_id, func.count(User.id))
@@ -77,7 +78,7 @@ async def create_class(
 
 @router.delete("/{class_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_class(
-    class_id: int,
+    class_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):

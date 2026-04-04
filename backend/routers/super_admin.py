@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func
@@ -26,7 +27,7 @@ async def list_admins(
 
     # Batch count classes per admin
     admin_ids = [a.id for a in admins]
-    class_counts: dict[int, int] = {}
+    class_counts: dict[uuid.UUID, int] = {}
     if admin_ids:
         result = await db.execute(
             select(Class.created_by, func.count(Class.id))

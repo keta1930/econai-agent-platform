@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,7 +44,7 @@ async def list_backups(
 
 @router.get("/{backup_id}/download", response_model=BackupDownloadResponse)
 async def download_backup(
-    backup_id: int,
+    backup_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -57,7 +59,7 @@ async def download_backup(
 
 @router.patch("/{backup_id}", response_model=BackupResponse)
 async def rename_backup(
-    backup_id: int,
+    backup_id: uuid.UUID,
     body: BackupRename,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -73,7 +75,7 @@ async def rename_backup(
 
 @router.delete("/{backup_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_backup(
-    backup_id: int,
+    backup_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):

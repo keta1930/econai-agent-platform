@@ -1,23 +1,23 @@
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel
 
 
 class SubmissionCreateResponse(BaseModel):
-    id: int
-    task_id: int
-    student_id: int
+    id: uuid.UUID
+    task_id: uuid.UUID
+    student_id: uuid.UUID
     version: int
     content_type: str
     status: str
     submitted_at: datetime
-
-    model_config = {"from_attributes": True}
+    task_title: str
 
 
 class SubmissionDetail(BaseModel):
-    id: int
-    task_id: int
+    id: uuid.UUID
+    task_id: uuid.UUID
     task_title: str
     version: int
     content_type: str
@@ -34,7 +34,7 @@ class SubmissionListResponse(BaseModel):
 
 
 class SubmissionContentResponse(BaseModel):
-    submission_id: int
+    submission_id: uuid.UUID
     filename: str
     content: str
     content_type: str

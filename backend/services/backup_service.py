@@ -18,6 +18,7 @@ from models.submission import Submission
 from models.task import Task
 from models.user import User
 from services.storage import storage_service
+from utils import uuid7
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,8 @@ def _serialize_value(value: object) -> object:
     """Convert a single value for JSON serialization."""
     if isinstance(value, datetime):
         return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
     return value
 
 
@@ -61,7 +64,7 @@ def _row_to_dict(row: object) -> dict:
 
 
 async def export_admin_data(
-    db: AsyncSession, admin_id: int, admin_username: str,
+    db: AsyncSession, admin_id: uuid.UUID, admin_username: str,
 ) -> bytes:
     """Export all data belonging to an admin as JSON bytes.
 
@@ -138,7 +141,7 @@ async def export_admin_data(
         "version": "1.0",
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "admin": {
-            "id": admin_id,
+            "id": str(admin_id),
             "username": admin_username,
         },
         "data": {
@@ -181,7 +184,7 @@ async def create_backup(
 
     data = await export_admin_data(db, admin.id, admin.username)
 
-    object_key = f"{admin.id}/{uuid.uuid4()}.json"
+    object_key = f"{admin.id}/{uuid7()}.json"
     await asyncio.to_thread(
         storage_service.put_object_to_bucket,
         BACKUPS_BUCKET, object_key, data, "application/json",
@@ -197,11 +200,11 @@ async def create_backup(
     await db.commit()
     await db.refresh(backup)
 
-    logger.info("Backup created: %s (%d bytes) for admin %d", object_key, len(data), admin.id)
+    logger.info("Backup created: %s (%d bytes) for admin %s", object_key, len(data), admin.id)
     return backup
 
 
-async def list_backups(db: AsyncSession, admin_id: int) -> list[Backup]:
+async def list_backups(db: AsyncSession, admin_id: uuid.UUID) -> list[Backup]:
     """List backups for an admin, cleaning up orphaned DB records."""
     result = await db.execute(
         select(Backup)
@@ -226,7 +229,7 @@ async def list_backups(db: AsyncSession, admin_id: int) -> list[Backup]:
 
 
 async def get_backup_download_url(
-    db: AsyncSession, backup_id: int, admin_id: int,
+    db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID,
 ) -> tuple[str, str]:
     """Get a presigned download URL for a backup.
 
@@ -243,7 +246,7 @@ async def get_backup_download_url(
 
 
 async def rename_backup(
-    db: AsyncSession, backup_id: int, admin_id: int, display_name: str,
+    db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID, display_name: str,
 ) -> Backup:
     """Rename a backup's display name.
 
@@ -257,7 +260,7 @@ async def rename_backup(
 
 
 async def delete_backup(
-    db: AsyncSession, backup_id: int, admin_id: int,
+    db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID,
 ) -> None:
     """Delete a backup (MinIO file + DB record).
 
@@ -284,7 +287,7 @@ async def delete_backup(
 
 
 async def _get_backup_or_raise(
-    db: AsyncSession, backup_id: int, admin_id: int,
+    db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID,
 ) -> Backup:
     """Fetch a backup by id and admin, or raise ValueError."""
     result = await db.execute(

@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 
 import bcrypt
 from fastapi import HTTPException, status
@@ -130,7 +131,7 @@ async def authenticate_user(
 
     # Multiple student matches -- return class info for selection
     class_ids = [u.class_id for u in matched if u.class_id is not None]
-    class_map: dict[int, Class] = {}
+    class_map: dict[uuid.UUID, Class] = {}
     if class_ids:
         result = await db.execute(select(Class).where(Class.id.in_(class_ids)))
         for cls in result.scalars().all():
@@ -138,7 +139,7 @@ async def authenticate_user(
 
     # Build admin name map
     admin_ids = {cls.created_by for cls in class_map.values()}
-    admin_map: dict[int, str] = {}
+    admin_map: dict[uuid.UUID, str] = {}
     if admin_ids:
         result = await db.execute(select(User).where(User.id.in_(admin_ids)))
         for admin in result.scalars().all():
@@ -157,7 +158,7 @@ async def authenticate_user(
 
 
 async def authenticate_user_with_class(
-    db: AsyncSession, username: str, password: str, class_id: int
+    db: AsyncSession, username: str, password: str, class_id: uuid.UUID
 ) -> User:
     """Authenticate with explicit class selection."""
     result = await db.execute(

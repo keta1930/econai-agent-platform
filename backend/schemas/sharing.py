@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Literal
 
@@ -12,7 +13,7 @@ MAX_VOTES_PER_STUDENT = 3
 
 class TopicCreateRequest(BaseModel):
     title: str
-    class_id: int
+    class_id: uuid.UUID
     status: TopicStatusType = "voting"
     presenters: str | None = None
     session_number: int | None = None
@@ -36,9 +37,7 @@ class TopicSuggestRequest(BaseModel):
 # --- Responses ---
 
 class TopicListItem(BaseModel):
-    model_config = {"from_attributes": True}
-
-    id: int
+    id: uuid.UUID
     title: str
     status: TopicStatusType
     presenters: str | None
@@ -57,9 +56,7 @@ class TopicListResponse(BaseModel):
 
 
 class TopicMaterialsResponse(BaseModel):
-    model_config = {"from_attributes": True}
-
-    topic_id: int
+    topic_id: uuid.UUID
     title: str
     materials_content: str
 

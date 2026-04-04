@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.exc import IntegrityError
@@ -30,7 +32,7 @@ router = APIRouter(prefix="/api/sharing", tags=["sharing"])
 
 
 async def _build_topic_items(
-    db: AsyncSession, user_id: int, class_id: int,
+    db: AsyncSession, user_id: uuid.UUID, class_id: uuid.UUID,
     status_filter: str | None, *, include_materials: bool = False
 ) -> list[dict]:
     """Query topics and compute vote_count / current_user_voted."""
@@ -42,8 +44,8 @@ async def _build_topic_items(
 
     # Batch-load vote counts and user votes
     topic_ids = [t.id for t in topics]
-    vote_counts: dict[int, int] = {}
-    user_votes: set[int] = set()
+    vote_counts: dict[uuid.UUID, int] = {}
+    user_votes: set[uuid.UUID] = set()
 
     if topic_ids:
         result = await db.execute(
@@ -107,7 +109,7 @@ async def list_topics(
 
 @router.get("/topics/{topic_id}/materials", response_model=TopicMaterialsResponse)
 async def get_topic_materials(
-    topic_id: int,
+    topic_id: uuid.UUID,
     user: User = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
@@ -128,7 +130,7 @@ async def get_topic_materials(
 
 @router.post("/topics/{topic_id}/vote", response_model=VoteResponse)
 async def vote_topic(
-    topic_id: int,
+    topic_id: uuid.UUID,
     user: User = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
@@ -169,7 +171,7 @@ async def vote_topic(
 
 @router.delete("/topics/{topic_id}/vote", response_model=VoteResponse)
 async def unvote_topic(
-    topic_id: int,
+    topic_id: uuid.UUID,
     user: User = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
@@ -255,7 +257,7 @@ async def _verify_topic_ownership(topic: SharingTopic, admin: User, db: AsyncSes
 @admin_sharing_router.get("/topics", response_model=AdminTopicListResponse)
 async def admin_list_topics(
     status_filter: str | None = Query(None, alias="status"),
-    class_id: int | None = Query(None),
+    class_id: uuid.UUID | None = Query(None),
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -337,7 +339,7 @@ async def admin_create_topic(
 
 @admin_sharing_router.patch("/topics/{topic_id}", response_model=AdminTopicListItem)
 async def admin_update_topic(
-    topic_id: int,
+    topic_id: uuid.UUID,
     req: TopicUpdateRequest,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -390,7 +392,7 @@ async def admin_update_topic(
 
 @admin_sharing_router.delete("/topics/{topic_id}", status_code=204)
 async def admin_delete_topic(
-    topic_id: int,
+    topic_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):

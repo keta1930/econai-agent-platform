@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,7 +67,7 @@ async def create_model(
 
 @router.put("/{model_id}/activate", response_model=ModelActivateResponse)
 async def activate_model(
-    model_id: int,
+    model_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):

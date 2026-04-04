@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -15,7 +16,7 @@ from services.storage import storage_service
 logger = logging.getLogger(__name__)
 
 
-async def grade_submission(submission_id: int):
+async def grade_submission(submission_id: uuid.UUID):
     """Background task: grade a submission using the active AI model."""
     async with async_session_factory() as db:
         try:
@@ -24,7 +25,7 @@ async def grade_submission(submission_id: int):
             )
             submission = result.scalar_one_or_none()
             if not submission:
-                logger.error("Submission %d not found", submission_id)
+                logger.error("Submission %s not found", submission_id)
                 return
 
             # Image submissions skip AI grading (status already set to manual_review)
@@ -43,7 +44,7 @@ async def grade_submission(submission_id: int):
             task = result.scalar_one_or_none()
             if not task:
                 logger.error(
-                    "Task %d not found for submission %d",
+                    "Task %s not found for submission %s",
                     submission.task_id,
                     submission_id,
                 )
@@ -57,7 +58,7 @@ async def grade_submission(submission_id: int):
             )
             cls = result.scalar_one_or_none()
             if not cls:
-                logger.error("Class %d not found for task %d", task.class_id, task.id)
+                logger.error("Class %s not found for task %s", task.class_id, task.id)
                 submission.status = "failed"
                 await db.commit()
                 return
@@ -71,7 +72,7 @@ async def grade_submission(submission_id: int):
             )
             model_config = result.scalar_one_or_none()
             if not model_config:
-                logger.error("No active model for admin %d", cls.created_by)
+                logger.error("No active model for admin %s", cls.created_by)
                 submission.status = "failed"
                 await db.commit()
                 return
@@ -95,11 +96,11 @@ async def grade_submission(submission_id: int):
             await db.commit()
 
             logger.info(
-                "Submission %d graded: score=%s", submission_id, result.score
+                "Submission %s graded: score=%s", submission_id, result.score
             )
 
         except Exception:
-            logger.exception("Grading failed for submission %d", submission_id)
+            logger.exception("Grading failed for submission %s", submission_id)
             try:
                 if "submission" in locals() and submission is not None:
                     submission.status = "failed"

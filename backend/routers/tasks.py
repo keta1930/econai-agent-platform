@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
@@ -27,6 +28,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 
+async def _build_task_response(task: Task, db: AsyncSession) -> TaskResponse:
+    """Build a TaskResponse with joined class_name and created_by_name."""
+    cls = await db.get(Class, task.class_id)
+    creator = await db.get(User, task.created_by)
+    return TaskResponse(
+        id=task.id,
+        title=task.title,
+        description=task.description,
+        grading_criteria=task.grading_criteria,
+        status=task.status,
+        class_id=task.class_id,
+        created_by=task.created_by,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+        class_name=cls.name if cls else "",
+        created_by_name=creator.username if creator else "",
+    )
+
+
 async def _verify_task_ownership(task: Task, admin: User, db: AsyncSession) -> None:
     """Verify admin owns the class that this task belongs to."""
     result = await db.execute(
@@ -39,20 +59,22 @@ async def _verify_task_ownership(task: Task, admin: User, db: AsyncSession) -> N
 @router.get("", response_model=TaskListResponse)
 async def list_tasks(
     status_filter: str | None = Query(None, alias="status"),
-    class_id: int | None = Query(None),
+    class_id: uuid.UUID | None = Query(None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Task)
+    stmt = (
+        select(Task, Class.name, User.username)
+        .join(Class, Task.class_id == Class.id)
+        .join(User, Task.created_by == User.id)
+    )
 
     if user.role in ("admin", "super_admin"):
-        # Admin: filter by their own classes
         admin_class_ids = select(Class.id).where(Class.created_by == user.id)
         stmt = stmt.where(Task.class_id.in_(admin_class_ids))
         if class_id is not None:
             stmt = stmt.where(Task.class_id == class_id)
     else:
-        # Student: filter by their class
         stmt = stmt.where(Task.class_id == user.class_id)
 
     if status_filter is not None:
@@ -60,10 +82,24 @@ async def list_tasks(
 
     stmt = stmt.order_by(Task.created_at.desc())
     result = await db.execute(stmt)
-    tasks = result.scalars().all()
-    return TaskListResponse(
-        items=[TaskResponse.model_validate(t) for t in tasks]
-    )
+
+    items = [
+        TaskResponse(
+            id=task.id,
+            title=task.title,
+            description=task.description,
+            grading_criteria=task.grading_criteria,
+            status=task.status,
+            class_id=task.class_id,
+            created_by=task.created_by,
+            created_at=task.created_at,
+            updated_at=task.updated_at,
+            class_name=class_name,
+            created_by_name=creator_name,
+        )
+        for task, class_name, creator_name in result.all()
+    ]
+    return TaskListResponse(items=items)
 
 
 @router.post("/generate-criteria", response_model=GenerateCriteriaResponse)
@@ -101,7 +137,7 @@ async def generate_criteria_endpoint(
 
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
-    task_id: int,
+    task_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -118,7 +154,7 @@ async def get_task(
         if task.status == "draft":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
 
-    return TaskResponse.model_validate(task)
+    return await _build_task_response(task, db)
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
@@ -144,7 +180,7 @@ async def create_task(
     db.add(task)
     await db.commit()
     await db.refresh(task)
-    return TaskResponse.model_validate(task)
+    return await _build_task_response(task, db)
 
 
 @router.post("/batch-publish", response_model=BatchPublishResponse, status_code=status.HTTP_201_CREATED)
@@ -199,7 +235,7 @@ async def batch_publish(
 
 @router.patch("/{task_id}", response_model=TaskResponse)
 async def update_task(
-    task_id: int,
+    task_id: uuid.UUID,
     req: TaskUpdateRequest,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -243,12 +279,12 @@ async def update_task(
 
     await db.commit()
     await db.refresh(task)
-    return TaskResponse.model_validate(task)
+    return await _build_task_response(task, db)
 
 
 @router.delete("/{task_id}", status_code=204)
 async def delete_task(
-    task_id: int,
+    task_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -276,7 +312,7 @@ async def delete_task(
 
 @router.get("/{task_id}/stats", response_model=TaskStatsResponse)
 async def get_task_stats(
-    task_id: int,
+    task_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -304,7 +340,7 @@ async def get_task_stats(
 
     # Build user_id -> username map for submitted students
     submitted_user_ids = {s.student_id for s in submissions}
-    username_map: dict[int, str] = {}
+    username_map: dict[uuid.UUID, str] = {}
     if submitted_user_ids:
         result = await db.execute(
             select(User.id, User.username).where(User.id.in_(submitted_user_ids))
@@ -312,8 +348,8 @@ async def get_task_stats(
         username_map = {uid: uname for uid, uname in result.all()}
 
     # Group by student: pick latest version, count total submissions
-    latest_by_student: dict[int, Submission] = {}
-    count_by_student: dict[int, int] = {}
+    latest_by_student: dict[uuid.UUID, Submission] = {}
+    count_by_student: dict[uuid.UUID, int] = {}
     for s in submissions:
         count_by_student[s.student_id] = count_by_student.get(s.student_id, 0) + 1
         if s.student_id not in latest_by_student:

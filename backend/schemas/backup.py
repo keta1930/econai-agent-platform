@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -21,7 +22,7 @@ class BackupRename(BaseModel):
 class BackupResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: uuid.UUID
     display_name: str
     size: int
     created_at: datetime

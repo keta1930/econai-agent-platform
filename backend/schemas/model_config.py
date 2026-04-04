@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Literal
 
@@ -12,7 +13,7 @@ class ModelConfigCreateRequest(BaseModel):
 
 
 class ModelConfigResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     name: str
     base_url: str
     adapter_type: str

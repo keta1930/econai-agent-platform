@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from config import ENV, PORT
 from init_db import init_database
 from services.storage import storage_service
 from routers.auth import router as auth_router
@@ -29,7 +30,15 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="AI Homework Grading Platform", lifespan=lifespan, docs_url=None, redoc_url=None)
+_is_dev = ENV != "production"
+
+app = FastAPI(
+    title="AI Homework Grading Platform",
+    lifespan=lifespan,
+    docs_url="/docs" if _is_dev else None,
+    redoc_url="/redoc" if _is_dev else None,
+    openapi_url="/openapi.json" if _is_dev else None,
+)
 
 # Register API routers (must come before static file mount)
 app.include_router(auth_router)
@@ -56,3 +65,8 @@ if dist_path.exists():
         if full_path and file_path.is_file():
             return FileResponse(file_path)
         return FileResponse(dist_path / "index.html")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=_is_dev)

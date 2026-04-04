@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, delete
@@ -23,7 +24,7 @@ router = APIRouter(
 
 
 async def _verify_class_ownership(
-    class_id: int, admin: User, db: AsyncSession,
+    class_id: uuid.UUID, admin: User, db: AsyncSession,
 ) -> Class:
     """Verify class exists and belongs to admin."""
     result = await db.execute(
@@ -37,7 +38,7 @@ async def _verify_class_ownership(
 
 @router.get("", response_model=RosterListResponse)
 async def list_roster(
-    class_id: int,
+    class_id: uuid.UUID,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -66,7 +67,7 @@ async def list_roster(
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def add_student(
-    class_id: int,
+    class_id: uuid.UUID,
     req: RosterAddRequest,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -93,7 +94,7 @@ async def add_student(
 
 @router.post("/batch", response_model=RosterBatchResponse)
 async def batch_import(
-    class_id: int,
+    class_id: uuid.UUID,
     req: RosterBatchRequest,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -123,7 +124,7 @@ async def batch_import(
 
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_student(
-    class_id: int,
+    class_id: uuid.UUID,
     student_id: str,
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),

@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -8,7 +9,7 @@ class ClassCreateRequest(BaseModel):
 
 
 class ClassResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     name: str
     student_count: int
     created_at: datetime
