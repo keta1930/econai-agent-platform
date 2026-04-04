@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -130,37 +129,31 @@ export default function AdminManagePage() {
           description="创建第一个管理员账号"
         />
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">管理员列表 ({admins.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>账号</TableHead>
-                    <TableHead>班级数量</TableHead>
-                    <TableHead>创建时间</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {admins.map((admin) => (
-                    <TableRow key={admin.id}>
-                      <TableCell className="font-medium">{admin.username}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {admin.class_count}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(admin.created_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <>
+          <p className="text-sm text-muted-foreground">共 {admins.length} 个管理员</p>
+          <Table className="data-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>账号</TableHead>
+                <TableHead>班级数量</TableHead>
+                <TableHead>创建时间</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {admins.map((admin) => (
+                <TableRow key={admin.id}>
+                  <TableCell className="font-medium">{admin.username}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {admin.class_count}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(admin.created_at)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </>
       )}
     </div>
   );

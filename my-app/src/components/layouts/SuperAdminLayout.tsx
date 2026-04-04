@@ -82,7 +82,7 @@ export function SuperAdminLayout() {
         </aside>
 
         <main className="flex-1 lg:ml-60">
-          <div className="px-6 py-8 lg:px-12 lg:py-12 max-w-[960px]">
+          <div className="min-w-0 px-6 py-8 lg:px-12 lg:py-12">
             <Outlet />
           </div>
         </main>
