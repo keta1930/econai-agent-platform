@@ -11,6 +11,7 @@ class ClassCreateRequest(BaseModel):
 class ClassResponse(BaseModel):
     id: uuid.UUID
     name: str
+    join_token: str
     student_count: int
     created_at: datetime
 

@@ -10,11 +10,17 @@ from config import SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
 ALGORITHM = "HS256"
 
 
-def create_access_token(sub: uuid.UUID, role: str, class_id: uuid.UUID | None = None) -> str:
+def create_access_token(
+    sub: uuid.UUID,
+    role: str,
+    class_id: uuid.UUID | None = None,
+    display_name: str | None = None,
+) -> str:
     payload = {
         "sub": str(sub),
         "role": role,
         "class_id": str(class_id) if class_id else None,
+        "display_name": display_name,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)

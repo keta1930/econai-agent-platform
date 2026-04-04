@@ -22,7 +22,6 @@ async def _seed_super_admin(db: AsyncSession) -> None:
         username=DEFAULT_ADMIN_ID,
         password_hash=pw_hash,
         role="super_admin",
-        class_id=None,
     ))
 
 

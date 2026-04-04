@@ -14,6 +14,7 @@ python-dotenv
 minio
 pgvector
 uuid_utils
+apscheduler
 pytest
 pytest-asyncio
 httpx

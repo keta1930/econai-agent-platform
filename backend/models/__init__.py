@@ -1,5 +1,6 @@
 from models.user import User
 from models.class_ import Class
+from models.class_member import ClassMember
 from models.roster import StudentRoster
 from models.task import Task
 from models.submission import Submission
@@ -10,7 +11,7 @@ from models.invite_code import InviteCode
 from models.refresh_token import RefreshToken
 
 __all__ = [
-    "User", "Class", "StudentRoster", "Task", "Submission",
+    "User", "Class", "ClassMember", "StudentRoster", "Task", "Submission",
     "ModelConfig", "SharingTopic", "TopicVote", "Backup",
     "InviteCode", "RefreshToken",
 ]

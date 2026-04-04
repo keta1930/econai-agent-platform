@@ -1,3 +1,6 @@
+import uuid
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -9,16 +12,29 @@ class RosterBatchRequest(BaseModel):
     student_ids: list[str]
 
 
-class RosterItem(BaseModel):
+class ExpectedRosterItem(BaseModel):
     student_id: str
-    registered: bool
+    matched: bool
+
+
+class ActualRosterItem(BaseModel):
+    user_id: uuid.UUID
+    student_id: str
+    display_name: str | None
+    college: str | None
+    joined_at: datetime
 
 
 class RosterListResponse(BaseModel):
-    items: list[RosterItem]
-    total: int
+    expected: list[ExpectedRosterItem]
+    actual: list[ActualRosterItem]
 
 
 class RosterBatchResponse(BaseModel):
     added: int
     duplicates: int
+
+
+class ResetStudentPasswordRequest(BaseModel):
+    user_id: uuid.UUID
+    new_password: str
