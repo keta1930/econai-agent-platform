@@ -47,7 +47,7 @@ function SelectTrigger({
         // hover: 墨轻触纸面
         "hover:border-[var(--cyan-light)] hover:shadow-[var(--shadow-sm)]",
         // focus: 花青勾边
-        "focus-visible:border-[var(--cyan-mid)] focus-visible:ring-2 focus-visible:ring-[var(--cyan-mid)]/15",
+        "focus-visible:border-[var(--cyan-mid)] focus-visible:ring-2 focus-visible:ring-[var(--cyan-mid)]/10",
         // states
         "disabled:cursor-not-allowed disabled:opacity-50",
         "aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20",

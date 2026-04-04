@@ -28,10 +28,10 @@ function ViewToggle({
       type="button"
       onClick={() => onClick(mode)}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all",
         active
-          ? "bg-primary text-primary-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          ? "bg-white text-foreground shadow-[var(--shadow-sm)] border border-[var(--paper-border)]"
+          : "text-muted-foreground hover:text-foreground"
       )}
     >
       {children}
@@ -49,7 +49,7 @@ function MarkdownPreview({
   if (!content) {
     return (
       <div className={cn("overflow-auto px-3 py-2", className)}>
-        <p className="text-sm text-muted-foreground">Nothing to preview</p>
+        <p className="text-sm text-muted-foreground">暂无内容</p>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export function MarkdownEditor({
   return (
     <div
       className={cn(
-        "rounded-lg border border-input overflow-hidden transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
+        "rounded-lg border border-input overflow-hidden transition-colors focus-within:border-[var(--cyan-mid)] focus-within:ring-2 focus-within:ring-[var(--cyan-mid)]/10",
         className
       )}
     >
@@ -88,7 +88,7 @@ export function MarkdownEditor({
           onClick={setViewMode}
         >
           <Pencil className="h-3 w-3" />
-          Edit
+          编辑
         </ViewToggle>
         <ViewToggle
           mode="preview"
@@ -96,7 +96,7 @@ export function MarkdownEditor({
           onClick={setViewMode}
         >
           <Eye className="h-3 w-3" />
-          Preview
+          预览
         </ViewToggle>
         <ViewToggle
           mode="split"
@@ -104,7 +104,7 @@ export function MarkdownEditor({
           onClick={setViewMode}
         >
           <Columns2 className="h-3 w-3" />
-          Split
+          分栏
         </ViewToggle>
       </div>
 

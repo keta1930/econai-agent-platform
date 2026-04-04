@@ -22,7 +22,7 @@ function Checkbox({ checked, onCheckedChange, disabled, className }: CheckboxPro
         "rounded border border-[var(--ink-light)] bg-white",
         "transition-colors duration-150 cursor-pointer",
         // focus
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cyan-mid)]/20",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cyan-mid)]/10",
         // checked: 墨蓝底 + 金色 check
         "data-[checked]:bg-[var(--ink-deep)] data-[checked]:border-[var(--ink-deep)]",
         // disabled
