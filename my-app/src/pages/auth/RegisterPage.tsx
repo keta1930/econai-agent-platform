@@ -5,6 +5,13 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AuthLayout } from "@/components/layouts/AuthLayout";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type TabType = "student" | "teacher";
 
@@ -61,27 +68,6 @@ function StudentForm() {
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="college" className="auth-label">
-          学院
-        </label>
-        <select
-          id="college"
-          className="auth-input"
-          value={college}
-          onChange={(e) => setCollege(e.target.value as "lingnan" | "physics" | "")}
-        >
-          <option value="" disabled>
-            请选择学院
-          </option>
-          {COLLEGES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-1.5">
         <label htmlFor="student-password" className="auth-label">
           密码
         </label>
@@ -93,6 +79,35 @@ function StudentForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="auth-label">学院</label>
+        <Select
+          value={college || undefined}
+          onValueChange={(val) => setCollege(val as "lingnan" | "physics")}
+        >
+          <SelectTrigger className="auth-input !w-full !h-auto !p-[10px_14px] !rounded-[8px] !border-[var(--paper-border)] !bg-[var(--paper)] cursor-pointer">
+            <SelectValue placeholder="请选择学院">
+              {(value: string | null) => {
+                const match = COLLEGES.find((c) => c.value === value);
+                return match ? match.label : "请选择学院";
+              }}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent className="bg-white border border-[var(--paper-border)] shadow-lg">
+            {COLLEGES.map((c) => (
+              <SelectItem
+                key={c.value}
+                value={c.value}
+                label={c.label}
+                className="cursor-pointer text-[var(--ink-mid)] hover:bg-[var(--paper-warm)] focus:bg-[var(--paper-warm)] focus:text-[var(--ink-deep)]"
+              >
+                {c.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
