@@ -32,9 +32,10 @@ async def list_classes(
     )
     classes = result.scalars().all()
 
-    # Batch count students per class
+    # Batch count students and published tasks per class
     class_ids = [c.id for c in classes]
     student_counts: dict[uuid.UUID, int] = {}
+    task_counts: dict[uuid.UUID, int] = {}
     if class_ids:
         result = await db.execute(
             select(ClassMember.class_id, func.count(ClassMember.id))
@@ -43,12 +44,20 @@ async def list_classes(
         )
         student_counts = {cid: cnt for cid, cnt in result.all()}
 
+        result = await db.execute(
+            select(Task.class_id, func.count(Task.id))
+            .where(Task.class_id.in_(class_ids), Task.status == "published")
+            .group_by(Task.class_id)
+        )
+        task_counts = {cid: cnt for cid, cnt in result.all()}
+
     items = [
         ClassResponse(
             id=c.id,
             name=c.name,
             join_token=c.join_token,
             student_count=student_counts.get(c.id, 0),
+            task_count=task_counts.get(c.id, 0),
             created_at=c.created_at,
         )
         for c in classes
@@ -78,7 +87,7 @@ async def create_class(
     await db.refresh(cls)
     return ClassResponse(
         id=cls.id, name=cls.name, join_token=cls.join_token,
-        student_count=0, created_at=cls.created_at,
+        student_count=0, task_count=0, created_at=cls.created_at,
     )
 
 
