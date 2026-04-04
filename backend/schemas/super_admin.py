@@ -4,17 +4,13 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class AdminCreateRequest(BaseModel):
-    username: str
-    password: str
-
-
 class AdminResponse(BaseModel):
     id: uuid.UUID
     username: str
     role: str
     is_active: bool
     class_count: int
+    category: str | None = None
     created_at: datetime
 
 

@@ -163,14 +163,14 @@ async def export_admin_data(
 
 
 async def create_backup(
-    db: AsyncSession, admin: User, display_name: str | None,
+    db: AsyncSession, admin_id: uuid.UUID, display_name: str | None,
 ) -> Backup:
     """Create a new backup for the given admin.
 
     Raises ValueError if backup limit is reached.
     """
     count_result = await db.execute(
-        select(func.count()).select_from(Backup).where(Backup.admin_id == admin.id)
+        select(func.count()).select_from(Backup).where(Backup.admin_id == admin_id)
     )
     count = count_result.scalar_one()
 
@@ -182,16 +182,20 @@ async def create_backup(
     if not display_name:
         display_name = f"备份_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
-    data = await export_admin_data(db, admin.id, admin.username)
+    # Fetch admin username for export metadata
+    admin_result = await db.execute(select(User).where(User.id == admin_id))
+    admin_user = admin_result.scalar_one()
 
-    object_key = f"{admin.id}/{uuid7()}.json"
+    data = await export_admin_data(db, admin_id, admin_user.username)
+
+    object_key = f"{admin_id}/{uuid7()}.json"
     await asyncio.to_thread(
         storage_service.put_object_to_bucket,
         BACKUPS_BUCKET, object_key, data, "application/json",
     )
 
     backup = Backup(
-        admin_id=admin.id,
+        admin_id=admin_id,
         display_name=display_name,
         object_key=object_key,
         size=len(data),
@@ -200,7 +204,7 @@ async def create_backup(
     await db.commit()
     await db.refresh(backup)
 
-    logger.info("Backup created: %s (%d bytes) for admin %s", object_key, len(data), admin.id)
+    logger.info("Backup created: %s (%d bytes) for admin %s", object_key, len(data), admin_id)
     return backup
 
 

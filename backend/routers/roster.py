@@ -6,7 +6,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth.deps import require_admin
+from auth.deps import require_admin, TokenPayload
 from models.class_ import Class
 from models.roster import StudentRoster
 from models.submission import Submission
@@ -24,7 +24,7 @@ router = APIRouter(
 
 
 async def _verify_class_ownership(
-    class_id: uuid.UUID, admin: User, db: AsyncSession,
+    class_id: uuid.UUID, admin: TokenPayload, db: AsyncSession,
 ) -> Class:
     """Verify class exists and belongs to admin."""
     result = await db.execute(
@@ -39,7 +39,7 @@ async def _verify_class_ownership(
 @router.get("", response_model=RosterListResponse)
 async def list_roster(
     class_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     await _verify_class_ownership(class_id, admin, db)
@@ -69,7 +69,7 @@ async def list_roster(
 async def add_student(
     class_id: uuid.UUID,
     req: RosterAddRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     await _verify_class_ownership(class_id, admin, db)
@@ -96,7 +96,7 @@ async def add_student(
 async def batch_import(
     class_id: uuid.UUID,
     req: RosterBatchRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     await _verify_class_ownership(class_id, admin, db)
@@ -126,7 +126,7 @@ async def batch_import(
 async def delete_student(
     class_id: uuid.UUID,
     student_id: str,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     await _verify_class_ownership(class_id, admin, db)

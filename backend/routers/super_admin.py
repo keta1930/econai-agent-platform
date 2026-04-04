@@ -6,17 +6,18 @@ from sqlalchemy import delete, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth.deps import require_super_admin
+from auth.deps import require_super_admin, TokenPayload
 from models.backup import Backup
 from models.class_ import Class
+from models.invite_code import InviteCode
 from models.model_config import ModelConfig
 from models.roster import StudentRoster
 from models.sharing import SharingTopic, TopicVote
 from models.submission import Submission
 from models.task import Task
 from models.user import User
-from schemas.super_admin import AdminCreateRequest, AdminResponse, AdminListResponse, ResetPasswordRequest
-from services.auth_service import hash_password
+from schemas.super_admin import AdminResponse, AdminListResponse, ResetPasswordRequest
+from services.auth_service import hash_password, revoke_all_user_tokens
 from services.storage import storage_service
 
 router = APIRouter(prefix="/api/super-admin", tags=["super-admin"])
@@ -24,16 +25,19 @@ router = APIRouter(prefix="/api/super-admin", tags=["super-admin"])
 
 @router.get("/admins", response_model=AdminListResponse)
 async def list_admins(
-    _super: User = Depends(require_super_admin),
+    _super: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(User).where(User.role == "admin").order_by(User.created_at.desc())
+        select(User, InviteCode.category)
+        .outerjoin(InviteCode, User.invite_code_id == InviteCode.id)
+        .where(User.role == "admin")
+        .order_by(User.created_at.desc())
     )
-    admins = result.scalars().all()
+    rows = result.all()
 
     # Batch count classes per admin
-    admin_ids = [a.id for a in admins]
+    admin_ids = [user.id for user, _ in rows]
     class_counts: dict[uuid.UUID, int] = {}
     if admin_ids:
         result = await db.execute(
@@ -45,61 +49,23 @@ async def list_admins(
 
     items = [
         AdminResponse(
-            id=a.id,
-            username=a.username,
-            role=a.role,
-            is_active=a.is_active,
-            class_count=class_counts.get(a.id, 0),
-            created_at=a.created_at,
+            id=user.id,
+            username=user.username,
+            role=user.role,
+            is_active=user.is_active,
+            class_count=class_counts.get(user.id, 0),
+            category=category,
+            created_at=user.created_at,
         )
-        for a in admins
+        for user, category in rows
     ]
     return AdminListResponse(items=items)
-
-
-@router.post("/admins", response_model=AdminResponse, status_code=status.HTTP_201_CREATED)
-async def create_admin(
-    req: AdminCreateRequest,
-    _super: User = Depends(require_super_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    # Check uniqueness among admin/super_admin usernames
-    result = await db.execute(
-        select(User).where(
-            User.username == req.username,
-            User.role.in_(["admin", "super_admin"]),
-        )
-    )
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="该账号已存在",
-        )
-
-    pw_hash = await asyncio.to_thread(hash_password, req.password)
-    admin = User(
-        username=req.username,
-        password_hash=pw_hash,
-        role="admin",
-    )
-    db.add(admin)
-    await db.commit()
-    await db.refresh(admin)
-
-    return AdminResponse(
-        id=admin.id,
-        username=admin.username,
-        role=admin.role,
-        is_active=admin.is_active,
-        class_count=0,
-        created_at=admin.created_at,
-    )
 
 
 @router.put("/admins/{admin_id}/toggle-active", response_model=AdminResponse)
 async def toggle_admin_active(
     admin_id: uuid.UUID,
-    super_admin: User = Depends(require_super_admin),
+    super_admin: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
     if admin_id == super_admin.id:
@@ -119,6 +85,11 @@ async def toggle_admin_active(
         )
 
     admin.is_active = not admin.is_active
+
+    # Revoke all refresh tokens when disabling
+    if not admin.is_active:
+        await revoke_all_user_tokens(db, admin.id)
+
     await db.commit()
     await db.refresh(admin)
 
@@ -128,12 +99,21 @@ async def toggle_admin_active(
     )
     class_count = result.scalar() or 0
 
+    # Fetch category
+    category = None
+    if admin.invite_code_id:
+        ic_result = await db.execute(
+            select(InviteCode.category).where(InviteCode.id == admin.invite_code_id)
+        )
+        category = ic_result.scalar_one_or_none()
+
     return AdminResponse(
         id=admin.id,
         username=admin.username,
         role=admin.role,
         is_active=admin.is_active,
         class_count=class_count,
+        category=category,
         created_at=admin.created_at,
     )
 
@@ -142,7 +122,7 @@ async def toggle_admin_active(
 async def reset_admin_password(
     admin_id: uuid.UUID,
     req: ResetPasswordRequest,
-    _super: User = Depends(require_super_admin),
+    _super: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -163,7 +143,7 @@ async def reset_admin_password(
 @router.delete("/admins/{admin_id}", status_code=204)
 async def delete_admin(
     admin_id: uuid.UUID,
-    super_admin: User = Depends(require_super_admin),
+    super_admin: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
     if admin_id == super_admin.id:
@@ -227,7 +207,7 @@ async def delete_admin(
     # 9. Delete backups
     await db.execute(delete(Backup).where(Backup.admin_id == admin_id))
 
-    # 10. Delete the admin user
+    # 10. Delete the admin user (CASCADE will clean up refresh_tokens)
     await db.delete(admin)
     await db.commit()
 

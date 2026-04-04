@@ -3,9 +3,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.deps import require_admin
+from auth.deps import require_admin, TokenPayload
 from database import get_db
-from models.user import User
 from schemas.backup import (
     BackupCreate,
     BackupRename,
@@ -21,12 +20,12 @@ router = APIRouter(prefix="/api/admin/backups", tags=["admin-backups"])
 @router.post("", response_model=BackupResponse, status_code=status.HTTP_201_CREATED)
 async def create_backup(
     body: BackupCreate | None = None,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     try:
         backup = await backup_service.create_backup(
-            db, admin, body.display_name if body else None,
+            db, admin.id, body.display_name if body else None,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
@@ -35,7 +34,7 @@ async def create_backup(
 
 @router.get("", response_model=BackupListResponse)
 async def list_backups(
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     items = await backup_service.list_backups(db, admin.id)
@@ -45,7 +44,7 @@ async def list_backups(
 @router.get("/{backup_id}/download", response_model=BackupDownloadResponse)
 async def download_backup(
     backup_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -61,7 +60,7 @@ async def download_backup(
 async def rename_backup(
     backup_id: uuid.UUID,
     body: BackupRename,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -76,7 +75,7 @@ async def rename_backup(
 @router.delete("/{backup_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_backup(
     backup_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     try:

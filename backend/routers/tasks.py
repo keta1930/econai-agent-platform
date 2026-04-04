@@ -8,7 +8,7 @@ from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth.deps import get_current_user, require_admin
+from auth.deps import get_current_user, require_admin, TokenPayload
 from models.task import Task
 from models.submission import Submission
 from models.roster import StudentRoster
@@ -47,7 +47,7 @@ async def _build_task_response(task: Task, db: AsyncSession) -> TaskResponse:
     )
 
 
-async def _verify_task_ownership(task: Task, admin: User, db: AsyncSession) -> None:
+async def _verify_task_ownership(task: Task, admin: TokenPayload, db: AsyncSession) -> None:
     """Verify admin owns the class that this task belongs to."""
     result = await db.execute(
         select(Class).where(Class.id == task.class_id, Class.created_by == admin.id)
@@ -60,7 +60,7 @@ async def _verify_task_ownership(task: Task, admin: User, db: AsyncSession) -> N
 async def list_tasks(
     status_filter: str | None = Query(None, alias="status"),
     class_id: uuid.UUID | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = (
@@ -105,7 +105,7 @@ async def list_tasks(
 @router.post("/generate-criteria", response_model=GenerateCriteriaResponse)
 async def generate_criteria_endpoint(
     req: GenerateCriteriaRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     # Find admin's active model
@@ -138,7 +138,7 @@ async def generate_criteria_endpoint(
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
     task_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    user: TokenPayload = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Task).where(Task.id == task_id))
@@ -160,7 +160,7 @@ async def get_task(
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     req: TaskDraftRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     # Verify class belongs to admin
@@ -186,7 +186,7 @@ async def create_task(
 @router.post("/batch-publish", response_model=BatchPublishResponse, status_code=status.HTTP_201_CREATED)
 async def batch_publish(
     req: BatchPublishRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     # Verify all class_ids belong to admin
@@ -237,7 +237,7 @@ async def batch_publish(
 async def update_task(
     task_id: uuid.UUID,
     req: TaskUpdateRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Task).where(Task.id == task_id))
@@ -285,7 +285,7 @@ async def update_task(
 @router.delete("/{task_id}", status_code=204)
 async def delete_task(
     task_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Task).where(Task.id == task_id))
@@ -313,7 +313,7 @@ async def delete_task(
 @router.get("/{task_id}/stats", response_model=TaskStatsResponse)
 async def get_task_stats(
     task_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Task).where(Task.id == task_id))

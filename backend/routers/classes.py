@@ -7,7 +7,7 @@ from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth.deps import require_admin
+from auth.deps import require_admin, TokenPayload
 from models.class_ import Class
 from models.user import User
 from models.roster import StudentRoster
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/admin/classes", tags=["classes"])
 
 @router.get("", response_model=ClassListResponse)
 async def list_classes(
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -56,7 +56,7 @@ async def list_classes(
 @router.post("", response_model=ClassResponse, status_code=status.HTTP_201_CREATED)
 async def create_class(
     req: ClassCreateRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     # Check uniqueness within admin's classes
@@ -79,7 +79,7 @@ async def create_class(
 @router.delete("/{class_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_class(
     class_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(

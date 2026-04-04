@@ -7,8 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth.deps import require_student, require_admin
-from models.user import User
+from auth.deps import require_student, require_admin, TokenPayload
 from models.class_ import Class
 from models.sharing import SharingTopic, TopicVote
 from schemas.sharing import (
@@ -96,7 +95,7 @@ async def _build_topic_items(
 @router.get("/topics", response_model=TopicListResponse)
 async def list_topics(
     status_filter: str | None = Query(None, alias="status"),
-    user: User = Depends(require_student),
+    user: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
     items = await _build_topic_items(db, user.id, user.class_id, status_filter)
@@ -110,7 +109,7 @@ async def list_topics(
 @router.get("/topics/{topic_id}/materials", response_model=TopicMaterialsResponse)
 async def get_topic_materials(
     topic_id: uuid.UUID,
-    user: User = Depends(require_student),
+    user: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))
@@ -131,7 +130,7 @@ async def get_topic_materials(
 @router.post("/topics/{topic_id}/vote", response_model=VoteResponse)
 async def vote_topic(
     topic_id: uuid.UUID,
-    user: User = Depends(require_student),
+    user: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))
@@ -172,7 +171,7 @@ async def vote_topic(
 @router.delete("/topics/{topic_id}/vote", response_model=VoteResponse)
 async def unvote_topic(
     topic_id: uuid.UUID,
-    user: User = Depends(require_student),
+    user: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))
@@ -205,7 +204,7 @@ async def unvote_topic(
 @router.post("/topics/suggest", response_model=VoteResponse, status_code=status.HTTP_201_CREATED)
 async def suggest_topic(
     req: TopicSuggestRequest,
-    user: User = Depends(require_student),
+    user: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
     title = req.title.strip()
@@ -245,7 +244,7 @@ async def suggest_topic(
 admin_sharing_router = APIRouter(prefix="/api/admin/sharing", tags=["admin-sharing"])
 
 
-async def _verify_topic_ownership(topic: SharingTopic, admin: User, db: AsyncSession) -> None:
+async def _verify_topic_ownership(topic: SharingTopic, admin: TokenPayload, db: AsyncSession) -> None:
     """Verify admin owns the class this topic belongs to."""
     result = await db.execute(
         select(Class).where(Class.id == topic.class_id, Class.created_by == admin.id)
@@ -258,7 +257,7 @@ async def _verify_topic_ownership(topic: SharingTopic, admin: User, db: AsyncSes
 async def admin_list_topics(
     status_filter: str | None = Query(None, alias="status"),
     class_id: uuid.UUID | None = Query(None),
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     if class_id is not None:
@@ -287,7 +286,7 @@ async def admin_list_topics(
 @admin_sharing_router.post("/topics", response_model=AdminTopicListItem, status_code=status.HTTP_201_CREATED)
 async def admin_create_topic(
     req: TopicCreateRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     # Verify admin owns the class
@@ -341,7 +340,7 @@ async def admin_create_topic(
 async def admin_update_topic(
     topic_id: uuid.UUID,
     req: TopicUpdateRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))
@@ -393,7 +392,7 @@ async def admin_update_topic(
 @admin_sharing_router.delete("/topics/{topic_id}", status_code=204)
 async def admin_delete_topic(
     topic_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))

@@ -9,7 +9,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth.deps import require_student, require_admin
+from auth.deps import require_student, require_admin, TokenPayload
 from config import MAX_TEXT_SIZE, MAX_IMAGE_SIZE
 from models.user import User
 from models.task import Task
@@ -142,7 +142,7 @@ def _build_submission_detail(s: Submission, task_title: str) -> SubmissionDetail
     )
 
 
-async def _verify_admin_owns_task(task: Task, admin: User, db: AsyncSession) -> None:
+async def _verify_admin_owns_task(task: Task, admin: TokenPayload, db: AsyncSession) -> None:
     """Verify admin owns the class the task belongs to."""
     result = await db.execute(
         select(Class).where(Class.id == task.class_id, Class.created_by == admin.id)
@@ -157,7 +157,7 @@ async def submit_assignment(
     content_type: str = Form(...),
     text_content: str | None = Form(None),
     file: UploadFile | None = File(None),
-    student: User = Depends(require_student),
+    student: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
     # Validate content_type
@@ -228,7 +228,7 @@ async def submit_assignment(
 
 @router.get("/my", response_model=SubmissionListResponse)
 async def list_my_submissions(
-    student: User = Depends(require_student),
+    student: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -248,7 +248,7 @@ async def list_my_submissions(
 @router.get("/my/{task_id}", response_model=SubmissionListResponse)
 async def get_my_submission(
     task_id: uuid.UUID,
-    student: User = Depends(require_student),
+    student: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -271,7 +271,7 @@ async def get_my_submission(
 )
 async def get_student_submissions(
     student_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     # Verify admin owns the student's class
@@ -306,7 +306,7 @@ async def get_student_submissions(
 )
 async def get_submission_content(
     submission_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Submission).where(Submission.id == submission_id))
@@ -361,7 +361,7 @@ async def get_submission_content(
 async def get_student_task_submissions(
     task_id: uuid.UUID,
     student_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     # Verify admin owns the task's class

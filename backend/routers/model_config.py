@@ -5,8 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from auth.deps import require_admin
-from models.user import User
+from auth.deps import require_admin, TokenPayload
 from models.model_config import ModelConfig
 from schemas.model_config import (
     ModelConfigCreateRequest, ModelConfigResponse,
@@ -21,7 +20,7 @@ router = APIRouter(
 
 @router.get("", response_model=ModelConfigListResponse)
 async def list_models(
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -38,7 +37,7 @@ async def list_models(
 @router.post("", response_model=ModelConfigResponse, status_code=status.HTTP_201_CREATED)
 async def create_model(
     req: ModelConfigCreateRequest,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -68,7 +67,7 @@ async def create_model(
 @router.put("/{model_id}/activate", response_model=ModelActivateResponse)
 async def activate_model(
     model_id: uuid.UUID,
-    admin: User = Depends(require_admin),
+    admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(ModelConfig).where(ModelConfig.id == model_id))
