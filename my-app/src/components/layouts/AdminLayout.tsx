@@ -30,13 +30,23 @@ interface NavItem {
   badge?: number;
 }
 
-function getTeachingNav(togglePanel?: () => void, resetBadge?: number): NavItem[] {
+function getClassNav(resetBadge?: number): NavItem[] {
   return [
     { label: "班级管理", href: "/admin/classes", icon: School },
+    { label: "学生名单", href: "/admin/roster", icon: Users, badge: resetBadge },
+  ];
+}
+
+function getTaskNav(togglePanel?: () => void): NavItem[] {
+  return [
     { label: "作业列表", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "创建作业", href: "/admin/tasks/new", icon: PlusCircle },
-    { label: "学生名单", href: "/admin/roster", icon: Users, badge: resetBadge },
     { label: "分享管理", href: "/admin/sharing", icon: Presentation },
+  ];
+}
+
+function getAssistantNav(togglePanel?: () => void): NavItem[] {
+  return [
     { label: "AI 助教", href: "#ai-assistant", icon: Bot, action: togglePanel },
   ];
 }
@@ -165,7 +175,9 @@ function NavSection({ label, items, onNavigate, isPanelOpen }: { label: string; 
 
 function SidebarContent({ onNavigate, togglePanel, isPanelOpen, resetBadge }: { onNavigate?: () => void; togglePanel?: () => void; isPanelOpen?: boolean; resetBadge?: number }) {
   const { logout } = useAuth();
-  const teachingNav = getTeachingNav(togglePanel, resetBadge);
+  const classNav = getClassNav(resetBadge);
+  const taskNav = getTaskNav(togglePanel);
+  const assistantNav = getAssistantNav(togglePanel);
 
   return (
     <div className="flex h-full flex-col pt-6">
@@ -184,7 +196,9 @@ function SidebarContent({ onNavigate, togglePanel, isPanelOpen, resetBadge }: { 
 
       {/* Navigation */}
       <nav className="flex-1">
-        <NavSection label="教 学" items={teachingNav} onNavigate={onNavigate} isPanelOpen={isPanelOpen} />
+        <NavSection label="班 级" items={classNav} onNavigate={onNavigate} />
+        <NavSection label="教 学" items={taskNav} onNavigate={onNavigate} />
+        <NavSection label="助 手" items={assistantNav} onNavigate={onNavigate} isPanelOpen={isPanelOpen} />
         <NavSection label="系 统" items={systemNav} onNavigate={onNavigate} />
       </nav>
 
