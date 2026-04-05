@@ -12,10 +12,17 @@ from services.assistant.tools.registry import ToolContext, ToolHandler, ToolRegi
 
 logger = logging.getLogger(__name__)
 
-SEARCH_SUMMARY_PROMPT = (
-    "将以下搜索结果精炼为 500 字以内的中文摘要，保留关键事实和数据。"
-    "只输出摘要内容，不要添加前言或说明。"
-)
+# Course-specific domains: AI Agent design curriculum
+SEARCH_DOMAINS = [
+    "https://code.claude.com/docs/",
+    "https://opencode.ai/docs",
+    "https://docs.openclaw.ai/",
+    "https://developers.openai.com/codex",
+]
+
+# Minimum relevance score to include a content item
+MIN_CONTENT_SCORE = 0.6
+MAX_CONTENT_ITEMS = 3
 
 
 # ---------------------------------------------------------------------------
@@ -32,40 +39,33 @@ async def execute_ask_user(args: dict, ctx: ToolContext) -> str:
 # ---------------------------------------------------------------------------
 
 def _call_tavily(query: str) -> str:
-    """Call Tavily API and format raw results as text."""
+    """Call Tavily API and return formatted answer + high-relevance content."""
     client = TavilyClient(api_key=TAVILY_API_KEY)
     response = client.search(
         query=query,
         search_depth="advanced",
         include_answer="advanced",
+        max_results=6,
+        include_domains=SEARCH_DOMAINS,
     )
 
     parts: list[str] = []
-    if response.get("answer"):
-        parts.append(f"Answer: {response['answer']}")
 
-    for result in response.get("results", [])[:5]:
-        title = result.get("title", "")
+    # Answer: Tavily's built-in agent summary across all results
+    answer = response.get("answer", "")
+    if answer:
+        parts.append(f"## 摘要\n\n{answer}")
+
+    # Content: only items with score >= threshold, max 3
+    results = response.get("results", [])
+    high_score = [r for r in results if r.get("score", 0) >= MIN_CONTENT_SCORE]
+    for result in high_score[:MAX_CONTENT_ITEMS]:
+        title = result.get("title", "Untitled")
         url = result.get("url", "")
         content = result.get("content", "")
-        parts.append(f"[{title}]({url})\n{content}")
+        parts.append(f"### {title}\n**URL:** {url}\n\n{content}")
 
     return "\n\n---\n\n".join(parts) if parts else "No results found."
-
-
-async def _summarise(raw_results: str, adapter: object) -> str:
-    """Use a lightweight async AI call to condense raw search results."""
-    from services.ai.base import BaseAIAdapter
-
-    if not isinstance(adapter, BaseAIAdapter):
-        return raw_results
-
-    messages = [
-        {"role": "system", "content": SEARCH_SUMMARY_PROMPT},
-        {"role": "user", "content": raw_results},
-    ]
-    response = await adapter.async_chat(messages)
-    return response.text or raw_results
 
 
 async def execute_tavily_search(args: dict, ctx: ToolContext) -> str:
@@ -74,23 +74,12 @@ async def execute_tavily_search(args: dict, ctx: ToolContext) -> str:
         return json.dumps({"error": "请提供搜索关键词"}, ensure_ascii=False)
 
     try:
-        raw_results = await asyncio.to_thread(_call_tavily, query)
+        result_text = await asyncio.to_thread(_call_tavily, query)
     except Exception:
         logger.exception("Tavily search failed for query: %s", query)
         return json.dumps({"error": "搜索失败，请稍后重试"}, ensure_ascii=False)
 
-    # Sub-agent summarisation: condense raw results via a lightweight AI call
-    if ctx.adapter is not None:
-        try:
-            raw_results = await _summarise(raw_results, ctx.adapter)
-        except Exception:
-            logger.warning("Search summary failed, returning truncated raw results")
-            if len(raw_results) > 3000:
-                raw_results = raw_results[:3000] + "\n\n[... truncated]"
-    elif len(raw_results) > 3000:
-        raw_results = raw_results[:3000] + "\n\n[... truncated]"
-
-    return json.dumps({"query": query, "results": raw_results}, ensure_ascii=False)
+    return result_text
 
 
 # ---------------------------------------------------------------------------
