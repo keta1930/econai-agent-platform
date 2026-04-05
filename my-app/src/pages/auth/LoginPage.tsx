@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { authApi } from "@/api/auth";
+import { passwordResetApi } from "@/api/password-reset";
+import { ApiError } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { isClassSelection, isJoinClassRequired } from "@/types/auth";
 import type { ClassOption } from "@/types/auth";
@@ -24,9 +26,111 @@ export default function LoginPage() {
   // Class selection state
   const [classOptions, setClassOptions] = useState<ClassOption[] | null>(null);
 
+  // Forgot password state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
+  const [forgotError, setForgotError] = useState("");
+
+  async function handleForgotPassword(e: FormEvent) {
+    e.preventDefault();
+    setForgotError("");
+    setForgotMessage("");
+    setForgotLoading(true);
+    try {
+      const res = await passwordResetApi.forgotPassword(forgotUsername);
+      setForgotMessage(res.message);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setForgotError(err.message);
+      } else {
+        setForgotError(err instanceof Error ? err.message : "提交失败");
+      }
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
   // Only redirect if we have a valid session (role must exist)
   if (auth.isAuthenticated && auth.role && !classOptions) {
     return <Navigate to={getRedirectPath(auth.role)} replace />;
+  }
+
+  // Forgot password view
+  if (showForgotPassword) {
+    return (
+      <AuthLayout>
+        <div className="auth-card">
+          <div className="auth-card-header">
+            <h2 className="auth-card-title">忘记密码</h2>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+              输入你的学号，提交后请联系老师审批
+            </p>
+          </div>
+
+          {forgotMessage ? (
+            <div className="space-y-4">
+              <p className="text-sm text-[var(--success)]">{forgotMessage}</p>
+              <button
+                type="button"
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotMessage("");
+                  setForgotUsername("");
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                返回登录
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-5">
+              <div className="space-y-1.5">
+                <label htmlFor="forgot-username" className="auth-label">
+                  学号
+                </label>
+                <input
+                  id="forgot-username"
+                  type="text"
+                  placeholder="请输入学号"
+                  className="auth-input"
+                  value={forgotUsername}
+                  onChange={(e) => setForgotUsername(e.target.value)}
+                />
+              </div>
+
+              {forgotError && (
+                <p className="text-sm text-[var(--danger)]">{forgotError}</p>
+              )}
+
+              <button
+                type="submit"
+                className="auth-btn-primary"
+                disabled={forgotLoading || !forgotUsername}
+              >
+                {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                提交申请
+              </button>
+
+              <button
+                type="button"
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotError("");
+                  setForgotUsername("");
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                返回登录
+              </button>
+            </form>
+          )}
+        </div>
+      </AuthLayout>
+    );
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -213,7 +317,14 @@ export default function LoginPage() {
 
         <div className="mt-5 space-y-2 text-center">
           <p className="text-[13px] text-[var(--muted-foreground)]">
-            忘记密码？请联系您的任课老师重置密码
+            忘记密码？{" "}
+            <button
+              type="button"
+              className="text-[var(--cyan-mid)] hover:text-[var(--cyan-light)] hover:underline transition-colors"
+              onClick={() => setShowForgotPassword(true)}
+            >
+              申请重置
+            </button>
           </p>
           <p className="text-[13px] text-[var(--muted-foreground)]">
             还没有账号？{" "}

@@ -28,6 +28,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { useApi } from "@/hooks/useApi";
 import { useClassContext } from "@/contexts/ClassContext";
 import { rosterApi } from "@/api/roster";
+import { passwordResetApi } from "@/api/password-reset";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
 import {
@@ -39,11 +40,14 @@ import {
   KeyRound,
   UserMinus,
   X,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ActualRosterItem } from "@/types/roster";
+import type { PasswordResetRequestItem } from "@/types/password-reset";
 
-type RosterTab = "expected" | "actual";
+type RosterTab = "expected" | "actual" | "reset";
 
 export default function RosterPage() {
   const { currentClass } = useClassContext();
@@ -97,6 +101,43 @@ export default function RosterPage() {
   const [selectedActual, setSelectedActual] = useState<Set<string>>(new Set());
   const [batchRemoveOpen, setBatchRemoveOpen] = useState(false);
   const [batchRemoving, setBatchRemoving] = useState(false);
+
+  // Password reset requests
+  const {
+    data: resetData,
+    loading: resetLoading,
+    refetch: refetchResets,
+  } = useApi(
+    () =>
+      selectedClassId
+        ? passwordResetApi.list(selectedClassId)
+        : Promise.resolve({ items: [] }),
+    [selectedClassId],
+  );
+  const [approving, setApproving] = useState(false);
+  const [approveConfirmTarget, setApproveConfirmTarget] = useState<
+    "single" | "all" | null
+  >(null);
+  const [approveSingleTarget, setApproveSingleTarget] =
+    useState<PasswordResetRequestItem | null>(null);
+
+  const resetRequests = resetData?.items ?? [];
+
+  async function handleApproveReset(ids: string[]) {
+    if (!selectedClassId) return;
+    setApproving(true);
+    try {
+      const res = await passwordResetApi.approve(selectedClassId, ids);
+      toast.success(`已重置 ${res.approved_count} 名学生的密码`);
+      setApproveConfirmTarget(null);
+      setApproveSingleTarget(null);
+      await refetchResets();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "审批失败");
+    } finally {
+      setApproving(false);
+    }
+  }
 
   const expected = data?.expected ?? [];
   const actual = data?.actual ?? [];
@@ -403,6 +444,19 @@ export default function RosterPage() {
       );
     }
 
+    if (activeTab === "reset" && resetRequests.length > 0) {
+      return (
+        <Button
+          size="sm"
+          onClick={() => setApproveConfirmTarget("all")}
+          disabled={approving}
+        >
+          <CheckCheck className="mr-1 h-3.5 w-3.5" />
+          全部批准
+        </Button>
+      );
+    }
+
     return null;
   }
 
@@ -423,6 +477,7 @@ export default function RosterPage() {
                 [
                   ["expected", "班级成员", expected.length],
                   ["actual", "实际注册", actual.length],
+                  ["reset", "密码重置", resetRequests.length],
                 ] as const
               ).map(([tab, label, count]) => (
                 <button
@@ -525,64 +580,116 @@ export default function RosterPage() {
             </TableBody>
           </Table>
         )
-      ) : actual.length === 0 ? (
+      ) : activeTab === "actual" ? (
+        actual.length === 0 ? (
+          <EmptyState
+            icon={<Users className="h-10 w-10" />}
+            title="暂无学生"
+            description="学生通过班级 Token 加入后将显示在此"
+          />
+        ) : (
+          <Table className="data-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={
+                      selectedActual.size === actual.length && actual.length > 0
+                    }
+                    onCheckedChange={toggleAllActual}
+                  />
+                </TableHead>
+                <TableHead>学号</TableHead>
+                <TableHead>姓名</TableHead>
+                <TableHead>加入时间</TableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {actual.map((item) => (
+                <TableRow key={item.user_id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedActual.has(item.user_id)}
+                      onCheckedChange={() => toggleActual(item.user_id)}
+                    />
+                  </TableCell>
+                  <TableCell>{item.student_id}</TableCell>
+                  <TableCell>{item.display_name ?? "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(item.joined_at)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="重置密码"
+                        onClick={() => setResetTarget(item)}
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        title="移出班级"
+                        onClick={() => setRemoveTarget(item)}
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      ) : resetLoading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </div>
+      ) : resetRequests.length === 0 ? (
         <EmptyState
-          icon={<Users className="h-10 w-10" />}
-          title="暂无学生"
-          description="学生通过班级 Token 加入后将显示在此"
+          icon={<KeyRound className="h-10 w-10" />}
+          title="暂无待处理的申请"
+          description="当学生通过登录页提交密码重置申请后，会显示在这里"
         />
       ) : (
         <Table className="data-table">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={
-                    selectedActual.size === actual.length && actual.length > 0
-                  }
-                  onCheckedChange={toggleAllActual}
-                />
-              </TableHead>
               <TableHead>学号</TableHead>
               <TableHead>姓名</TableHead>
-              <TableHead>加入时间</TableHead>
+              <TableHead>申请时间</TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {actual.map((item) => (
-              <TableRow key={item.user_id}>
-                <TableCell>
-                  <Checkbox
-                    checked={selectedActual.has(item.user_id)}
-                    onCheckedChange={() => toggleActual(item.user_id)}
-                  />
-                </TableCell>
-                <TableCell>{item.student_id}</TableCell>
-                <TableCell>{item.display_name ?? "-"}</TableCell>
+            {resetRequests.map((req) => (
+              <TableRow key={req.id}>
+                <TableCell className="font-medium">{req.username}</TableCell>
+                <TableCell>{req.display_name ?? "—"}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {formatDate(item.joined_at)}
+                  {formatDate(req.created_at, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title="重置密码"
-                      onClick={() => setResetTarget(item)}
-                    >
-                      <KeyRound className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      title="移出班级"
-                      onClick={() => setRemoveTarget(item)}
-                    >
-                      <UserMinus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={approving}
+                    onClick={() => {
+                      setApproveSingleTarget(req);
+                      setApproveConfirmTarget("single");
+                    }}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    批准
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -675,6 +782,35 @@ export default function RosterPage() {
         confirmText="移除"
         onConfirm={handleBatchRemove}
         loading={batchRemoving}
+      />
+
+      <ConfirmDialog
+        open={approveConfirmTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApproveConfirmTarget(null);
+            setApproveSingleTarget(null);
+          }
+        }}
+        title={
+          approveConfirmTarget === "all"
+            ? "批准全部申请"
+            : "批准密码重置"
+        }
+        description={
+          approveConfirmTarget === "all"
+            ? `确定要批准全部 ${resetRequests.length} 条密码重置申请吗？相关学生的密码将重置为 123456。`
+            : `确定要将「${approveSingleTarget?.display_name ?? approveSingleTarget?.username ?? ""}」的密码重置为 123456 吗？`
+        }
+        confirmText="确认重置"
+        onConfirm={() => {
+          if (approveConfirmTarget === "all") {
+            handleApproveReset(resetRequests.map((r) => r.id));
+          } else if (approveSingleTarget) {
+            handleApproveReset([approveSingleTarget.id]);
+          }
+        }}
+        loading={approving}
       />
     </div>
   );

@@ -15,9 +15,10 @@ import {
   LogOut, Menu, Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
+import { passwordResetApi } from "@/api/password-reset";
 
 interface NavItem {
   label: string;
@@ -25,14 +26,16 @@ interface NavItem {
   icon: typeof School;
   /** When set, the item acts as a button instead of a link */
   action?: () => void;
+  /** Badge count shown next to the label */
+  badge?: number;
 }
 
-function getTeachingNav(togglePanel?: () => void): NavItem[] {
+function getTeachingNav(togglePanel?: () => void, resetBadge?: number): NavItem[] {
   return [
     { label: "班级管理", href: "/admin/classes", icon: School },
     { label: "作业列表", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "创建作业", href: "/admin/tasks/new", icon: PlusCircle },
-    { label: "学生名单", href: "/admin/roster", icon: Users },
+    { label: "学生名单", href: "/admin/roster", icon: Users, badge: resetBadge },
     { label: "分享管理", href: "/admin/sharing", icon: Presentation },
     { label: "AI 助教", href: "#ai-assistant", icon: Bot, action: togglePanel },
   ];
@@ -118,6 +121,12 @@ function NavSection({ label, items, onNavigate, isPanelOpen }: { label: string; 
             : "border-l-transparent text-[var(--text-on-dark-secondary)] hover:text-[var(--text-on-dark)] hover:bg-[var(--ink-mid)]",
         );
 
+        const badgeEl = item.badge != null && item.badge > 0 ? (
+          <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--gold)]/20 text-[var(--gold)] text-[10px] font-semibold leading-none">
+            {item.badge}
+          </span>
+        ) : null;
+
         // Action items render as buttons instead of links
         if (item.action) {
           return (
@@ -132,6 +141,7 @@ function NavSection({ label, items, onNavigate, isPanelOpen }: { label: string; 
             >
               <Icon className="h-[18px] w-[18px] opacity-70" />
               {item.label}
+              {badgeEl}
             </button>
           );
         }
@@ -145,6 +155,7 @@ function NavSection({ label, items, onNavigate, isPanelOpen }: { label: string; 
           >
             <Icon className="h-[18px] w-[18px] opacity-70" />
             {item.label}
+            {badgeEl}
           </Link>
         );
       })}
@@ -152,9 +163,9 @@ function NavSection({ label, items, onNavigate, isPanelOpen }: { label: string; 
   );
 }
 
-function SidebarContent({ onNavigate, togglePanel, isPanelOpen }: { onNavigate?: () => void; togglePanel?: () => void; isPanelOpen?: boolean }) {
+function SidebarContent({ onNavigate, togglePanel, isPanelOpen, resetBadge }: { onNavigate?: () => void; togglePanel?: () => void; isPanelOpen?: boolean; resetBadge?: number }) {
   const { logout } = useAuth();
-  const teachingNav = getTeachingNav(togglePanel);
+  const teachingNav = getTeachingNav(togglePanel, resetBadge);
 
   return (
     <div className="flex h-full flex-col pt-6">
@@ -194,6 +205,22 @@ function SidebarContent({ onNavigate, togglePanel, isPanelOpen }: { onNavigate?:
 function AdminLayoutInner() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const { togglePanel, isPanelOpen } = useChatContext();
+  const { currentClass } = useClassContext();
+  const [resetBadge, setResetBadge] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!currentClass?.id) {
+      setResetBadge(undefined);
+      return;
+    }
+    let cancelled = false;
+    passwordResetApi.count(currentClass.id).then((res) => {
+      if (!cancelled) setResetBadge(res.count);
+    }).catch(() => {
+      if (!cancelled) setResetBadge(undefined);
+    });
+    return () => { cancelled = true; };
+  }, [currentClass?.id]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -207,7 +234,7 @@ function AdminLayoutInner() {
           </SheetTrigger>
           <SheetContent side="left" className="w-60 p-0 bg-[var(--ink-deep)]">
             <SheetTitle className="sr-only">导航菜单</SheetTitle>
-            <SidebarContent onNavigate={() => setSheetOpen(false)} togglePanel={togglePanel} isPanelOpen={isPanelOpen} />
+            <SidebarContent onNavigate={() => setSheetOpen(false)} togglePanel={togglePanel} isPanelOpen={isPanelOpen} resetBadge={resetBadge} />
           </SheetContent>
         </Sheet>
         <span className="ml-3 font-heading font-semibold text-primary tracking-[2px]">智能体课程</span>
@@ -216,7 +243,7 @@ function AdminLayoutInner() {
       <div className="flex">
         {/* Desktop sidebar */}
         <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0 border-r border-[var(--ink-mid)] bg-[var(--ink-deep)]">
-          <SidebarContent togglePanel={togglePanel} isPanelOpen={isPanelOpen} />
+          <SidebarContent togglePanel={togglePanel} isPanelOpen={isPanelOpen} resetBadge={resetBadge} />
         </aside>
 
         {/* Main content + Chat panel */}
