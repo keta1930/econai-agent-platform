@@ -17,7 +17,8 @@ import {
   ChevronLeft,
   List,
 } from "lucide-react";
-import type { Message, ToolResultBlock } from "@/types/assistant";
+import { StreamingBlockDisplay } from "./StreamingBlockDisplay";
+import type { Message, ToolResultBlock, StreamingBlock } from "@/types/assistant";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -96,9 +97,10 @@ interface MessageAreaProps {
   isStreaming: boolean;
   isPendingAnswer: boolean;
   onAnswer: (answer: string) => void;
+  streamingBlocks: StreamingBlock[];
 }
 
-function MessageArea({ messages, isStreaming, isPendingAnswer, onAnswer }: MessageAreaProps) {
+function MessageArea({ messages, isStreaming, isPendingAnswer, onAnswer, streamingBlocks }: MessageAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
 
@@ -109,7 +111,7 @@ function MessageArea({ messages, isStreaming, isPendingAnswer, onAnswer }: Messa
     if (el) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages, userScrolled]);
+  }, [messages, streamingBlocks, userScrolled]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -139,11 +141,15 @@ function MessageArea({ messages, isStreaming, isPendingAnswer, onAnswer }: Messa
           key={msg.id}
           message={msg}
           toolResults={toolResults}
-          isStreaming={isStreaming && msg.id === "__streaming__"}
+          isStreaming={false}
           onAnswer={onAnswer}
           isPendingAnswer={isPendingAnswer}
         />
       ))}
+
+      {isStreaming && streamingBlocks.length > 0 && (
+        <StreamingBlockDisplay blocks={streamingBlocks} />
+      )}
     </div>
   );
 }
@@ -226,6 +232,7 @@ function PanelContent({ onClose }: { onClose: () => void }) {
             isStreaming={state.isStreaming}
             isPendingAnswer={state.isPendingAnswer}
             onAnswer={answerQuestion}
+            streamingBlocks={state.streamingBlocks}
           />
 
           {state.tokenUsage.total > 0 && (
@@ -262,7 +269,7 @@ export function ChatPanel() {
         className={cn(
           "hidden lg:flex flex-col border-l border-[var(--paper-border)] transition-all duration-300 ease-in-out overflow-hidden",
           isPanelOpen
-            ? "xl:w-[400px] lg:w-[360px] opacity-100"
+            ? "xl:w-[360px] lg:w-[320px] opacity-100"
             : "w-0 opacity-0",
         )}
         style={{ minHeight: 0 }}

@@ -64,6 +64,30 @@ export interface ConversationDetail extends Conversation {
 }
 
 // ---------------------------------------------------------------------------
+// StreamingBlock — decoupled streaming state for real-time rendering
+// ---------------------------------------------------------------------------
+
+export type StreamingBlockType = "reasoning" | "content" | "tool_calls";
+
+export interface StreamingToolCall {
+  id: string;
+  name: string;
+  displayName: string;
+  args: Record<string, unknown>;
+  result?: string;
+  isError?: boolean;
+}
+
+export interface StreamingBlock {
+  id: string;
+  type: StreamingBlockType;
+  content: string;
+  toolCalls?: StreamingToolCall[];
+  isComplete: boolean;
+  timestamp: number;
+}
+
+// ---------------------------------------------------------------------------
 // Token usage
 // ---------------------------------------------------------------------------
 
@@ -139,6 +163,12 @@ export interface SSEError {
   message: string;
 }
 
+export interface SSETitleUpdate {
+  type: "title_update";
+  conversation_id: string;
+  title: string;
+}
+
 export type SSEEvent =
   | SSETextDelta
   | SSEToolCallStart
@@ -146,6 +176,7 @@ export type SSEEvent =
   | SSEToolCallResult
   | SSEAskUser
   | SSETokenUsage
+  | SSETitleUpdate
   | SSEDone
   | SSEError;
 

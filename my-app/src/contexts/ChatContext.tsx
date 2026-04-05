@@ -14,10 +14,9 @@ import {
   type Message,
   type TokenUsage,
   type UploadedFile,
-  type Block,
-  type ToolUseBlock,
-  type ToolResultBlock,
-  type TextBlock,
+  type StreamingBlock,
+  type StreamingBlockType,
+  type StreamingToolCall,
 } from "@/types/assistant";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +34,7 @@ export interface ChatState {
   pendingToolCallId: string | null;
   tokenUsage: TokenUsage;
   attachedFiles: UploadedFile[];
+  streamingBlocks: StreamingBlock[];
 }
 
 const initialState: ChatState = {
@@ -48,6 +48,7 @@ const initialState: ChatState = {
   pendingToolCallId: null,
   tokenUsage: { total: 0, max: DEFAULT_MAX_CONTEXT, ratio: 0 },
   attachedFiles: [],
+  streamingBlocks: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -60,17 +61,11 @@ export type ChatAction =
   | { type: "PREPEND_CONVERSATION"; conversation: Conversation }
   | { type: "SET_ACTIVE_CONVERSATION"; id: string | null; messages: Message[] }
   | { type: "APPEND_MESSAGE"; message: Message }
-  | { type: "UPDATE_STREAMING_MESSAGE"; delta: string }
-  | {
-      type: "ADD_TOOL_CALL";
-      toolCall: ToolUseBlock;
-    }
-  | {
-      type: "UPDATE_TOOL_CALL_RESULT";
-      id: string;
-      result: string;
-      isError: boolean;
-    }
+  | { type: "UPDATE_STREAMING_BLOCK"; blockType: StreamingBlockType; delta: string }
+  | { type: "UPDATE_STREAMING_TOOL_CALL"; toolCall: Partial<StreamingToolCall> & { id: string } }
+  | { type: "UPDATE_STREAMING_TOOL_RESULT"; id: string; result: string; isError: boolean }
+  | { type: "FINALIZE_STREAM" }
+  | { type: "UPDATE_CONVERSATION_TITLE"; conversationId: string; title: string }
   | {
       type: "SET_PENDING_ANSWER";
       toolCallId: string;
@@ -83,55 +78,18 @@ export type ChatAction =
   | { type: "ATTACH_FILE"; file: UploadedFile }
   | { type: "REMOVE_FILE"; fileId: string }
   | { type: "CLEAR_FILES" }
-  | { type: "DELETE_CONVERSATION"; id: string }
-  | { type: "UPDATE_TOOL_CALL_ARGS"; id: string; args: Record<string, unknown> };
+  | { type: "DELETE_CONVERSATION"; id: string };
 
 // ---------------------------------------------------------------------------
 // Reducer
 // ---------------------------------------------------------------------------
-
-/**
- * Find or create the in-progress streaming assistant message.
- *
- * Searches backward because tool_result messages may be appended after the
- * streaming placeholder, so it is not always the last element.
- */
-function getOrCreateStreamingMessage(messages: Message[]): {
-  messages: Message[];
-  index: number;
-} {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].id === "__streaming__") {
-      return { messages, index: i };
-    }
-  }
-  const placeholder: Message = {
-    id: "__streaming__",
-    role: "assistant",
-    content: [],
-    token_count: 0,
-    created_at: new Date().toISOString(),
-  };
-  const updated = [...messages, placeholder];
-  return { messages: updated, index: updated.length - 1 };
-}
-
-function appendBlockToMessage(message: Message, block: Block): Message {
-  return { ...message, content: [...message.content, block] };
-}
-
-function replaceMessageAt(messages: Message[], index: number, msg: Message): Message[] {
-  const copy = [...messages];
-  copy[index] = msg;
-  return copy;
-}
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case "SET_CONVERSATIONS":
       return { ...state, conversations: action.conversations };
 
-    case "TOUCH_CONVERSATION": {
+    case "TOUCH_CONVERSATION":
       return {
         ...state,
         conversations: state.conversations.map((c) =>
@@ -140,7 +98,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             : c,
         ),
       };
-    }
 
     case "PREPEND_CONVERSATION":
       return {
@@ -153,64 +110,103 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         activeConversationId: action.id,
         messages: action.messages,
-        // Reset transient state when switching conversations
         isStreaming: false,
         isPendingAnswer: false,
         pendingQuestion: null,
         pendingOptions: null,
         pendingToolCallId: null,
         attachedFiles: [],
+        streamingBlocks: [],
+        tokenUsage: { total: 0, max: DEFAULT_MAX_CONTEXT, ratio: 0 },
       };
 
     case "APPEND_MESSAGE":
       return { ...state, messages: [...state.messages, action.message] };
 
-    case "UPDATE_STREAMING_MESSAGE": {
-      const { messages, index } = getOrCreateStreamingMessage(state.messages);
-      let msg = messages[index];
-
-      // Append text to the last text block, or create a new one
-      const lastBlock = msg.content[msg.content.length - 1];
-      if (lastBlock && lastBlock.type === "text") {
-        const updatedBlock: TextBlock = {
-          ...lastBlock,
-          text: lastBlock.text + action.delta,
-        };
-        msg = {
-          ...msg,
-          content: [...msg.content.slice(0, -1), updatedBlock],
+    case "UPDATE_STREAMING_BLOCK": {
+      const blocks = [...state.streamingBlocks];
+      const lastIdx = findLastIndex(
+        blocks,
+        (b) => b.type === action.blockType && !b.isComplete,
+      );
+      if (lastIdx >= 0) {
+        blocks[lastIdx] = {
+          ...blocks[lastIdx],
+          content: blocks[lastIdx].content + action.delta,
         };
       } else {
-        msg = appendBlockToMessage(msg, { type: "text", text: action.delta });
+        blocks.push({
+          id: `block_${Date.now()}_${blocks.length}`,
+          type: action.blockType,
+          content: action.delta,
+          isComplete: false,
+          timestamp: Date.now(),
+        });
       }
-
-      return { ...state, messages: replaceMessageAt(messages, index, msg) };
+      return { ...state, streamingBlocks: blocks };
     }
 
-    case "ADD_TOOL_CALL": {
-      const { messages, index } = getOrCreateStreamingMessage(state.messages);
-      const msg = appendBlockToMessage(messages[index], action.toolCall);
-      return { ...state, messages: replaceMessageAt(messages, index, msg) };
+    case "UPDATE_STREAMING_TOOL_CALL": {
+      const blocks = [...state.streamingBlocks];
+      // Complete all reasoning/content blocks when a tool call arrives
+      for (let i = 0; i < blocks.length; i++) {
+        if ((blocks[i].type === "reasoning" || blocks[i].type === "content") && !blocks[i].isComplete) {
+          blocks[i] = { ...blocks[i], isComplete: true };
+        }
+      }
+      // Find or create tool_calls block
+      let tcIdx = findLastIndex(blocks, (b) => b.type === "tool_calls" && !b.isComplete);
+      if (tcIdx < 0) {
+        blocks.push({
+          id: `block_tc_${Date.now()}`,
+          type: "tool_calls",
+          content: "",
+          toolCalls: [],
+          isComplete: false,
+          timestamp: Date.now(),
+        });
+        tcIdx = blocks.length - 1;
+      }
+      const tcBlock = blocks[tcIdx];
+      const existingCalls = tcBlock.toolCalls ?? [];
+      const existingCallIdx = existingCalls.findIndex((tc) => tc.id === action.toolCall.id);
+      if (existingCallIdx >= 0) {
+        // Merge only defined fields — partial updates (e.g. tool_call_args) must not
+        // overwrite fields set by earlier events (e.g. tool_call_start's name/displayName)
+        const merged = { ...existingCalls[existingCallIdx] };
+        for (const [k, v] of Object.entries(action.toolCall)) {
+          if (v !== undefined) (merged as Record<string, unknown>)[k] = v;
+        }
+        const updated = [...existingCalls];
+        updated[existingCallIdx] = merged;
+        blocks[tcIdx] = { ...tcBlock, toolCalls: updated };
+      } else {
+        blocks[tcIdx] = { ...tcBlock, toolCalls: [...existingCalls, action.toolCall as StreamingToolCall] };
+      }
+      return { ...state, streamingBlocks: blocks };
     }
 
-    case "UPDATE_TOOL_CALL_RESULT": {
-      // Insert a tool result message after the streaming assistant message
-      const toolResultMessage: Message = {
-        id: `tool_result_${action.id}`,
-        role: "tool",
-        content: [
-          {
-            type: "tool_result",
-            tool_call_id: action.id,
-            content: action.result,
-            is_error: action.isError,
-          } satisfies ToolResultBlock,
-        ],
-        token_count: 0,
-        created_at: new Date().toISOString(),
+    case "UPDATE_STREAMING_TOOL_RESULT": {
+      const blocks = state.streamingBlocks.map((b) => {
+        if (b.type !== "tool_calls" || !b.toolCalls) return b;
+        const updated = b.toolCalls.map((tc) =>
+          tc.id === action.id ? { ...tc, result: action.result, isError: action.isError } : tc,
+        );
+        return { ...b, toolCalls: updated };
+      });
+      return { ...state, streamingBlocks: blocks };
+    }
+
+    case "FINALIZE_STREAM":
+      return { ...state, streamingBlocks: [] };
+
+    case "UPDATE_CONVERSATION_TITLE":
+      return {
+        ...state,
+        conversations: state.conversations.map((c) =>
+          c.id === action.conversationId ? { ...c, title: action.title } : c,
+        ),
       };
-      return { ...state, messages: [...state.messages, toolResultMessage] };
-    }
 
     case "SET_PENDING_ANSWER":
       return {
@@ -250,33 +246,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "CLEAR_FILES":
       return { ...state, attachedFiles: [] };
 
-    case "UPDATE_TOOL_CALL_ARGS": {
-      const msgs = [...state.messages];
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        const msg = msgs[i];
-        if (msg.role !== "assistant") continue;
-        const blockIndex = msg.content.findIndex(
-          (b): b is ToolUseBlock =>
-            b.type === "tool_use" && b.tool_call_id === action.id,
-        );
-        if (blockIndex !== -1) {
-          const updatedContent = [...msg.content];
-          updatedContent[blockIndex] = {
-            ...(updatedContent[blockIndex] as ToolUseBlock),
-            input: action.args,
-          };
-          msgs[i] = { ...msg, content: updatedContent };
-          return { ...state, messages: msgs };
-        }
-      }
-      return state;
-    }
-
     case "DELETE_CONVERSATION": {
       const conversations = state.conversations.filter(
         (c) => c.id !== action.id,
       );
-      // If the deleted conversation was active, clear it
       if (state.activeConversationId === action.id) {
         return {
           ...state,
@@ -287,6 +260,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           pendingQuestion: null,
           pendingOptions: null,
           pendingToolCallId: null,
+          streamingBlocks: [],
         };
       }
       return { ...state, conversations };
@@ -295,6 +269,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     default:
       return state;
   }
+}
+
+/** Array.findLastIndex polyfill for environments that lack it */
+function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (predicate(arr[i])) return i;
+  }
+  return -1;
 }
 
 // ---------------------------------------------------------------------------

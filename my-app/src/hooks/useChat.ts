@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { toast } from "sonner";
 import { useChatContext } from "@/contexts/ChatContext";
 import { assistantApi } from "@/api/assistant";
@@ -8,7 +9,6 @@ import {
   type Message,
   type SSEEvent,
   type UploadedFile,
-  type ToolUseBlock,
 } from "@/types/assistant";
 
 // ---------------------------------------------------------------------------
@@ -35,32 +35,40 @@ export function useChat() {
         for await (const event of stream) {
           switch (event.type) {
             case "text_delta":
-              dispatch({ type: "UPDATE_STREAMING_MESSAGE", delta: event.content });
+              flushSync(() => {
+                dispatch({
+                  type: "UPDATE_STREAMING_BLOCK",
+                  blockType: "content",
+                  delta: event.content,
+                });
+              });
               break;
 
             case "tool_call_start":
               dispatch({
-                type: "ADD_TOOL_CALL",
+                type: "UPDATE_STREAMING_TOOL_CALL",
                 toolCall: {
-                  type: "tool_use",
-                  tool_call_id: event.id,
+                  id: event.id,
                   name: event.name,
-                  input: {},
-                } satisfies ToolUseBlock,
+                  displayName: event.display_name,
+                  args: {},
+                },
               });
               break;
 
             case "tool_call_args":
               dispatch({
-                type: "UPDATE_TOOL_CALL_ARGS",
-                id: event.id,
-                args: event.args,
+                type: "UPDATE_STREAMING_TOOL_CALL",
+                toolCall: {
+                  id: event.id,
+                  args: event.args,
+                },
               });
               break;
 
             case "tool_call_result":
               dispatch({
-                type: "UPDATE_TOOL_CALL_RESULT",
+                type: "UPDATE_STREAMING_TOOL_RESULT",
                 id: event.id,
                 result: event.result,
                 isError: event.is_error,
@@ -87,8 +95,15 @@ export function useChat() {
               });
               break;
 
+            case "title_update":
+              dispatch({
+                type: "UPDATE_CONVERSATION_TITLE",
+                conversationId: event.conversation_id,
+                title: event.title,
+              });
+              break;
+
             case "done":
-              // Stream finished normally
               break;
 
             case "error":
@@ -101,7 +116,42 @@ export function useChat() {
         throw err;
       } finally {
         dispatch({ type: "SET_STREAMING", isStreaming: false });
+        // Do NOT dispatch FINALIZE_STREAM here — SET_ACTIVE_CONVERSATION (from refetch)
+        // already resets streamingBlocks. Clearing here would cause a flash of empty content
+        // between stream end and refetch completion. If refetch fails, streaming blocks are
+        // preserved as degraded display so the user doesn't lose the response.
         abortControllerRef.current = null;
+      }
+    },
+    [dispatch],
+  );
+
+  // -------------------------------------------------------------------
+  // Refetch conversation detail to replace streaming blocks with persisted data
+  // -------------------------------------------------------------------
+
+  const refetchConversation = useCallback(
+    async (conversationId: string) => {
+      try {
+        const detail = await assistantApi.getConversation(conversationId);
+        dispatch({
+          type: "SET_ACTIVE_CONVERSATION",
+          id: detail.id,
+          messages: detail.messages,
+        });
+        if (detail.token_count > 0) {
+          dispatch({
+            type: "SET_TOKEN_USAGE",
+            usage: {
+              total: detail.token_count,
+              max: DEFAULT_MAX_CONTEXT,
+              ratio: detail.token_count / DEFAULT_MAX_CONTEXT,
+            },
+          });
+        }
+      } catch (err) {
+        // Refetch failed — streaming blocks are preserved as degraded display
+        console.warn("[useChat] refetch failed, keeping streaming blocks as fallback:", err);
       }
     },
     [dispatch],
@@ -153,12 +203,13 @@ export function useChat() {
       const stream = streamChat(conversationId, body, controller.signal);
       try {
         await processStream(stream);
+        await refetchConversation(conversationId);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         toast.error(err instanceof Error ? err.message : "发送失败，请重试");
       }
     },
-    [state.activeConversationId, dispatch, processStream],
+    [state.activeConversationId, dispatch, processStream, refetchConversation],
   );
 
   const answerQuestion = useCallback(
@@ -184,12 +235,13 @@ export function useChat() {
       const stream = streamAnswer(conversationId, answer, controller.signal);
       try {
         await processStream(stream);
+        await refetchConversation(conversationId);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         toast.error(err instanceof Error ? err.message : "发送失败，请重试");
       }
     },
-    [state.activeConversationId, dispatch, processStream],
+    [state.activeConversationId, dispatch, processStream, refetchConversation],
   );
 
   const stopGeneration = useCallback(async () => {
