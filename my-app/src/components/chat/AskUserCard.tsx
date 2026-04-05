@@ -417,22 +417,27 @@ function SingleQuestionView({
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const [otherSelected, setOtherSelected] = useState(false);
   const [otherValue, setOtherValue] = useState("");
+  // Preserve the submitted answer locally so it shows between submission and refetch
+  const [submittedAnswer, setSubmittedAnswer] = useState<string | null>(null);
 
   const normalized = options?.length ? normalizeOptions(options) : [];
 
-  const answeredLabels = disabled && selectedAnswer != null
-    ? parseSelectedLabels(selectedAnswer, normalized)
+  // Use selectedAnswer from tool_result if available, otherwise fall back to local submission
+  const effectiveAnswer = selectedAnswer ?? submittedAnswer;
+
+  const answeredLabels = disabled && effectiveAnswer != null
+    ? parseSelectedLabels(effectiveAnswer, normalized)
     : new Set<string>();
 
   const isFreetextAnswer = disabled
-    && selectedAnswer != null
+    && effectiveAnswer != null
     && answeredLabels.size === 0
     && normalized.length > 0;
 
   function handleSingleSelect(label: string) {
     if (disabled) return;
-    // Deselect "other" when picking a regular option
     setOtherSelected(false);
+    setSubmittedAnswer(label);
     onAnswer(label);
   }
 
@@ -455,7 +460,9 @@ function SingleQuestionView({
       parts.push(otherValue.trim());
     }
     if (parts.length === 0) return;
-    onAnswer(parts.join(", "));
+    const answer = parts.join(", ");
+    setSubmittedAnswer(answer);
+    onAnswer(answer);
   }
 
   function handleOtherToggle() {
@@ -469,7 +476,9 @@ function SingleQuestionView({
   function handleOtherSubmit() {
     if (!otherValue.trim()) return;
     if (selectMode === "single") {
-      onAnswer(otherValue.trim());
+      const answer = otherValue.trim();
+      setSubmittedAnswer(answer);
+      onAnswer(answer);
     }
     // In multiple mode, submit is handled by handleMultiSubmit
   }
@@ -493,7 +502,7 @@ function SingleQuestionView({
           disabled={disabled}
           answeredLabels={answeredLabels}
           isFreetextAnswer={isFreetextAnswer}
-          selectedAnswer={selectedAnswer}
+          selectedAnswer={effectiveAnswer}
           multiSelected={multiSelected}
           onSingleSelect={handleSingleSelect}
           onToggle={handleToggle}
@@ -529,15 +538,19 @@ function SingleQuestionView({
           value={otherValue}
           onChange={setOtherValue}
           onSubmit={() => {
-            if (otherValue.trim()) onAnswer(otherValue.trim());
+            if (otherValue.trim()) {
+              const answer = otherValue.trim();
+              setSubmittedAnswer(answer);
+              onAnswer(answer);
+            }
           }}
         />
       )}
 
       {/* Show freetext answer when disabled and no options */}
-      {disabled && normalized.length === 0 && selectedAnswer && (
+      {disabled && normalized.length === 0 && effectiveAnswer && (
         <div className="px-3 py-2 rounded-md bg-[var(--paper)] border border-[var(--paper-border)]">
-          <span className="text-sm text-foreground">{selectedAnswer}</span>
+          <span className="text-sm text-foreground">{effectiveAnswer}</span>
         </div>
       )}
     </>
@@ -804,9 +817,14 @@ function MultiQuestionView({
             onChange={setOtherValue}
             onSubmit={() => {
               if (!otherValue.trim()) return;
-              recordAnswer(otherValue.trim());
-              setOtherValue("");
-              if (!isLastStep) {
+              if (isLastStep) {
+                // Last step: record and submit all at once
+                const finalAnswers = [...answers];
+                finalAnswers[currentStep] = otherValue.trim();
+                onAnswer(JSON.stringify({ answers: finalAnswers }));
+              } else {
+                recordAnswer(otherValue.trim());
+                setOtherValue("");
                 const nextStep = currentStep + 1;
                 setCurrentStep(nextStep);
                 resetStepState(nextStep);
