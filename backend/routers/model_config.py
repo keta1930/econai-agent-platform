@@ -92,3 +92,30 @@ async def activate_model(
     target.is_active = True
     await db.commit()
     return ModelActivateResponse(message="模型已激活", active_model=target.name)
+
+
+@router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_model(
+    model_id: uuid.UUID,
+    admin: TokenPayload = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(ModelConfig).where(ModelConfig.id == model_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="模型不存在",
+        )
+    if target.admin_id != admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="无权操作",
+        )
+    if target.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="无法删除活跃模型，请先激活其他模型",
+        )
+    await db.delete(target)
+    await db.commit()

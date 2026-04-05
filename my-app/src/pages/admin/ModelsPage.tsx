@@ -31,7 +31,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApi } from "@/hooks/useApi";
 import { modelsApi } from "@/api/models";
 import { toast } from "sonner";
-import { Loader2, Plus, Zap } from "lucide-react";
+import { Loader2, Plus, Trash2, Zap } from "lucide-react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { ModelConfigCreateRequest } from "@/types/model";
 
 export default function ModelsPage() {
@@ -45,6 +46,8 @@ export default function ModelsPage() {
   });
   const [creating, setCreating] = useState(false);
   const [activatingId, setActivatingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const isFormValid = form.name.trim() && form.api_key.trim() && form.base_url.trim();
 
@@ -79,6 +82,21 @@ export default function ModelsPage() {
       toast.error(err instanceof Error ? err.message : "激活失败");
     } finally {
       setActivatingId(null);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await modelsApi.delete(deleteTarget.id);
+      toast.success("模型已删除");
+      setDeleteTarget(null);
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -202,27 +220,49 @@ export default function ModelsPage() {
                   </Badge>
                 )}
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="text-right space-x-2">
                 {!model.is_active && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={activatingId === model.id}
-                    onClick={() => handleActivate(model.id)}
-                  >
-                    {activatingId === model.id ? (
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Zap className="mr-1 h-4 w-4" />
-                    )}
-                    设为活跃
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={activatingId === model.id}
+                      onClick={() => handleActivate(model.id)}
+                    >
+                      {activatingId === model.id ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Zap className="mr-1 h-4 w-4" />
+                      )}
+                      设为活跃
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[var(--danger)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                      onClick={() => setDeleteTarget({ id: model.id, name: model.name })}
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" />
+                      删除
+                    </Button>
+                  </>
                 )}
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="删除模型"
+        description={`确定要删除模型「${deleteTarget?.name ?? ""}」吗？此操作不可恢复。`}
+        onConfirm={handleDelete}
+        confirmText="删除"
+        variant="destructive"
+        loading={deleting}
+      />
     </div>
   );
 }

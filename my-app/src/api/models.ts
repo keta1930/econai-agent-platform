@@ -5,4 +5,5 @@ export const modelsApi = {
   list: () => api.get<ModelConfigListResponse>("/admin/models"),
   create: (data: ModelConfigCreateRequest) => api.post<ModelConfig>("/admin/models", data),
   activate: (modelId: string) => api.put<ModelActivateResponse>(`/admin/models/${modelId}/activate`),
+  delete: (modelId: string) => api.delete(`/admin/models/${modelId}`),
 };
