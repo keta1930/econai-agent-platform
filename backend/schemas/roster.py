@@ -21,7 +21,6 @@ class ActualRosterItem(BaseModel):
     user_id: uuid.UUID
     student_id: str
     display_name: str | None
-    college: str | None
     joined_at: datetime
 
 

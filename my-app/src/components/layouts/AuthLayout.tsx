@@ -47,7 +47,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           />
 
           <p className="text-[15px] text-[var(--text-on-dark-secondary)] tracking-[6px]">
-            岭南学院
+            课程实践平台
           </p>
         </div>
       </div>

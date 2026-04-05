@@ -133,7 +133,6 @@ async def test_delete_student_from_roster(
         "/api/auth/register",
         json={
             "student_id": "DEL_S",
-            "college": "lingnan",
             "password": "p",
         },
     )

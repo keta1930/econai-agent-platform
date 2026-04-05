@@ -80,7 +80,6 @@ async def list_roster(
             user_id=user.id,
             student_id=user.username,
             display_name=user.display_name,
-            college=user.college,
             joined_at=joined_at,
         )
         for user, joined_at in actual_rows

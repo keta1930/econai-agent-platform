@@ -20,12 +20,11 @@ from tests.conftest import (
 
 
 async def test_register_student(client: AsyncClient):
-    """Student registers with student_id + college + password."""
+    """Student registers with student_id + password."""
     resp = await client.post(
         "/api/auth/register",
         json={
             "student_id": "REG001",
-            "college": "lingnan",
             "password": "pass123",
         },
     )
@@ -37,13 +36,12 @@ async def test_register_student(client: AsyncClient):
 
 async def test_register_duplicate_student_id(client: AsyncClient):
     """Duplicate student_id is rejected."""
-    await _register_student_via_api(client, "DUP001", "lingnan", "p")
+    await _register_student_via_api(client, "DUP001", "p")
 
     resp = await client.post(
         "/api/auth/register",
         json={
             "student_id": "DUP001",
-            "college": "physics",
             "password": "p",
         },
     )
@@ -51,24 +49,11 @@ async def test_register_duplicate_student_id(client: AsyncClient):
     assert "该学号已被注册" in resp.json()["detail"]
 
 
-async def test_register_invalid_college(client: AsyncClient):
-    """Invalid college value is rejected by Pydantic validation."""
-    resp = await client.post(
-        "/api/auth/register",
-        json={
-            "student_id": "BAD001",
-            "college": "math",
-            "password": "p",
-        },
-    )
-    assert resp.status_code == 422
-
-
 async def test_register_no_class_association(
     client: AsyncClient, db_session: AsyncSession
 ):
     """After registration, student belongs to zero classes."""
-    await _register_student_via_api(client, "NOCLASS001", "physics", "p")
+    await _register_student_via_api(client, "NOCLASS001", "p")
 
     from models.user import User
     from models.class_member import ClassMember
@@ -94,7 +79,7 @@ async def test_login_student_no_class(
     client: AsyncClient,
 ):
     """Student with 0 classes gets requires_join_class response."""
-    await _register_student_via_api(client, "LONE001", "lingnan", "p")
+    await _register_student_via_api(client, "LONE001", "p")
     data = await _login_full(client, "LONE001", "p")
     assert data.get("requires_join_class") is True
     assert "temp_access_token" in data
@@ -108,7 +93,7 @@ async def test_login_student_single_class(
     """Student with 1 class logs in directly."""
     _, class_id, join_token = admin_with_class
 
-    await _register_student_via_api(client, "SINGLE001", "lingnan", "p")
+    await _register_student_via_api(client, "SINGLE001", "p")
     temp = await _login(client, "SINGLE001", "p")
     await _join_class_via_api(client, temp, join_token)
 
@@ -129,7 +114,7 @@ async def test_login_student_multi_class(
     _, _, join_token_a = admin_with_class
     _, _, join_token_b = another_admin_with_class
 
-    await _register_student_via_api(client, "MULTI001", "physics", "p")
+    await _register_student_via_api(client, "MULTI001", "p")
     temp = await _login(client, "MULTI001", "p")
     join_a = await _join_class_via_api(client, temp, join_token_a)
     await _join_class_via_api(client, join_a["access_token"], join_token_b)
@@ -148,7 +133,7 @@ async def test_select_class_bearer_auth(
     _, class_id_a, join_token_a = admin_with_class
     _, _, join_token_b = another_admin_with_class
 
-    await _register_student_via_api(client, "SEL001", "lingnan", "p")
+    await _register_student_via_api(client, "SEL001", "p")
     temp = await _login(client, "SEL001", "p")
     join_a = await _join_class_via_api(client, temp, join_token_a)
     token = join_a["access_token"]
@@ -216,7 +201,7 @@ async def test_login_disabled_account(
     db_session: AsyncSession,
 ):
     """Disabled student account returns 403."""
-    await _register_student_via_api(client, "DIS001", "lingnan", "p")
+    await _register_student_via_api(client, "DIS001", "p")
 
     from models.user import User
     from sqlalchemy import update
@@ -246,7 +231,7 @@ async def test_change_password_success(
     """Student changes password successfully."""
     _, _, join_token = admin_with_class
 
-    await _register_student_via_api(client, "PWD001", "lingnan", "oldpass")
+    await _register_student_via_api(client, "PWD001", "oldpass")
     temp = await _login(client, "PWD001", "oldpass")
     join_data = await _join_class_via_api(client, temp, join_token)
     token = join_data["access_token"]
@@ -271,7 +256,7 @@ async def test_change_password_limit_exceeded(
     """Password change rejected after 3 changes."""
     _, _, join_token = admin_with_class
 
-    await _register_student_via_api(client, "PWD002", "physics", "p0")
+    await _register_student_via_api(client, "PWD002", "p0")
     temp = await _login(client, "PWD002", "p0")
     join_data = await _join_class_via_api(client, temp, join_token)
     token = join_data["access_token"]

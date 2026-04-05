@@ -45,11 +45,6 @@ import type { ActualRosterItem } from "@/types/roster";
 
 type RosterTab = "expected" | "actual";
 
-const COLLEGE_LABELS: Record<string, string> = {
-  lingnan: "岭南学院",
-  physics: "物理学院",
-};
-
 export default function RosterPage() {
   const { currentClass } = useClassContext();
   const selectedClassId = currentClass?.id ?? null;
@@ -550,7 +545,6 @@ export default function RosterPage() {
               </TableHead>
               <TableHead>学号</TableHead>
               <TableHead>姓名</TableHead>
-              <TableHead>学院</TableHead>
               <TableHead>加入时间</TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
@@ -566,11 +560,6 @@ export default function RosterPage() {
                 </TableCell>
                 <TableCell>{item.student_id}</TableCell>
                 <TableCell>{item.display_name ?? "-"}</TableCell>
-                <TableCell>
-                  {item.college
-                    ? (COLLEGE_LABELS[item.college] ?? item.college)
-                    : "-"}
-                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatDate(item.joined_at)}
                 </TableCell>

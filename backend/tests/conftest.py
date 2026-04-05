@@ -133,7 +133,6 @@ async def _create_user_in_db(
     password: str,
     role: str,
     display_name: str | None = None,
-    college: str | None = None,
 ) -> User:
     """Insert a user directly via the ORM (bypasses API)."""
     from services.auth_service import hash_password
@@ -144,7 +143,6 @@ async def _create_user_in_db(
         password_hash=pw_hash,
         role=role,
         display_name=display_name,
-        college=college,
     )
     db.add(user)
     await db.commit()
@@ -166,7 +164,6 @@ async def _create_class_member(
 async def _register_student_via_api(
     client: AsyncClient,
     student_id: str,
-    college: str,
     password: str,
 ) -> dict:
     """Register a student via API. Returns response JSON."""
@@ -174,7 +171,6 @@ async def _register_student_via_api(
         "/api/auth/register",
         json={
             "student_id": student_id,
-            "college": college,
             "password": password,
         },
     )
@@ -303,7 +299,7 @@ async def student_token(
     """Register a student, join the test class, and return its JWT token."""
     admin_tok, class_id, join_token = admin_with_class
 
-    await _register_student_via_api(client, "STU001", "lingnan", "stupass")
+    await _register_student_via_api(client, "STU001", "stupass")
 
     # Login to get temp token (student has 0 classes)
     temp_token = await _login(client, "STU001", "stupass")

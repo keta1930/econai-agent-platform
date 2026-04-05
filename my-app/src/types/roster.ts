@@ -7,7 +7,6 @@ export interface ActualRosterItem {
   user_id: string;
   student_id: string;
   display_name: string | null;
-  college: string | null;
   joined_at: string;
 }
 

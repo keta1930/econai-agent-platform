@@ -34,7 +34,6 @@ def verify_password(plain: str, hashed: str) -> bool:
 async def register_student(
     db: AsyncSession,
     student_id: str,
-    college: str,
     password: str,
 ) -> User:
     """Register a new student account (no class association).
@@ -55,7 +54,6 @@ async def register_student(
         username=student_id,
         password_hash=pw_hash,
         role="student",
-        college=college,
     )
     db.add(user)
     await db.commit()

@@ -5,41 +5,26 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AuthLayout } from "@/components/layouts/AuthLayout";
 import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 type TabType = "student" | "teacher";
 
-const COLLEGES = [
-  { value: "lingnan" as const, label: "岭南学院" },
-  { value: "physics" as const, label: "物理学院" },
-];
-
 function StudentForm() {
   const [studentId, setStudentId] = useState("");
-  const [college, setCollege] = useState<"lingnan" | "physics" | "">("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const isFormValid = studentId.trim() && college && password;
+  const isFormValid = studentId.trim() && password;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!college) return;
     setError("");
     setLoading(true);
 
     try {
       await authApi.register({
         student_id: studentId.trim(),
-        college,
         password,
       });
       toast.success("注册成功，请登录后加入班级");
@@ -79,34 +64,6 @@ function StudentForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-      </div>
-
-      <div className="space-y-1.5">
-        <label className="auth-label">学院</label>
-        <Select
-          value={college || undefined}
-          onValueChange={(val) => setCollege(val as "lingnan" | "physics")}
-        >
-          <SelectTrigger className="w-full h-auto py-2.5 px-3.5 rounded-lg bg-[var(--paper)]">
-            <SelectValue placeholder="请选择学院">
-              {(value: string | null) => {
-                const match = COLLEGES.find((c) => c.value === value);
-                return match ? match.label : "请选择学院";
-              }}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {COLLEGES.map((c) => (
-              <SelectItem
-                key={c.value}
-                value={c.value}
-                label={c.label}
-              >
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {error && <p className="text-sm text-[var(--danger)]">{error}</p>}

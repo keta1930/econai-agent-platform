@@ -62,7 +62,7 @@ async def get_captcha():
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    user = await register_student(db, req.student_id, req.college, req.password)
+    user = await register_student(db, req.student_id, req.password)
     return RegisterResponse(id=user.id, role=user.role)
 
 

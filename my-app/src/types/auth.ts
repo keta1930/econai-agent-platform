@@ -37,7 +37,6 @@ export interface SelectClassRequest {
 
 export interface RegisterRequest {
   student_id: string;
-  college: "lingnan" | "physics";
   password: string;
 }
 

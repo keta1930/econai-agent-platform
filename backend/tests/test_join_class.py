@@ -20,7 +20,7 @@ async def test_join_class_valid_token(
     """Student joins a class with a valid join token."""
     _, class_id, join_token = admin_with_class
 
-    await _register_student_via_api(client, "JOIN001", "lingnan", "pass")
+    await _register_student_via_api(client, "JOIN001", "pass")
     temp_token = await _login(client, "JOIN001", "pass")
 
     data = await _join_class_via_api(client, temp_token, join_token)
@@ -35,7 +35,7 @@ async def test_join_class_invalid_token(
     admin_with_class: tuple[str, str, str],
 ):
     """Invalid join token is rejected."""
-    await _register_student_via_api(client, "JOIN002", "physics", "pass")
+    await _register_student_via_api(client, "JOIN002", "pass")
     temp_token = await _login(client, "JOIN002", "pass")
 
     resp = await client.post(
@@ -54,7 +54,7 @@ async def test_join_class_already_member(
     """Joining a class twice is rejected."""
     _, _, join_token = admin_with_class
 
-    await _register_student_via_api(client, "JOIN003", "lingnan", "pass")
+    await _register_student_via_api(client, "JOIN003", "pass")
     temp_token = await _login(client, "JOIN003", "pass")
 
     join_data = await _join_class_via_api(client, temp_token, join_token)
@@ -86,7 +86,7 @@ async def test_join_class_auto_match_roster(
     assert resp.status_code == 201
 
     # Register and join
-    await _register_student_via_api(client, "MATCH001", "lingnan", "pass")
+    await _register_student_via_api(client, "MATCH001", "pass")
     temp_token = await _login(client, "MATCH001", "pass")
     await _join_class_via_api(client, temp_token, join_token)
 
@@ -116,7 +116,7 @@ async def test_switch_class_success(
     _, class_id_a, join_token_a = admin_with_class
     _, class_id_b, join_token_b = another_admin_with_class
 
-    await _register_student_via_api(client, "SWITCH001", "physics", "pass")
+    await _register_student_via_api(client, "SWITCH001", "pass")
     temp_token = await _login(client, "SWITCH001", "pass")
 
     # Join both classes
@@ -154,7 +154,7 @@ async def test_switch_class_not_member(
     """Switching to a class the student hasn't joined fails."""
     _, class_id, join_token = admin_with_class
 
-    await _register_student_via_api(client, "SWITCH002", "lingnan", "pass")
+    await _register_student_via_api(client, "SWITCH002", "pass")
     temp_token = await _login(client, "SWITCH002", "pass")
 
     # Join one class to get a proper token

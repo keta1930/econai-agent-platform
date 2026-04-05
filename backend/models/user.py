@@ -15,7 +15,6 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)
     display_name = Column(String, nullable=True)
-    college = Column(String, nullable=True)
     password_change_count = Column(Integer, nullable=False, server_default="0")
     invite_code_id = Column(Uuid, ForeignKey("invite_codes.id", ondelete="SET NULL"), nullable=True)
     is_active = Column(Boolean, nullable=False, server_default="true")
@@ -25,10 +24,6 @@ class User(Base):
         CheckConstraint(
             "role IN ('super_admin', 'admin', 'student')",
             name="ck_users_role",
-        ),
-        CheckConstraint(
-            "college IS NULL OR college IN ('lingnan', 'physics')",
-            name="ck_users_college",
         ),
         CheckConstraint(
             "password_change_count >= 0 AND password_change_count <= 3",

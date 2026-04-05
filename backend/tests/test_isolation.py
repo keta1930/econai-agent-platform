@@ -386,7 +386,7 @@ async def test_delete_student_only_affects_current_class(
         )
 
     # Register once, then join both classes
-    await _register_student_via_api(client, "ISO_STU", "lingnan", "p")
+    await _register_student_via_api(client, "ISO_STU", "p")
     temp_token = await _login(client, "ISO_STU", "p")
     await _join_class_via_api(client, temp_token, join_token_a)
     # Re-login to get updated token, then join class B

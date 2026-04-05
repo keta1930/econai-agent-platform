@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 class RegisterRequest(BaseModel):
     student_id: str
-    college: Literal["lingnan", "physics"]
     password: str
 
 
