@@ -11,3 +11,6 @@ storage/
 backend/dist/
 homework-grading.tar.gz
 backend.tar.gz
+
+mag/
+frontend/

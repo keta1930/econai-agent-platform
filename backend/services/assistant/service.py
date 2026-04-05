@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -23,7 +24,7 @@ from services.assistant.context import (
     get_model_context_limit,
     prepare_messages,
 )
-from services.assistant.prompts import build_system_prompt
+from services.assistant.prompts import TITLE_GENERATION_PROMPT, build_system_prompt
 from services.assistant.tools import ToolContext, registry
 
 logger = logging.getLogger(__name__)
@@ -160,9 +161,11 @@ class AssistantService:
         )
         self.db.add(user_msg)
 
-        # Auto-generate title from first user message
-        if conversation.title is None:
-            conversation.title = content[:30]
+        # Auto-generate title: set temporary title to prevent re-triggering,
+        # then launch async LLM title generation after adapter is resolved.
+        needs_title = conversation.title is None
+        if needs_title:
+            conversation.title = content[:20]
 
         await self.db.flush()
 
@@ -171,6 +174,17 @@ class AssistantService:
         if adapter is None:
             yield format_sse("error", {"type": "error", "message": "未配置 AI 模型，请先在模型管理中添加并激活模型"})
             return
+
+        # Launch background title generation (must happen after adapter is resolved)
+        title_queue: asyncio.Queue | None = None
+        if needs_title:
+            title_queue = asyncio.Queue()
+            # Save task reference to prevent GC from collecting it before completion
+            _title_task = asyncio.create_task(
+                self._generate_title(
+                    conversation.id, content, adapter, title_queue,
+                )
+            )
 
         # Resolve context window limit for this model
         max_context = get_model_context_limit(adapter.model_name)
@@ -194,7 +208,7 @@ class AssistantService:
             conversation.class_id = effective_class_id
         await self.db.flush()
 
-        # Run agent loop
+        # Run agent loop, interleaving title_update events
         tool_ctx = ToolContext(
             user_id=user_id,
             admin_id=user_id,
@@ -207,6 +221,22 @@ class AssistantService:
             max_context=max_context,
         ):
             yield sse_event
+            # Check if title generation completed between SSE chunks
+            if title_queue is not None:
+                try:
+                    title_data = title_queue.get_nowait()
+                    yield await self._apply_title_update(conversation, title_data)
+                    title_queue = None
+                except asyncio.QueueEmpty:
+                    pass
+
+        # After the stream ends, wait briefly for the title if still pending
+        if title_queue is not None:
+            try:
+                title_data = await asyncio.wait_for(title_queue.get(), timeout=3.0)
+                yield await self._apply_title_update(conversation, title_data)
+            except asyncio.TimeoutError:
+                logger.warning("Title generation timed out for %s", conversation.id)
 
     async def handle_answer(
         self,
@@ -553,6 +583,44 @@ class AssistantService:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    async def _apply_title_update(
+        self,
+        conversation: Conversation,
+        title_data: dict[str, str],
+    ) -> str:
+        """Persist the generated title and return the SSE event string."""
+        conversation.title = title_data["title"]
+        await self.db.flush()
+        return format_sse("title_update", {
+            "type": "title_update",
+            "conversation_id": title_data["conversation_id"],
+            "title": title_data["title"],
+        })
+
+    async def _generate_title(
+        self,
+        conversation_id: uuid.UUID,
+        user_message: str,
+        adapter: BaseAIAdapter,
+        title_queue: asyncio.Queue,
+    ) -> None:
+        """Background task: call LLM to generate a conversation title, put result into queue."""
+        try:
+            prompt = TITLE_GENERATION_PROMPT.format(user_message=user_message[:200])
+            response = await adapter.async_chat(
+                messages=[{"role": "user", "content": prompt}],
+                tools=None,
+            )
+            title = (response.text or "").strip()[:30] or user_message[:20]
+        except Exception:
+            logger.warning("Title generation failed for %s, falling back", conversation_id)
+            title = user_message[:20]
+
+        await title_queue.put({
+            "title": title,
+            "conversation_id": str(conversation_id),
+        })
 
     async def _load_owned_conversation(
         self,

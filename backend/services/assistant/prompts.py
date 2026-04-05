@@ -59,6 +59,19 @@ SUMMARY_PROMPT = """\
 对话历史：
 {conversation_text}"""
 
+TITLE_GENERATION_PROMPT = """\
+根据以下用户消息，生成一个简短的对话标题。
+
+要求：
+- 不超过 20 个中文字符（或等量英文）
+- 直接概括用户意图或话题
+- 不要加引号、标点或前缀
+- 只输出标题文本，不要任何解释
+
+用户消息：
+{user_message}"""
+
+
 def build_system_prompt(
     class_name: str,
     class_id: str,

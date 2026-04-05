@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 import tiktoken
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from models.conversation import Conversation, ConversationMessage
 from services.assistant.prompts import SUMMARY_PROMPT
@@ -124,15 +123,21 @@ async def prepare_messages(
         ``adapter.chat_stream()`` and total_token_count includes system prompt
         and tool overhead.
     """
-    conversation = await db.scalar(
-        select(Conversation)
-        .options(selectinload(Conversation.messages))
-        .where(Conversation.id == conversation_id)
+    # Query messages directly instead of loading via relationship.
+    # This avoids SQLAlchemy identity-map caching issues where a
+    # previously loaded Conversation object returns stale (empty)
+    # messages even after new ones have been flushed in the same session.
+    result = await db.execute(
+        select(ConversationMessage)
+        .where(ConversationMessage.conversation_id == conversation_id)
+        .order_by(ConversationMessage.created_at)
     )
-    if conversation is None:
-        raise ValueError(f"Conversation {conversation_id} not found")
-
-    messages: list[ConversationMessage] = list(conversation.messages)
+    messages: list[ConversationMessage] = list(result.scalars().all())
+    if not messages:
+        logger.warning("No messages found for conversation %s", conversation_id)
+        system_tokens = estimate_tokens(system_prompt)
+        tool_overhead = tool_count * TOKENS_PER_TOOL
+        return [], system_tokens + tool_overhead
 
     system_tokens = estimate_tokens(system_prompt)
     tool_overhead = tool_count * TOKENS_PER_TOOL
@@ -162,8 +167,13 @@ async def prepare_messages(
     total = system_tokens + tool_overhead + compressed_tokens
 
     # Update conversation token count in DB
-    conversation.token_count = total
-    await db.flush()
+    conv_result = await db.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    conv = conv_result.scalar_one_or_none()
+    if conv:
+        conv.token_count = total
+        await db.flush()
 
     return api_messages, total
 
