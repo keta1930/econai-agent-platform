@@ -72,7 +72,7 @@ _CSV_MIMES = {
 }
 
 
-async def execute_parse_uploaded_file(args: dict, ctx: ToolContext) -> str:
+async def execute_read_file(args: dict, ctx: ToolContext) -> str:
     file_id = args.get("file_id", "").strip()
     if not file_id:
         return json.dumps({"error": "请提供文件 ID（file_id）"}, ensure_ascii=False)
@@ -125,10 +125,10 @@ async def execute_parse_uploaded_file(args: dict, ctx: ToolContext) -> str:
 def register_file_tools(reg: ToolRegistry) -> None:
     reg.register(ToolHandler(
         definition=ToolDefinition(
-            name="parse_uploaded_file",
+            name="read_file",
             description=(
-                "解析用户上传的 Excel 或 CSV 文件，返回表头和数据行。"
-                "用于读取学生名单等结构化数据。"
+                "读取用户上传的文件，返回结构化数据。"
+                "支持 Excel (.xlsx/.xls) 和 CSV (.csv) 格式。"
             ),
             parameters={
                 "type": "object",
@@ -141,6 +141,6 @@ def register_file_tools(reg: ToolRegistry) -> None:
                 "required": ["file_id"],
             },
         ),
-        execute=execute_parse_uploaded_file,
-        display_name="解析上传文件",
+        execute=execute_read_file,
+        display_name="读取文件",
     ))

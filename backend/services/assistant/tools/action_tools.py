@@ -214,6 +214,59 @@ async def execute_import_roster(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 5. update_task
+# ---------------------------------------------------------------------------
+
+async def execute_update_task(args: dict, ctx: ToolContext) -> str:
+    task_id_raw = args.get("task_id")
+    if not task_id_raw:
+        return _json({"error": "请指定作业 ID（task_id）"})
+
+    result = await ctx.db.execute(
+        select(Task).where(Task.id == uuid.UUID(str(task_id_raw)))
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        return _json({"error": "作业不存在"})
+
+    cls = await _verify_class_ownership(task.class_id, ctx)
+    if not cls:
+        return _json({"error": "无权访问该作业"})
+
+    if task.status != "draft":
+        return _json({"error": f"作业当前状态为 {task.status}，只有草稿状态可以编辑"})
+
+    updatable_fields = ("title", "description", "grading_criteria")
+    updated = []
+    for field in updatable_fields:
+        if field in args:
+            value = args[field]
+            if isinstance(value, str):
+                value = value.strip()
+                if not value:
+                    return _json({"error": f"{field} 不能为空"})
+            setattr(task, field, value)
+            updated.append(field)
+
+    if not updated:
+        return _json({"error": "未提供任何需要更新的字段（可更新：title, description, grading_criteria）"})
+
+    await ctx.db.commit()
+    await ctx.db.refresh(task)
+
+    return _json({
+        "id": str(task.id),
+        "title": task.title,
+        "description": task.description,
+        "grading_criteria": task.grading_criteria,
+        "status": task.status,
+        "class_name": cls.name,
+        "updated_fields": updated,
+        "message": f"已更新作业「{task.title}」的 {', '.join(updated)}",
+    })
+
+
+# ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
 
@@ -349,5 +402,41 @@ def register_action_tools(reg: ToolRegistry) -> None:
         ),
         execute=execute_import_roster,
         display_name="导入学生名单",
+        requires_confirmation=True,
+    ))
+
+    reg.register(ToolHandler(
+        definition=ToolDefinition(
+            name="update_task",
+            description=(
+                "更新草稿状态的作业信息。只能修改 draft 状态的作业，"
+                "只传需要修改的字段，未传的字段保持不变。"
+                "执行前必须先用 ask_user 向用户确认修改内容。"
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "description": "作业 ID（UUID）",
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "新的作业标题",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "新的作业说明",
+                    },
+                    "grading_criteria": {
+                        "type": "string",
+                        "description": "新的评分标准",
+                    },
+                },
+                "required": ["task_id"],
+            },
+        ),
+        execute=execute_update_task,
+        display_name="更新作业",
         requires_confirmation=True,
     ))
