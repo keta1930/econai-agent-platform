@@ -23,6 +23,7 @@ import { submissionsApi } from "@/api/submissions";
 import { FileText, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { scoreColor } from "@/lib/format";
+import { GradingFeedback } from "@/components/GradingFeedback";
 
 export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>();
@@ -73,7 +74,7 @@ export default function StudentDetailPage() {
                 <TableHead>提交时间</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead className="text-right">分数</TableHead>
-                <TableHead>AI 建议</TableHead>
+                <TableHead>批改详情</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -92,20 +93,23 @@ export default function StudentDetailPage() {
                     {sub.score !== null ? sub.score : "-"}
                   </TableCell>
                   <TableCell>
-                    {sub.suggestion ? (
+                    {sub.feedback && sub.score !== null ? (
                       <Dialog>
                         <DialogTrigger
                           render={<Button variant="ghost" size="sm" className="text-xs" />}
                         >
-                          {sub.suggestion.length > 30
-                            ? sub.suggestion.slice(0, 30) + "..."
-                            : sub.suggestion}
+                          查看详情
                         </DialogTrigger>
-                        <DialogContent className="max-w-lg">
+                        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                           <DialogHeader>
-                            <DialogTitle>AI 建议 - {sub.task_title}</DialogTitle>
+                            <DialogTitle>批改详情 - {sub.task_title}</DialogTitle>
                           </DialogHeader>
-                          <p className="whitespace-pre-wrap text-sm">{sub.suggestion}</p>
+                          <GradingFeedback
+                            feedback={sub.feedback}
+                            score={sub.score}
+                            gradedAt={sub.graded_at}
+                            version={sub.version}
+                          />
                         </DialogContent>
                       </Dialog>
                     ) : (

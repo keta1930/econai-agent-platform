@@ -9,12 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/FileUpload";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StatusBadge } from "@/components/StatusBadge";
+import { scoreColor } from "@/lib/format";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
 import { submissionsApi } from "@/api/submissions";
 import {
   Loader2,
-  CheckCircle2,
   XCircle,
   Clock,
   ChevronDown,
@@ -23,6 +23,7 @@ import {
   Eye,
   BookOpen,
 } from "lucide-react";
+import { GradingFeedback } from "@/components/GradingFeedback";
 import type { SubmissionDetail } from "@/types/submission";
 
 export default function TaskDetailPage() {
@@ -234,45 +235,25 @@ export default function TaskDetailPage() {
         </Card>
       )}
 
-      {latestSubmission?.status === "completed" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg font-heading">
-              <CheckCircle2 className="h-5 w-5 text-success" />
-              批改结果
-              {hasSubmitted && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  (第 {latestSubmission.version} 次提交)
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-primary">
+      {latestSubmission?.status === "completed" &&
+        latestSubmission.score !== null &&
+        (latestSubmission.feedback ? (
+          <GradingFeedback
+            feedback={latestSubmission.feedback}
+            score={latestSubmission.score}
+            gradedAt={latestSubmission.graded_at}
+            version={latestSubmission.version}
+          />
+        ) : (
+          <Card>
+            <CardContent className="py-6 text-center">
+              <p className="text-4xl font-bold" style={{ color: scoreColor(latestSubmission.score) }}>
                 {latestSubmission.score}
-              </span>
-              <span className="text-sm text-muted-foreground">分</span>
-            </div>
-            {latestSubmission.suggestion && (
-              <div>
-                <h4 className="mb-2 text-sm font-medium text-muted-foreground">
-                  AI 建议
-                </h4>
-                <p className="whitespace-pre-wrap text-sm rounded-md bg-muted p-4">
-                  {latestSubmission.suggestion}
-                </p>
-              </div>
-            )}
-            {latestSubmission.graded_at && (
-              <p className="text-xs text-muted-foreground">
-                批改完成于{" "}
-                {new Date(latestSubmission.graded_at).toLocaleString("zh-CN")}
               </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              <p className="mt-2 text-sm text-muted-foreground">批改完成</p>
+            </CardContent>
+          </Card>
+        ))}
 
       {latestSubmission?.status === "failed" && (
         <Card>

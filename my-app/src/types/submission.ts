@@ -9,6 +9,20 @@ export interface SubmissionCreateResponse {
   task_title: string;
 }
 
+export interface DimensionScore {
+  name: string;
+  score: number;
+  max_score: number;
+  comment: string;
+}
+
+export interface GradingFeedback {
+  dimensions: DimensionScore[];
+  improvements: string[];
+  highlights: string[];
+  overall_comment: string;
+}
+
 export interface SubmissionDetail {
   id: string;
   task_id: string;
@@ -17,7 +31,7 @@ export interface SubmissionDetail {
   content_type: string;
   status: string;
   score: number | null;
-  suggestion: string | null;
+  feedback: GradingFeedback | null;
   submitted_at: string;
   graded_at: string | null;
 }

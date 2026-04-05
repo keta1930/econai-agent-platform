@@ -16,6 +16,8 @@ import { tasksApi } from "@/api/tasks";
 import { submissionsApi } from "@/api/submissions";
 import type { SubmissionDetail, SubmissionContentResponse } from "@/types/submission";
 import { ArrowLeft, GitCompareArrows, X, Loader2, AlertTriangle, Eye } from "lucide-react";
+import { GradingFeedback } from "@/components/GradingFeedback";
+import { scoreColor } from "@/lib/format";
 
 const CODE_EXTENSIONS = new Set([".py", ".json", ".yaml", ".jsonl"]);
 
@@ -104,20 +106,26 @@ function GradingPanel({ submission }: { submission: SubmissionDetail }) {
   }
 
   // completed
+  if (submission.score !== null && submission.feedback) {
+    return (
+      <GradingFeedback
+        feedback={submission.feedback}
+        score={submission.score}
+        gradedAt={submission.graded_at}
+        version={submission.version}
+      />
+    );
+  }
+
+  // completed but feedback missing (defensive fallback)
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">分数</span>
-        <span className="text-2xl font-bold">
+        <span className={`text-2xl font-bold ${scoreColor(submission.score)}`}>
           {submission.score !== null ? submission.score : "-"}
         </span>
       </div>
-      {submission.suggestion && (
-        <div>
-          <h4 className="mb-2 text-sm font-medium text-muted-foreground">AI 建议</h4>
-          <MarkdownContent content={submission.suggestion} />
-        </div>
-      )}
       {submission.graded_at && (
         <p className="text-xs text-muted-foreground">
           批改时间：{formatTime(submission.graded_at)}
