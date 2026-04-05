@@ -63,6 +63,7 @@ interface StreamChatBody {
   content: string;
   class_id?: string;
   files?: Array<{ file_id: string; filename: string; mime_type: string }>;
+  [key: string]: unknown;
 }
 
 /**

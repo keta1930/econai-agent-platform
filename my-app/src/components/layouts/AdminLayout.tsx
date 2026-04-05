@@ -37,7 +37,7 @@ function getClassNav(resetBadge?: number): NavItem[] {
   ];
 }
 
-function getTaskNav(togglePanel?: () => void): NavItem[] {
+function getTaskNav(_togglePanel?: () => void): NavItem[] {
   return [
     { label: "作业列表", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "创建作业", href: "/admin/tasks/new", icon: PlusCircle },

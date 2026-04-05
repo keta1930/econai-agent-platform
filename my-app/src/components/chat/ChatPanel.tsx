@@ -97,7 +97,6 @@ interface MessageAreaProps {
 
 function MessageArea({
   messages,
-  isStreaming,
   isPendingAnswer,
   onAnswer,
   streamingBlocks,

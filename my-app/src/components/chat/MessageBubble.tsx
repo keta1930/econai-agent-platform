@@ -1,4 +1,4 @@
-import type { Message, Block, ToolUseBlock, ToolResultBlock, AskUserQuestion } from "@/types/assistant";
+import type { Message, Block, ToolUseBlock, AskUserQuestion } from "@/types/assistant";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { ToolCallCard } from "./ToolCallCard";
 import { AskUserCard } from "./AskUserCard";

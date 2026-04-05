@@ -502,7 +502,7 @@ function SingleQuestionView({
           disabled={disabled}
           answeredLabels={answeredLabels}
           isFreetextAnswer={isFreetextAnswer}
-          selectedAnswer={effectiveAnswer}
+          selectedAnswer={effectiveAnswer ?? undefined}
           multiSelected={multiSelected}
           onSingleSelect={handleSingleSelect}
           onToggle={handleToggle}
