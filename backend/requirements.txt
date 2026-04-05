@@ -13,8 +13,10 @@ tavily-python
 python-dotenv
 minio
 pgvector
+tiktoken
 uuid_utils
 apscheduler
 pytest
 pytest-asyncio
 httpx
+openpyxl
