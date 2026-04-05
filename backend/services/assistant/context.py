@@ -269,8 +269,10 @@ def rebuild_api_messages(
                 if block.get("type") == "text":
                     text_parts.append(block["text"])
                 elif block.get("type") == "file":
+                    filename = block.get("filename", "unknown")
+                    file_id = block.get("file_id", "")
                     text_parts.append(
-                        f'[附件: {block.get("filename", "unknown")}]'
+                        f'[附件: {filename} | file_id: {file_id}]'
                     )
             api_messages.append({
                 "role": "user",
