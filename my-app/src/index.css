@@ -236,6 +236,15 @@
     animation: fade-in-up 0.4s ease-out both;
 }
 
+@keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.animate-cursor-blink {
+    animation: cursor-blink 1s ease-in-out infinite;
+}
+
 .animate-stagger {
     animation: fade-in-up 0.4s ease-out both;
     animation-delay: calc(min(var(--stagger-index, 0), 10) * 80ms);

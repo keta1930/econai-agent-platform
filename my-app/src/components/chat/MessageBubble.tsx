@@ -131,7 +131,7 @@ export function MessageBubble({
           "max-w-[85%] rounded-lg px-3 py-2",
           isUser
             ? "bg-[var(--ink-deep)] text-[var(--text-on-dark)]"
-            : "bg-white border border-[var(--paper-border)] text-foreground",
+            : "bg-white border border-[var(--paper-border)] text-foreground shadow-[var(--shadow-sm)]",
         )}
       >
         {/* User file attachments */}
@@ -140,7 +140,7 @@ export function MessageBubble({
             {fileBlocks.map((f) => (
               <span
                 key={f.file_id}
-                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white/10"
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white/15"
               >
                 {f.filename}
               </span>

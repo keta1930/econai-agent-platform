@@ -81,7 +81,7 @@ export function ToolCallCard({ name, args, result, isError, status }: ToolCallCa
         "rounded-md border my-1 text-xs transition-colors",
         status === "running" && "bg-[var(--paper-warm)] border-[var(--paper-border)]",
         status === "complete" && "bg-[var(--paper)] border-[var(--paper-border)]",
-        status === "error" && "bg-red-50 border-[var(--danger)]/30",
+        status === "error" && "bg-[var(--danger)]/5 border-[var(--danger)]/30",
       )}
     >
       {/* Header — always visible */}
@@ -114,7 +114,7 @@ export function ToolCallCard({ name, args, result, isError, status }: ToolCallCa
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="border-t border-[var(--paper-border)] px-3 py-2 space-y-2">
+        <div className="border-t border-[var(--paper-border)] px-3 py-2 space-y-2 animate-in fade-in-0 slide-in-from-top-1 duration-150">
           {Object.keys(args).length > 0 && (
             <div>
               <div className="text-[10px] font-medium text-[var(--muted-foreground)] tracking-wider mb-1">
@@ -134,7 +134,7 @@ export function ToolCallCard({ name, args, result, isError, status }: ToolCallCa
                 className={cn(
                   "text-[11px] rounded p-2 overflow-x-auto whitespace-pre-wrap break-all",
                   isError
-                    ? "text-[var(--danger)] bg-red-50"
+                    ? "text-[var(--danger)] bg-[var(--danger)]/5"
                     : "text-foreground bg-[var(--paper-deep)]",
                 )}
               >

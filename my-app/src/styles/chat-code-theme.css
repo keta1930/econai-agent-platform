@@ -1,0 +1,148 @@
+/* ==========================================================================
+   Chat Markdown — Scholarly Theme
+   All selectors scoped to .chat-markdown to avoid polluting other components.
+   ========================================================================== */
+
+/* --- Prose variable overrides ------------------------------------------- */
+
+.chat-markdown.prose {
+  --tw-prose-body: inherit;
+  --tw-prose-headings: inherit;
+  --tw-prose-bold: inherit;
+  --tw-prose-links: var(--cyan-mid);
+  --tw-prose-code: var(--cyan-deep);
+  color: inherit;
+}
+
+/* --- highlight.js base reset -------------------------------------------- */
+
+.chat-markdown pre code.hljs {
+  background: transparent;
+  padding: 0;
+}
+
+/* --- Syntax token colours (Scholarly palette) --------------------------- */
+
+.chat-markdown .hljs-keyword {
+  color: var(--cyan-deep);
+}
+.chat-markdown .hljs-string,
+.chat-markdown .hljs-regexp {
+  color: var(--warning);
+}
+.chat-markdown .hljs-number,
+.chat-markdown .hljs-literal {
+  color: var(--cyan-light);
+}
+.chat-markdown .hljs-comment,
+.chat-markdown .hljs-doctag {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.chat-markdown .hljs-function,
+.chat-markdown .hljs-title {
+  color: var(--foreground);
+}
+.chat-markdown .hljs-type,
+.chat-markdown .hljs-class {
+  color: var(--cyan-mid);
+}
+.chat-markdown .hljs-built_in {
+  color: var(--cyan-mid);
+}
+.chat-markdown .hljs-attr,
+.chat-markdown .hljs-attribute {
+  color: var(--cyan-deep);
+}
+.chat-markdown .hljs-variable {
+  color: var(--foreground);
+}
+.chat-markdown .hljs-meta {
+  color: var(--muted-foreground);
+}
+.chat-markdown .hljs-punctuation {
+  color: var(--muted-foreground);
+}
+
+/* --- Inline code -------------------------------------------------------- */
+
+.chat-markdown :not(pre) > code {
+  background: rgba(44, 95, 124, 0.08);
+  color: var(--cyan-deep);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+
+/* --- Table -------------------------------------------------------------- */
+
+.chat-markdown table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  background: white;
+  border: 1px solid var(--paper-border);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 13px;
+  margin: 8px 0;
+}
+.chat-markdown thead {
+  background: var(--paper-warm);
+}
+.chat-markdown th {
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--paper-border);
+  color: inherit;
+}
+.chat-markdown td {
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(217, 207, 193, 0.5);
+  color: inherit;
+}
+.chat-markdown tbody tr:last-child td {
+  border-bottom: none;
+}
+.chat-markdown tbody tr:hover {
+  background: var(--paper-warm);
+}
+
+/* --- Blockquote --------------------------------------------------------- */
+
+.chat-markdown blockquote {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--cyan-mid);
+  background: rgba(44, 95, 124, 0.04);
+  border-radius: 0 4px 4px 0;
+  color: inherit;
+}
+.chat-markdown blockquote p {
+  margin: 0;
+}
+
+/* --- Links -------------------------------------------------------------- */
+
+.chat-markdown a {
+  color: var(--cyan-mid);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(44, 95, 124, 0.3);
+  transition: color 0.2s, border-color 0.2s;
+}
+.chat-markdown a:hover {
+  color: var(--cyan-deep);
+  border-bottom-color: var(--cyan-deep);
+}
+
+/* --- Horizontal rule ---------------------------------------------------- */
+
+.chat-markdown hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--paper-border) 50%, transparent);
+  margin: 12px 0;
+}
