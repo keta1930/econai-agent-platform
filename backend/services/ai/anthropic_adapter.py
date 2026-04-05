@@ -7,12 +7,9 @@ from anthropic import Anthropic, AsyncAnthropic
 from services.ai.base import (
     BaseAIAdapter,
     ChatResponse,
-    GradingResult,
-    GRADING_PROMPT_TEMPLATE,
     StreamEvent,
     ToolCall,
     ToolDefinition,
-    parse_grading_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,23 +20,6 @@ class AnthropicAdapter(BaseAIAdapter):
         super().__init__(api_key, base_url, model_name)
         self.client = Anthropic(api_key=api_key, base_url=base_url)
         self.async_client = AsyncAnthropic(api_key=api_key, base_url=base_url)
-
-    def grade(self, content: str, criteria: str, task_description: str) -> GradingResult:
-        prompt = GRADING_PROMPT_TEMPLATE.format(
-            task_description=task_description,
-            grading_criteria=criteria,
-            submission_content=content,
-        )
-
-        response = self.client.messages.create(
-            model=self.model_name,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=60,
-        )
-
-        raw = response.content[0].text if response.content else ""
-        return parse_grading_response(raw)
 
     def _convert_messages(
         self, messages: list[dict]

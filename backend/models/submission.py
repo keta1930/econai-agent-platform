@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Text, Float, DateTime,
+    Column, Integer, String, Float, DateTime, JSON,
     ForeignKey, UniqueConstraint, CheckConstraint, Uuid, func,
 )
 from sqlalchemy.orm import relationship
@@ -19,7 +19,7 @@ class Submission(Base):
     content_type = Column(String, nullable=False, default="file", server_default="file")
     status = Column(String, nullable=False, default="pending")
     score = Column(Float, nullable=True)
-    suggestion = Column(Text, nullable=True)
+    feedback = Column(JSON, nullable=True)
     submitted_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     graded_at = Column(DateTime(timezone=True), nullable=True)
 

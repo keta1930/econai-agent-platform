@@ -23,7 +23,7 @@ class SubmissionDetail(BaseModel):
     content_type: str
     status: str
     score: float | None
-    suggestion: str | None
+    feedback: dict | None
     submitted_at: datetime
     graded_at: datetime | None
 

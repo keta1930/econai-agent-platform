@@ -137,7 +137,7 @@ def _build_submission_detail(s: Submission, task_title: str) -> SubmissionDetail
         content_type=s.content_type,
         status=s.status,
         score=s.score,
-        suggestion=s.suggestion,
+        feedback=s.feedback,
         submitted_at=s.submitted_at,
         graded_at=s.graded_at,
     )
@@ -212,7 +212,7 @@ async def submit_assignment(
 
     # Trigger async grading for text/file only
     if content_type != "image":
-        from services.grading_service import grade_submission
+        from services.grading import grade_submission
         asyncio.create_task(grade_submission(submission.id))
 
     return SubmissionCreateResponse(

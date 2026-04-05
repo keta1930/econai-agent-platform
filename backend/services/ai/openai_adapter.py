@@ -7,12 +7,9 @@ from openai import AsyncOpenAI, OpenAI
 from services.ai.base import (
     BaseAIAdapter,
     ChatResponse,
-    GradingResult,
-    GRADING_PROMPT_TEMPLATE,
     StreamEvent,
     ToolCall,
     ToolDefinition,
-    parse_grading_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,22 +20,6 @@ class OpenAIAdapter(BaseAIAdapter):
         super().__init__(api_key, base_url, model_name)
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.async_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-
-    def grade(self, content: str, criteria: str, task_description: str) -> GradingResult:
-        prompt = GRADING_PROMPT_TEMPLATE.format(
-            task_description=task_description,
-            grading_criteria=criteria,
-            submission_content=content,
-        )
-
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            timeout=60,
-        )
-
-        raw = response.choices[0].message.content or ""
-        return parse_grading_response(raw)
 
     def chat(
         self,

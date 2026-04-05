@@ -320,7 +320,7 @@ async def _query_single_submission(
         "content_type": submission.content_type,
         "status": submission.status,
         "score": submission.score,
-        "suggestion": submission.suggestion,
+        "feedback": submission.feedback,
         "submitted_at": str(submission.submitted_at),
     }
 
@@ -386,7 +386,7 @@ async def _query_submissions_by_student(
             "content_type": s.content_type,
             "status": s.status,
             "score": s.score,
-            "suggestion": s.suggestion,
+            "feedback": s.feedback,
             "submitted_at": str(s.submitted_at),
         }
         for s in submissions
