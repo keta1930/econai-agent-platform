@@ -7,6 +7,7 @@ import logging
 from tavily import TavilyClient
 
 from config import TAVILY_API_KEY
+from models.search_result import SearchResult
 from services.ai.base import ToolDefinition
 from services.assistant.tools.registry import ToolContext, ToolHandler, ToolRegistry
 
@@ -38,8 +39,8 @@ async def execute_ask_user(args: dict, ctx: ToolContext) -> str:
 # 2. tavily_search
 # ---------------------------------------------------------------------------
 
-def _call_tavily(query: str) -> str:
-    """Call Tavily API and return formatted answer + high-relevance content."""
+def _call_tavily(query: str) -> tuple[str, list[dict]]:
+    """Call Tavily API and return formatted answer + structured filtered results."""
     client = TavilyClient(api_key=TAVILY_API_KEY)
     response = client.search(
         query=query,
@@ -50,6 +51,7 @@ def _call_tavily(query: str) -> str:
     )
 
     parts: list[str] = []
+    filtered: list[dict] = []
 
     # Answer: Tavily's built-in agent summary across all results
     answer = response.get("answer", "")
@@ -63,9 +65,12 @@ def _call_tavily(query: str) -> str:
         title = result.get("title", "Untitled")
         url = result.get("url", "")
         content = result.get("content", "")
+        score = result.get("score", 0)
         parts.append(f"### {title}\n**URL:** {url}\n\n{content}")
+        filtered.append({"url": url, "title": title, "content": content, "score": score})
 
-    return "\n\n---\n\n".join(parts) if parts else "No results found."
+    text = "\n\n---\n\n".join(parts) if parts else "No results found."
+    return text, filtered
 
 
 async def execute_tavily_search(args: dict, ctx: ToolContext) -> str:
@@ -74,10 +79,23 @@ async def execute_tavily_search(args: dict, ctx: ToolContext) -> str:
         return json.dumps({"error": "请提供搜索关键词"}, ensure_ascii=False)
 
     try:
-        result_text = await asyncio.to_thread(_call_tavily, query)
+        result_text, filtered_results = await asyncio.to_thread(_call_tavily, query)
     except Exception:
         logger.exception("Tavily search failed for query: %s", query)
         return json.dumps({"error": "搜索失败，请稍后重试"}, ensure_ascii=False)
+
+    # Persist high-relevance results for learning_resources URL validation
+    if ctx.conversation_id and filtered_results:
+        for item in filtered_results:
+            ctx.db.add(SearchResult(
+                conversation_id=ctx.conversation_id,
+                url=item["url"],
+                title=item["title"],
+                content=item["content"],
+                query=query,
+                relevance_score=item["score"],
+            ))
+        await ctx.db.flush()
 
     return result_text
 

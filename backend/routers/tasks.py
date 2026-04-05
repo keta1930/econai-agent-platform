@@ -37,6 +37,7 @@ async def _build_task_response(task: Task, db: AsyncSession) -> TaskResponse:
         title=task.title,
         description=task.description,
         grading_criteria=task.grading_criteria,
+        learning_resources=task.learning_resources,
         status=task.status,
         class_id=task.class_id,
         created_by=task.created_by,
@@ -89,6 +90,7 @@ async def list_tasks(
             title=task.title,
             description=task.description,
             grading_criteria=task.grading_criteria,
+            learning_resources=task.learning_resources,
             status=task.status,
             class_id=task.class_id,
             created_by=task.created_by,
@@ -174,6 +176,7 @@ async def create_task(
         title=req.title,
         description=req.description,
         grading_criteria=req.grading_criteria,
+        learning_resources=[r.model_dump() for r in req.learning_resources] if req.learning_resources else None,
         class_id=req.class_id,
         created_by=admin.id,
     )
@@ -209,12 +212,15 @@ async def batch_publish(
             detail="发布任务需要填写标题、任务说明和打分标准",
         )
 
+    lr_data = [r.model_dump() for r in req.learning_resources] if req.learning_resources else None
+
     created_items = []
     for cid in req.class_ids:
         task = Task(
             title=req.title,
             description=req.description,
             grading_criteria=req.grading_criteria,
+            learning_resources=lr_data,
             status="published",
             class_id=cid,
             created_by=admin.id,

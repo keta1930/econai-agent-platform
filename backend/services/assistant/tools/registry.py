@@ -22,6 +22,7 @@ class ToolContext:
     class_id: uuid.UUID | None
     db: AsyncSession
     adapter: BaseAIAdapter | None = None
+    conversation_id: uuid.UUID | None = None
 
 
 # Type alias for tool execute functions:

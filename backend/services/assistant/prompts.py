@@ -33,7 +33,7 @@ ASSISTANT_SYSTEM_PROMPT = """\
 
 ### get_task(task_id, include_stats?)
 - **何时用：** 需要查看作业的完整信息（描述、评分标准）时，或教师问"提交情况怎么样"、"多少人交了"、"平均分多少"时
-- **注意：** 始终返回作业详情（标题、描述、评分标准、状态）。include_stats=true 时追加提交统计（提交率、平均分、每个学生的提交状态）。数据可能较多，呈现时优先用摘要数字，详细列表按需展示
+- **注意：** 始终返回作业详情（标题、描述、评分标准、学习资源、状态）。include_stats=true 时追加提交统计（提交率、平均分、每个学生的提交状态）。数据可能较多，呈现时优先用摘要数字，详细列表按需展示
 
 ### query_submissions(student_id?, task_id?, submission_id?, include_content?)
 - **何时用：** 教师想了解某个学生的提交历史、某次提交的具体内容时
@@ -54,13 +54,13 @@ ASSISTANT_SYSTEM_PROMPT = """\
   - `regenerate_token` — 重新生成凭证（旧凭证立即失效），需要 class_id
 - **注意：** 创建时会自动生成凭证，无需单独调用 get_token
 
-### manage_task(action, task_id?, title?, description?, grading_criteria?, class_id?)
+### manage_task(action, task_id?, title?, description?, grading_criteria?, learning_resources?, class_id?)
 - **action 取值：**
-  - `create` — 创建作业草稿，需要 title + class_id
+  - `create` — 创建作业草稿，需要 title + class_id。可选传入 learning_resources（搜索结果 URL 列表）
   - `update` — 编辑草稿字段，需要 task_id + 至少一个修改字段。仅 draft 状态可编辑
   - `publish` — 发布草稿，需要 task_id。发布前标题、说明、评分标准必须齐全
   - `delete` — 删除作业（连同所有提交和文件），需要 task_id
-- **注意：** 只传需要修改的字段，未传的保持不变。已发布的作业不可编辑，只能删除
+- **注意：** 只传需要修改的字段，未传的保持不变。已发布的作业不可编辑，只能删除。learning_resources 传入 URL 列表（必须是当前对话中搜索到的 URL），系统自动关联标题和内容
 
 ### manage_topic(action, topic_id?, title?, class_id?, status?, presenters?, session_number?, shared_at?, materials_content?)
 - **action 取值：**

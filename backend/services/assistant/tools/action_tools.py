@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from models.class_ import Class
 from models.roster import StudentRoster
+from models.search_result import SearchResult
 from models.sharing import SharingTopic
 from models.submission import Submission
 from models.task import Task
@@ -139,10 +140,36 @@ async def _task_create(args: dict, ctx: ToolContext) -> str:
     if not cls:
         return _json({"error": "班级不存在或无权访问"})
 
+    # Resolve learning_resources URLs from search records
+    lr_urls = args.get("learning_resources") or []
+    learning_resources = None
+    rejected_urls: list[str] = []
+    if lr_urls and ctx.conversation_id:
+        result = await ctx.db.execute(
+            select(SearchResult).where(
+                SearchResult.conversation_id == ctx.conversation_id,
+                SearchResult.url.in_(lr_urls),
+            )
+        )
+        matched = result.scalars().all()
+        # Deduplicate by URL (same URL may appear in multiple search rounds)
+        seen: dict[str, SearchResult] = {}
+        for r in matched:
+            if r.url not in seen:
+                seen[r.url] = r
+        matched_urls = set(seen.keys())
+        rejected_urls = [u for u in lr_urls if u not in matched_urls]
+        if seen:
+            learning_resources = [
+                {"url": r.url, "title": r.title, "content": r.content}
+                for r in seen.values()
+            ]
+
     task = Task(
         title=title,
         description=description,
         grading_criteria=grading_criteria,
+        learning_resources=learning_resources,
         class_id=class_id,
         created_by=ctx.admin_id,
     )
@@ -150,13 +177,20 @@ async def _task_create(args: dict, ctx: ToolContext) -> str:
     await ctx.db.commit()
     await ctx.db.refresh(task)
 
-    return _json({
+    resp: dict = {
         "id": str(task.id),
         "title": task.title,
         "status": task.status,
         "class_name": cls.name,
         "message": f"已创建草稿作业「{task.title}」",
-    })
+    }
+    if learning_resources:
+        resp["learning_resources_count"] = len(learning_resources)
+    if rejected_urls:
+        resp["rejected_urls"] = rejected_urls
+        resp["rejected_message"] = f"以下 URL 不在当前对话的搜索记录中，已忽略：{', '.join(rejected_urls)}"
+
+    return _json(resp)
 
 
 async def _task_update(args: dict, ctx: ToolContext) -> str:
@@ -178,20 +212,44 @@ async def _task_update(args: dict, ctx: ToolContext) -> str:
     if task.status != "draft":
         return _json({"error": f"作业当前状态为 {task.status}，只有草稿状态可以编辑"})
 
-    updatable_fields = ("title", "description", "grading_criteria")
+    updatable_fields = ("title", "description", "grading_criteria", "learning_resources")
     updated = []
     for field in updatable_fields:
-        if field in args:
-            value = args[field]
+        if field not in args:
+            continue
+        value = args[field]
+        if field == "learning_resources":
+            # URL string list from LLM -> resolve from SearchResult
+            if isinstance(value, list) and value and isinstance(value[0], str):
+                if ctx.conversation_id:
+                    result = await ctx.db.execute(
+                        select(SearchResult).where(
+                            SearchResult.conversation_id == ctx.conversation_id,
+                            SearchResult.url.in_(value),
+                        )
+                    )
+                    matched = result.scalars().all()
+                    # Deduplicate by URL
+                    seen_urls: dict[str, SearchResult] = {}
+                    for r in matched:
+                        if r.url not in seen_urls:
+                            seen_urls[r.url] = r
+                    value = [
+                        {"url": r.url, "title": r.title, "content": r.content}
+                        for r in seen_urls.values()
+                    ] or None
+                else:
+                    value = None
+        else:
             if isinstance(value, str):
                 value = value.strip()
                 if not value:
                     return _json({"error": f"{field} 不能为空"})
-            setattr(task, field, value)
-            updated.append(field)
+        setattr(task, field, value)
+        updated.append(field)
 
     if not updated:
-        return _json({"error": "未提供任何需要更新的字段（可更新：title, description, grading_criteria）"})
+        return _json({"error": "未提供任何需要更新的字段（可更新：title, description, grading_criteria, learning_resources）"})
 
     await ctx.db.commit()
     await ctx.db.refresh(task)
@@ -201,6 +259,7 @@ async def _task_update(args: dict, ctx: ToolContext) -> str:
         "title": task.title,
         "description": task.description,
         "grading_criteria": task.grading_criteria,
+        "learning_resources": task.learning_resources,
         "status": task.status,
         "class_name": cls.name,
         "updated_fields": updated,
@@ -568,6 +627,11 @@ def register_action_tools(reg: ToolRegistry) -> None:
                     "grading_criteria": {
                         "type": "string",
                         "description": "评分标准",
+                    },
+                    "learning_resources": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "学习资源 URL 列表，URL 必须来自本次对话的搜索结果",
                     },
                     "class_id": {
                         "type": "string",

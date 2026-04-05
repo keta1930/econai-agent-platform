@@ -225,6 +225,7 @@ async def execute_get_task(args: dict, ctx: ToolContext) -> str:
         "title": task.title,
         "description": task.description,
         "grading_criteria": task.grading_criteria,
+        "learning_resources": task.learning_resources,
         "status": task.status,
         "class_id": str(task.class_id),
         "class_name": cls.name if cls else "",

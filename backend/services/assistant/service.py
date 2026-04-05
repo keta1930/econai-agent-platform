@@ -215,6 +215,7 @@ class AssistantService:
             class_id=effective_class_id,
             db=self.db,
             adapter=adapter,
+            conversation_id=conversation.id,
         )
         async for sse_event in self._agent_loop(
             conversation, api_messages, adapter, tool_defs, tool_ctx, system_prompt,
@@ -301,6 +302,7 @@ class AssistantService:
             class_id=effective_class_id,
             db=self.db,
             adapter=adapter,
+            conversation_id=conversation.id,
         )
         async for sse_event in self._agent_loop(
             conversation, api_messages, adapter, tool_defs, tool_ctx, system_prompt,
