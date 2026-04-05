@@ -12,7 +12,7 @@ const BASE_URL = "/api";
 // Shared refresh promise to prevent concurrent refresh requests
 let refreshPromise: Promise<string> | null = null;
 
-async function refreshAccessToken(): Promise<string> {
+export async function refreshAccessToken(): Promise<string> {
   const refreshToken = localStorage.getItem("refreshToken");
   if (!refreshToken) throw new Error("No refresh token");
 
@@ -29,7 +29,7 @@ async function refreshAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-function clearAuthAndRedirect() {
+export function clearAuthAndRedirect() {
   localStorage.removeItem("token");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("role");
@@ -38,6 +38,20 @@ function clearAuthAndRedirect() {
   localStorage.removeItem("className");
   localStorage.removeItem("currentClassId");
   window.location.href = "/login";
+}
+
+/**
+ * Coalesce concurrent refresh attempts into a single request.
+ * Shared between `request()` and SSE `consumeSSE()` to avoid
+ * multiple simultaneous refresh calls.
+ */
+export function coalesceRefresh(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -60,16 +74,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (response.status === 401 && !path.startsWith("/auth/")) {
-    // Attempt token refresh — coalesce concurrent calls into one promise
-    if (!refreshPromise) {
-      refreshPromise = refreshAccessToken().finally(() => {
-        refreshPromise = null;
-      });
-    }
-
     let newToken: string;
     try {
-      newToken = await refreshPromise;
+      newToken = await coalesceRefresh();
     } catch {
       clearAuthAndRedirect();
       throw new Error("认证已过期");
@@ -111,6 +118,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   return response.json();
+}
+
+/** Retrieve the current JWT access token (used by stream.ts for SSE requests). */
+export function getAuthToken(): string | null {
+  return localStorage.getItem("token");
 }
 
 export const api = {
