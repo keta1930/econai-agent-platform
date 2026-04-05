@@ -109,6 +109,65 @@ function StepIndicator({
 }
 
 // ---------------------------------------------------------------------------
+// Freetext input — for questions without predefined options
+// ---------------------------------------------------------------------------
+
+function FreetextInput({
+  value,
+  onChange,
+  onSubmit,
+  placeholder = "请输入回答...",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  placeholder?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && value.trim()) {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
+        placeholder={placeholder}
+        className={cn(
+          "flex-1 min-w-0 px-2.5 py-1.5 rounded-md border text-sm bg-white",
+          "border-[var(--paper-border)]",
+          "focus:outline-none focus:border-[var(--cyan-mid)] focus:ring-2 focus:ring-[var(--cyan-mid)]/10",
+          "placeholder:text-[var(--muted-foreground)]/50",
+        )}
+      />
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={!value.trim()}
+        className={cn(
+          "shrink-0 p-1.5 rounded-md transition-colors",
+          value.trim()
+            ? "text-[var(--cyan-mid)] hover:bg-[var(--cyan-mid)]/10"
+            : "text-[var(--paper-border)] cursor-not-allowed",
+        )}
+      >
+        <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // "Other" inline text input row
 // ---------------------------------------------------------------------------
 
@@ -464,11 +523,22 @@ function SingleQuestionView({
         </button>
       )}
 
-      {/* Hint — only show when no options (freetext-only question) */}
+      {/* Inline text input for questions without options */}
       {!disabled && normalized.length === 0 && (
-        <p className="text-[11px] text-[var(--muted-foreground)]">
-          请在输入框中输入回答
-        </p>
+        <FreetextInput
+          value={otherValue}
+          onChange={setOtherValue}
+          onSubmit={() => {
+            if (otherValue.trim()) onAnswer(otherValue.trim());
+          }}
+        />
+      )}
+
+      {/* Show freetext answer when disabled and no options */}
+      {disabled && normalized.length === 0 && selectedAnswer && (
+        <div className="px-3 py-2 rounded-md bg-[var(--paper)] border border-[var(--paper-border)]">
+          <span className="text-sm text-foreground">{selectedAnswer}</span>
+        </div>
       )}
     </>
   );
@@ -710,7 +780,7 @@ function MultiQuestionView({
       </div>
 
       {/* Options */}
-      {currentNormalized.length > 0 && (
+      {currentNormalized.length > 0 ? (
         <OptionList
           normalized={currentNormalized}
           selectMode={currentMode}
@@ -726,6 +796,24 @@ function MultiQuestionView({
           onOtherChange={setOtherValue}
           onOtherSubmit={handleOtherSubmitSingle}
         />
+      ) : (
+        /* Freetext input for questions without options */
+        <div className="mb-2">
+          <FreetextInput
+            value={otherValue}
+            onChange={setOtherValue}
+            onSubmit={() => {
+              if (!otherValue.trim()) return;
+              recordAnswer(otherValue.trim());
+              setOtherValue("");
+              if (!isLastStep) {
+                const nextStep = currentStep + 1;
+                setCurrentStep(nextStep);
+                resetStepState(nextStep);
+              }
+            }}
+          />
+        </div>
       )}
 
       {/* Navigation buttons */}
