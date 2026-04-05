@@ -62,6 +62,7 @@ async def execute_manage_class(args: dict, ctx: ToolContext) -> str:
         await ctx.db.refresh(cls)
 
         return _json({
+            "id": str(cls.id),
             "name": cls.name,
             "join_token": cls.join_token,
             "message": f"已创建班级「{cls.name}」",
