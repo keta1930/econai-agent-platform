@@ -140,12 +140,16 @@ export interface SSEToolCallResult {
   is_error: boolean;
 }
 
-export interface SSEAskUser {
-  type: "ask_user";
-  tool_call_id: string;
+export interface AskUserQuestion {
   question: string;
   options?: (string | { label: string; description?: string })[];
   select_mode?: "single" | "multiple";
+}
+
+export interface SSEAskUser {
+  type: "ask_user";
+  tool_call_id: string;
+  questions: AskUserQuestion[];
 }
 
 export interface SSETokenUsage {

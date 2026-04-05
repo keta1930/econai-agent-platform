@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   DEFAULT_MAX_CONTEXT,
+  type AskUserQuestion,
   type Conversation,
   type Message,
   type TokenUsage,
@@ -29,9 +30,7 @@ export interface ChatState {
   messages: Message[];
   isStreaming: boolean;
   isPendingAnswer: boolean;
-  pendingQuestion: string | null;
-  pendingOptions: (string | { label: string; description?: string })[] | null;
-  pendingSelectMode: "single" | "multiple" | null;
+  pendingQuestions: AskUserQuestion[] | null;
   pendingToolCallId: string | null;
   tokenUsage: TokenUsage;
   attachedFiles: UploadedFile[];
@@ -44,9 +43,7 @@ const initialState: ChatState = {
   messages: [],
   isStreaming: false,
   isPendingAnswer: false,
-  pendingQuestion: null,
-  pendingOptions: null,
-  pendingSelectMode: null,
+  pendingQuestions: null,
   pendingToolCallId: null,
   tokenUsage: { total: 0, max: DEFAULT_MAX_CONTEXT, ratio: 0 },
   attachedFiles: [],
@@ -71,9 +68,7 @@ export type ChatAction =
   | {
       type: "SET_PENDING_ANSWER";
       toolCallId: string;
-      question: string;
-      options?: (string | { label: string; description?: string })[];
-      selectMode?: "single" | "multiple";
+      questions: AskUserQuestion[];
     }
   | { type: "CLEAR_PENDING_ANSWER" }
   | { type: "SET_STREAMING"; isStreaming: boolean }
@@ -115,9 +110,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         messages: action.messages,
         isStreaming: false,
         isPendingAnswer: false,
-        pendingQuestion: null,
-        pendingOptions: null,
-        pendingSelectMode: null,
+        pendingQuestions: null,
         pendingToolCallId: null,
         attachedFiles: [],
         streamingBlocks: [],
@@ -216,9 +209,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         isPendingAnswer: true,
-        pendingQuestion: action.question,
-        pendingOptions: action.options ?? null,
-        pendingSelectMode: action.selectMode ?? null,
+        pendingQuestions: action.questions,
         pendingToolCallId: action.toolCallId,
       };
 
@@ -226,9 +217,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         isPendingAnswer: false,
-        pendingQuestion: null,
-        pendingOptions: null,
-        pendingSelectMode: null,
+        pendingQuestions: null,
         pendingToolCallId: null,
       };
 
@@ -263,9 +252,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           activeConversationId: null,
           messages: [],
           isPendingAnswer: false,
-          pendingQuestion: null,
-          pendingOptions: null,
-          pendingSelectMode: null,
+          pendingQuestions: null,
           pendingToolCallId: null,
           streamingBlocks: [],
         };

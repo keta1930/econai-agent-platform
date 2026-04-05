@@ -5,7 +5,7 @@ import { AskUserCard } from "./AskUserCard";
 import { useChatContext } from "@/contexts/ChatContext";
 import { Brain, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { StreamingBlock } from "@/types/assistant";
+import type { AskUserQuestion, StreamingBlock } from "@/types/assistant";
 
 // ---------------------------------------------------------------------------
 // StreamingBlockDisplay — renders the streaming block array during SSE
@@ -102,13 +102,18 @@ function ToolCallsBlock({ block, onAnswer }: { block: StreamingBlock; onAnswer: 
             question?: string;
             options?: (string | { label: string; description?: string })[];
             select_mode?: "single" | "multiple";
+            questions?: AskUserQuestion[];
           };
+          // Normalize legacy format to questions array
+          const questions: AskUserQuestion[] = args.questions ?? [{
+            question: args.question ?? "",
+            options: args.options,
+            select_mode: args.select_mode,
+          }];
           return (
             <AskUserCard
               key={tc.id}
-              question={args.question ?? ""}
-              options={args.options}
-              selectMode={args.select_mode}
+              questions={questions}
               onAnswer={onAnswer}
               disabled={!state.isPendingAnswer}
             />

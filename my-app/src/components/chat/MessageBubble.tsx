@@ -1,4 +1,4 @@
-import type { Message, Block, ToolUseBlock, ToolResultBlock } from "@/types/assistant";
+import type { Message, Block, ToolUseBlock, ToolResultBlock, AskUserQuestion } from "@/types/assistant";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { ToolCallCard } from "./ToolCallCard";
 import { AskUserCard } from "./AskUserCard";
@@ -66,15 +66,20 @@ function renderBlock(
           question?: string;
           options?: (string | { label: string; description?: string })[];
           select_mode?: "single" | "multiple";
+          questions?: AskUserQuestion[];
         };
+        // Normalize legacy format to questions array
+        const questions: AskUserQuestion[] = input.questions ?? [{
+          question: input.question ?? "",
+          options: input.options,
+          select_mode: input.select_mode,
+        }];
         const answered = toolResults.has(toolBlock.tool_call_id);
         const tr = toolResults.get(toolBlock.tool_call_id);
         return (
           <AskUserCard
             key={index}
-            question={input.question ?? ""}
-            options={input.options}
-            selectMode={input.select_mode}
+            questions={questions}
             onAnswer={onAnswer}
             disabled={answered || !isPendingAnswer}
             selectedAnswer={tr?.result}

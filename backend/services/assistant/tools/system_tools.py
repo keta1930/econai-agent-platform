@@ -91,52 +91,53 @@ def register_system_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="ask_user",
             description=(
-                "向用户提问以澄清意图或确认操作。支持单选和多选模式。"
-                "options 中的每个选项可以是纯字符串，也可以是 {label, description} "
-                "对象以提供更多上下文。select_mode='multiple' 时用户可以选择多个选项。"
+                "向用户提问以澄清意图或确认操作。通过 questions 数组传入一个或多个问题，"
+                "每个问题可以带选项（单选或多选）。用户逐一回答后统一提交。"
             ),
             parameters={
                 "type": "object",
                 "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": "向用户提出的问题",
-                    },
-                    "options": {
+                    "questions": {
                         "type": "array",
-                        "description": (
-                            "选项列表。每个选项可以是字符串，"
-                            "或包含 label 和 description 的对象"
-                        ),
+                        "description": "问题列表，每个元素是一个独立问题",
                         "items": {
-                            "oneOf": [
-                                {"type": "string"},
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "label": {
-                                            "type": "string",
-                                            "description": "选项标签",
-                                        },
-                                        "description": {
-                                            "type": "string",
-                                            "description": "选项说明",
-                                        },
-                                    },
-                                    "required": ["label"],
+                            "type": "object",
+                            "properties": {
+                                "question": {
+                                    "type": "string",
+                                    "description": "问题文本",
                                 },
-                            ],
+                                "options": {
+                                    "type": "array",
+                                    "description": (
+                                        "选项列表。每个选项可以是字符串，"
+                                        "或 {label, description} 对象"
+                                    ),
+                                    "items": {
+                                        "oneOf": [
+                                            {"type": "string"},
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "label": {"type": "string"},
+                                                    "description": {"type": "string"},
+                                                },
+                                                "required": ["label"],
+                                            },
+                                        ],
+                                    },
+                                },
+                                "select_mode": {
+                                    "type": "string",
+                                    "enum": ["single", "multiple"],
+                                    "description": "选择模式，默认 single",
+                                },
+                            },
+                            "required": ["question"],
                         },
                     },
-                    "select_mode": {
-                        "type": "string",
-                        "enum": ["single", "multiple"],
-                        "description": (
-                            "选择模式：single 单选（默认）、multiple 多选"
-                        ),
-                    },
                 },
-                "required": ["question"],
+                "required": ["questions"],
             },
         ),
         execute=execute_ask_user,

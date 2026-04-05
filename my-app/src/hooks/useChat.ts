@@ -6,6 +6,7 @@ import { assistantApi } from "@/api/assistant";
 import { streamChat, streamAnswer } from "@/api/stream";
 import {
   DEFAULT_MAX_CONTEXT,
+  type AskUserQuestion,
   type ConversationDetail,
   type Message,
   type SSEEvent,
@@ -37,13 +38,18 @@ function restorePendingAnswerIfNeeded(
           question?: string;
           options?: (string | { label: string; description?: string })[];
           select_mode?: "single" | "multiple";
+          questions?: AskUserQuestion[];
         };
+        // Normalize legacy single-question format to questions array
+        const questions: AskUserQuestion[] = input.questions ?? [{
+          question: input.question ?? "",
+          options: input.options,
+          select_mode: input.select_mode,
+        }];
         dispatch({
           type: "SET_PENDING_ANSWER",
           toolCallId: block.tool_call_id,
-          question: input.question ?? "",
-          options: input.options,
-          selectMode: input.select_mode,
+          questions,
         });
         return;
       }
@@ -119,9 +125,7 @@ export function useChat() {
               dispatch({
                 type: "SET_PENDING_ANSWER",
                 toolCallId: event.tool_call_id,
-                question: event.question,
-                options: event.options,
-                selectMode: event.select_mode,
+                questions: event.questions,
               });
               break;
 
