@@ -33,12 +33,17 @@ function restorePendingAnswerIfNeeded(
     for (let j = msg.content.length - 1; j >= 0; j--) {
       const block = msg.content[j];
       if (block.type === "tool_use" && block.name === "ask_user") {
-        const input = block.input as { question?: string; options?: string[] };
+        const input = block.input as {
+          question?: string;
+          options?: (string | { label: string; description?: string })[];
+          select_mode?: "single" | "multiple";
+        };
         dispatch({
           type: "SET_PENDING_ANSWER",
           toolCallId: block.tool_call_id,
           question: input.question ?? "",
           options: input.options,
+          selectMode: input.select_mode,
         });
         return;
       }
@@ -116,6 +121,7 @@ export function useChat() {
                 toolCallId: event.tool_call_id,
                 question: event.question,
                 options: event.options,
+                selectMode: event.select_mode,
               });
               break;
 

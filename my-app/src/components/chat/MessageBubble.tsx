@@ -62,15 +62,22 @@ function renderBlock(
 
       // ask_user tool_use gets special card
       if (toolBlock.name === "ask_user") {
-        const input = toolBlock.input as { question?: string; options?: string[] };
+        const input = toolBlock.input as {
+          question?: string;
+          options?: (string | { label: string; description?: string })[];
+          select_mode?: "single" | "multiple";
+        };
         const answered = toolResults.has(toolBlock.tool_call_id);
+        const tr = toolResults.get(toolBlock.tool_call_id);
         return (
           <AskUserCard
             key={index}
             question={input.question ?? ""}
             options={input.options}
+            selectMode={input.select_mode}
             onAnswer={onAnswer}
             disabled={answered || !isPendingAnswer}
+            selectedAnswer={tr?.result}
           />
         );
       }

@@ -91,8 +91,9 @@ def register_system_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="ask_user",
             description=(
-                "向用户提问以澄清意图或确认操作。可以提供选项让用户选择。"
-                "当你需要用户做出选择或确认时使用此工具。"
+                "向用户提问以澄清意图或确认操作。支持单选和多选模式。"
+                "options 中的每个选项可以是纯字符串，也可以是 {label, description} "
+                "对象以提供更多上下文。select_mode='multiple' 时用户可以选择多个选项。"
             ),
             parameters={
                 "type": "object",
@@ -103,8 +104,36 @@ def register_system_tools(reg: ToolRegistry) -> None:
                     },
                     "options": {
                         "type": "array",
-                        "items": {"type": "string"},
-                        "description": "可选的选项列表，用户可以点击选择",
+                        "description": (
+                            "选项列表。每个选项可以是字符串，"
+                            "或包含 label 和 description 的对象"
+                        ),
+                        "items": {
+                            "oneOf": [
+                                {"type": "string"},
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "label": {
+                                            "type": "string",
+                                            "description": "选项标签",
+                                        },
+                                        "description": {
+                                            "type": "string",
+                                            "description": "选项说明",
+                                        },
+                                    },
+                                    "required": ["label"],
+                                },
+                            ],
+                        },
+                    },
+                    "select_mode": {
+                        "type": "string",
+                        "enum": ["single", "multiple"],
+                        "description": (
+                            "选择模式：single 单选（默认）、multiple 多选"
+                        ),
                     },
                 },
                 "required": ["question"],

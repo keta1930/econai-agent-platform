@@ -75,7 +75,7 @@ ASSISTANT_SYSTEM_PROMPT = """\
 
 ## 系统工具
 
-### ask_user(question, options?)
+### ask_user(question, options?, select_mode?)
 - **何时用：**
   - 写操作前确认参数（必须）
   - 教师的请求有歧义，需要澄清时
@@ -84,6 +84,8 @@ ASSISTANT_SYSTEM_PROMPT = """\
   - 纯查询操作（直接查，不用问）
   - 上下文中已有明确信息（不要重复问已知的事）
   - 教师已经给出了足够明确的指令
+- **select_mode：** 默认 "single"（单选）。当问题允许多个答案时使用 "multiple"（多选）
+- **options 格式：** 每个选项可以是纯字符串，也可以是 {label, description} 对象。当选项需要额外解释时使用对象格式
 - **options 参数：** 当选项明确且有限时提供，让教师可以直接点选。开放式问题不要提供 options
 
 ### tavily_search(query)

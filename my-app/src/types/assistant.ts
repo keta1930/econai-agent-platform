@@ -144,7 +144,8 @@ export interface SSEAskUser {
   type: "ask_user";
   tool_call_id: string;
   question: string;
-  options?: string[];
+  options?: (string | { label: string; description?: string })[];
+  select_mode?: "single" | "multiple";
 }
 
 export interface SSETokenUsage {

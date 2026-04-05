@@ -98,12 +98,17 @@ function ToolCallsBlock({ block, onAnswer }: { block: StreamingBlock; onAnswer: 
       {block.toolCalls.map((tc) => {
         // Render ask_user tool calls as an interactive AskUserCard
         if (tc.name === "ask_user") {
-          const args = tc.args as { question?: string; options?: string[] };
+          const args = tc.args as {
+            question?: string;
+            options?: (string | { label: string; description?: string })[];
+            select_mode?: "single" | "multiple";
+          };
           return (
             <AskUserCard
               key={tc.id}
               question={args.question ?? ""}
               options={args.options}
+              selectMode={args.select_mode}
               onAnswer={onAnswer}
               disabled={!state.isPendingAnswer}
             />

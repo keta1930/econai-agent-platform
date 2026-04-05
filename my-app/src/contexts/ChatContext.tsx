@@ -30,7 +30,8 @@ export interface ChatState {
   isStreaming: boolean;
   isPendingAnswer: boolean;
   pendingQuestion: string | null;
-  pendingOptions: string[] | null;
+  pendingOptions: (string | { label: string; description?: string })[] | null;
+  pendingSelectMode: "single" | "multiple" | null;
   pendingToolCallId: string | null;
   tokenUsage: TokenUsage;
   attachedFiles: UploadedFile[];
@@ -45,6 +46,7 @@ const initialState: ChatState = {
   isPendingAnswer: false,
   pendingQuestion: null,
   pendingOptions: null,
+  pendingSelectMode: null,
   pendingToolCallId: null,
   tokenUsage: { total: 0, max: DEFAULT_MAX_CONTEXT, ratio: 0 },
   attachedFiles: [],
@@ -70,7 +72,8 @@ export type ChatAction =
       type: "SET_PENDING_ANSWER";
       toolCallId: string;
       question: string;
-      options?: string[];
+      options?: (string | { label: string; description?: string })[];
+      selectMode?: "single" | "multiple";
     }
   | { type: "CLEAR_PENDING_ANSWER" }
   | { type: "SET_STREAMING"; isStreaming: boolean }
@@ -114,6 +117,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         isPendingAnswer: false,
         pendingQuestion: null,
         pendingOptions: null,
+        pendingSelectMode: null,
         pendingToolCallId: null,
         attachedFiles: [],
         streamingBlocks: [],
@@ -214,6 +218,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         isPendingAnswer: true,
         pendingQuestion: action.question,
         pendingOptions: action.options ?? null,
+        pendingSelectMode: action.selectMode ?? null,
         pendingToolCallId: action.toolCallId,
       };
 
@@ -223,6 +228,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         isPendingAnswer: false,
         pendingQuestion: null,
         pendingOptions: null,
+        pendingSelectMode: null,
         pendingToolCallId: null,
       };
 
@@ -259,6 +265,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           isPendingAnswer: false,
           pendingQuestion: null,
           pendingOptions: null,
+          pendingSelectMode: null,
           pendingToolCallId: null,
           streamingBlocks: [],
         };

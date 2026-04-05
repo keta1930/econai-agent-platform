@@ -465,11 +465,13 @@ class AssistantService:
                         if tc.name == "ask_user":
                             question = tc.arguments.get("question", "")
                             options = tc.arguments.get("options")
+                            select_mode = tc.arguments.get("select_mode", "single")
                             yield format_sse("ask_user", {
                                 "type": "ask_user",
                                 "tool_call_id": tc.id,
                                 "question": question,
                                 "options": options,
+                                "select_mode": select_mode,
                             })
 
                             # Insert placeholder tool_results for all remaining
