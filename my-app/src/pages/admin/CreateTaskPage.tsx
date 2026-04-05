@@ -39,8 +39,9 @@ import {
   ClipboardList,
   X,
   Send,
+  Plus,
 } from "lucide-react";
-import type { Task } from "@/types/task";
+import type { Task, LearningResource } from "@/types/task";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -109,6 +110,13 @@ export default function CreateTaskPage() {
   const [criteria, setCriteria] = useState("");
   const initialValuesRef = useRef<FormValues>(EMPTY_FORM);
 
+  // Learning resources state (independent from FormValues — not a publish requirement)
+  const [learningResources, setLearningResources] = useState<LearningResource[]>([]);
+  const initialResourcesRef = useRef<LearningResource[]>([]);
+  const [showAddResource, setShowAddResource] = useState(false);
+  const [newResourceUrl, setNewResourceUrl] = useState("");
+  const [newResourceTitle, setNewResourceTitle] = useState("");
+
   // Async operation state
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -127,7 +135,9 @@ export default function CreateTaskPage() {
 
   // Derived values
   const currentForm: FormValues = { title, description, criteria };
-  const isDirty = !formEquals(currentForm, initialValuesRef.current);
+  const isDirty =
+    !formEquals(currentForm, initialValuesRef.current) ||
+    JSON.stringify(learningResources) !== JSON.stringify(initialResourcesRef.current);
   const canSave = title.trim().length > 0 && isDirty;
   const canPublish =
     title.trim().length > 0 &&
@@ -158,6 +168,9 @@ export default function CreateTaskPage() {
     setDescription("");
     setCriteria("");
     initialValuesRef.current = EMPTY_FORM;
+    setLearningResources([]);
+    initialResourcesRef.current = [];
+    setShowAddResource(false);
     setSheetOpen(true);
   }
 
@@ -168,6 +181,10 @@ export default function CreateTaskPage() {
     setDescription(vals.description);
     setCriteria(vals.criteria);
     initialValuesRef.current = vals;
+    const resources = draft.learning_resources ?? [];
+    setLearningResources(resources);
+    initialResourcesRef.current = resources;
+    setShowAddResource(false);
     setSheetOpen(true);
   }
 
@@ -208,23 +225,28 @@ export default function CreateTaskPage() {
     if (!draftClassId) return;
     setSaving(true);
     try {
+      const resourcesPayload = learningResources.length > 0 ? learningResources : null;
       if (selectedDraft) {
         const updated = await tasksApi.update(selectedDraft.id, {
           title: title.trim(),
           description: description,
           grading_criteria: criteria,
+          learning_resources: resourcesPayload,
         });
         setSelectedDraft(updated);
         initialValuesRef.current = formFromDraft(updated);
+        initialResourcesRef.current = updated.learning_resources ?? [];
       } else {
         const created = await tasksApi.create({
           title: title.trim(),
           description: description,
           grading_criteria: criteria,
+          learning_resources: resourcesPayload,
           class_id: draftClassId,
         });
         setSelectedDraft(created);
         initialValuesRef.current = formFromDraft(created);
+        initialResourcesRef.current = created.learning_resources ?? [];
       }
       toast.success("草稿已保存");
       await refetch();
@@ -251,6 +273,7 @@ export default function CreateTaskPage() {
         title: title.trim(),
         description: description,
         grading_criteria: criteria,
+        learning_resources: learningResources.length > 0 ? learningResources : null,
         class_ids: selectedClassIds,
         status: "published",
       });
@@ -468,6 +491,102 @@ export default function CreateTaskPage() {
               <p className="text-xs text-muted-foreground">
                 此标准将作为 AI 批改的依据
               </p>
+            </div>
+
+            {/* Learning resources */}
+            <div className="space-y-2">
+              <Label>学习资源</Label>
+              {learningResources.length > 0 ? (
+                <div className="space-y-2">
+                  {learningResources.map((resource, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-2 rounded-md border border-[var(--paper-border)] p-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{resource.title}</p>
+                        <a
+                          href={resource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-[var(--cyan-light)] hover:underline truncate block"
+                        >
+                          {resource.url}
+                        </a>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="shrink-0"
+                        onClick={() =>
+                          setLearningResources((prev) => prev.filter((_, i) => i !== index))
+                        }
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground py-2">
+                  暂无学习资源。可通过 AI 助教设计作业时自动添加，或手动添加。
+                </p>
+              )}
+              {showAddResource ? (
+                <div className="space-y-2 rounded-md border border-[var(--paper-border)] p-3">
+                  <Input
+                    placeholder="URL"
+                    value={newResourceUrl}
+                    onChange={(e) => setNewResourceUrl(e.target.value)}
+                  />
+                  <Input
+                    placeholder="标题"
+                    value={newResourceTitle}
+                    onChange={(e) => setNewResourceTitle(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!newResourceUrl.trim() || !newResourceTitle.trim() || !/^https?:\/\//i.test(newResourceUrl.trim())}
+                      onClick={() => {
+                        setLearningResources((prev) => [
+                          ...prev,
+                          { url: newResourceUrl.trim(), title: newResourceTitle.trim(), content: "" },
+                        ]);
+                        setNewResourceUrl("");
+                        setNewResourceTitle("");
+                        setShowAddResource(false);
+                      }}
+                    >
+                      添加
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setNewResourceUrl("");
+                        setNewResourceTitle("");
+                        setShowAddResource(false);
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddResource(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  添加资源
+                </Button>
+              )}
             </div>
           </div>
 

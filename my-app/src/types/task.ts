@@ -1,8 +1,15 @@
+export interface LearningResource {
+  url: string;
+  title: string;
+  content: string;
+}
+
 export interface Task {
   id: string;
   title: string;
   description: string;
   grading_criteria: string;
+  learning_resources: LearningResource[] | null;
   status: "draft" | "published";
   class_id: string;
   created_by: string;
@@ -20,6 +27,7 @@ export interface TaskDraftRequest {
   title: string;
   description?: string;
   grading_criteria?: string;
+  learning_resources?: LearningResource[] | null;
   class_id: string;
 }
 
@@ -27,6 +35,7 @@ export interface TaskUpdateRequest {
   title?: string;
   description?: string;
   grading_criteria?: string;
+  learning_resources?: LearningResource[] | null;
   status?: "published";
 }
 
@@ -62,6 +71,7 @@ export interface BatchPublishRequest {
   title: string;
   description: string;
   grading_criteria: string;
+  learning_resources?: LearningResource[] | null;
   class_ids: string[];
   status: "published";
 }

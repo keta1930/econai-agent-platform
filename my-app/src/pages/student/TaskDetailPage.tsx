@@ -21,6 +21,7 @@ import {
   ChevronRight,
   History,
   Eye,
+  BookOpen,
 } from "lucide-react";
 import type { SubmissionDetail } from "@/types/submission";
 
@@ -114,6 +115,31 @@ export default function TaskDetailPage() {
             <h4 className="mb-2 text-sm font-medium text-muted-foreground">打分标准</h4>
             <MarkdownContent content={task.grading_criteria} />
           </div>
+          {task.learning_resources && task.learning_resources.length > 0 && (
+            <div>
+              <h4 className="mb-2 text-sm font-medium text-muted-foreground">学习资源</h4>
+              <div className="space-y-2">
+                {task.learning_resources.map((resource, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 rounded-md border border-[var(--paper-border)] p-2.5"
+                  >
+                    <BookOpen className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <a
+                        href={resource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-[var(--cyan-mid)] hover:underline"
+                      >
+                        {resource.title}
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
 import { Button } from "@/components/ui/button";
-import { Users, FileCheck, BarChart3, Eye } from "lucide-react";
+import { Users, FileCheck, BarChart3, Eye, BookOpen } from "lucide-react";
 
 export default function AdminTaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -103,6 +103,36 @@ export default function AdminTaskDetailPage() {
           <MarkdownContent content={task.grading_criteria} />
         </div>
       </div>
+
+      {/* Learning resources */}
+      {task.learning_resources && task.learning_resources.length > 0 && (
+        <div className="mt-6">
+          <h3 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">
+            学习资源 ({task.learning_resources.length})
+          </h3>
+          <div className="space-y-2">
+            {task.learning_resources.map((resource, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-3 rounded-md border border-[var(--paper-border)] p-3"
+              >
+                <BookOpen className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{resource.title}</p>
+                  <a
+                    href={resource.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[var(--cyan-light)] hover:underline truncate block"
+                  >
+                    {resource.url}
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Submitted students table */}
       {stats && stats.submissions.length > 0 && (
