@@ -12,24 +12,31 @@ import { useAuth } from "@/hooks/useAuth";
 import { useClassContext } from "@/contexts/ClassContext";
 import {
   School, LayoutDashboard, PlusCircle, Users, Cpu, Presentation, Database,
-  LogOut, Menu,
+  LogOut, Menu, Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ChatProvider, useChatContext } from "@/contexts/ChatContext";
 
 interface NavItem {
   label: string;
   href: string;
   icon: typeof School;
+  /** When set, the item acts as a button instead of a link */
+  action?: () => void;
 }
 
-const teachingNav: NavItem[] = [
-  { label: "班级管理", href: "/admin/classes", icon: School },
-  { label: "作业列表", href: "/admin/dashboard", icon: LayoutDashboard },
-  { label: "创建作业", href: "/admin/tasks/new", icon: PlusCircle },
-  { label: "学生名单", href: "/admin/roster", icon: Users },
-  { label: "分享管理", href: "/admin/sharing", icon: Presentation },
-];
+function getTeachingNav(togglePanel?: () => void): NavItem[] {
+  return [
+    { label: "班级管理", href: "/admin/classes", icon: School },
+    { label: "作业列表", href: "/admin/dashboard", icon: LayoutDashboard },
+    { label: "创建作业", href: "/admin/tasks/new", icon: PlusCircle },
+    { label: "学生名单", href: "/admin/roster", icon: Users },
+    { label: "分享管理", href: "/admin/sharing", icon: Presentation },
+    { label: "AI 助教", href: "#ai-assistant", icon: Bot, action: togglePanel },
+  ];
+}
 
 const systemNav: NavItem[] = [
   { label: "模型管理", href: "/admin/models", icon: Cpu },
@@ -87,7 +94,7 @@ function ClassSelector() {
   );
 }
 
-function NavSection({ label, items, onNavigate }: { label: string; items: NavItem[]; onNavigate?: () => void }) {
+function NavSection({ label, items, onNavigate, isPanelOpen }: { label: string; items: NavItem[]; onNavigate?: () => void; isPanelOpen?: boolean }) {
   const location = useLocation();
 
   return (
@@ -100,18 +107,41 @@ function NavSection({ label, items, onNavigate }: { label: string; items: NavIte
         const isActive =
           item.href === "/admin/dashboard"
             ? location.pathname === "/admin/dashboard" || location.pathname === "/admin"
-            : location.pathname.startsWith(item.href);
+            : item.action
+              ? !!isPanelOpen
+              : location.pathname.startsWith(item.href);
+
+        const className = cn(
+          "flex items-center gap-3 border-l-2 px-6 py-2.5 text-[13px] transition-colors w-full",
+          isActive
+            ? "text-gold bg-[rgba(201,169,110,0.06)] border-l-gold"
+            : "border-l-transparent text-[var(--text-on-dark-secondary)] hover:text-[var(--text-on-dark)] hover:bg-[var(--ink-mid)]",
+        );
+
+        // Action items render as buttons instead of links
+        if (item.action) {
+          return (
+            <button
+              key={item.href}
+              type="button"
+              onClick={() => {
+                item.action?.();
+                onNavigate?.();
+              }}
+              className={className}
+            >
+              <Icon className="h-[18px] w-[18px] opacity-70" />
+              {item.label}
+            </button>
+          );
+        }
+
         return (
           <Link
             key={item.href}
             to={item.href}
             onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 border-l-2 px-6 py-2.5 text-[13px] transition-colors",
-              isActive
-                ? "text-gold bg-[rgba(201,169,110,0.06)] border-l-gold"
-                : "border-l-transparent text-[var(--text-on-dark-secondary)] hover:text-[var(--text-on-dark)] hover:bg-[var(--ink-mid)]",
-            )}
+            className={className}
           >
             <Icon className="h-[18px] w-[18px] opacity-70" />
             {item.label}
@@ -122,8 +152,9 @@ function NavSection({ label, items, onNavigate }: { label: string; items: NavIte
   );
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate, togglePanel, isPanelOpen }: { onNavigate?: () => void; togglePanel?: () => void; isPanelOpen?: boolean }) {
   const { logout } = useAuth();
+  const teachingNav = getTeachingNav(togglePanel);
 
   return (
     <div className="flex h-full flex-col pt-6">
@@ -142,7 +173,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Navigation */}
       <nav className="flex-1">
-        <NavSection label="教 学" items={teachingNav} onNavigate={onNavigate} />
+        <NavSection label="教 学" items={teachingNav} onNavigate={onNavigate} isPanelOpen={isPanelOpen} />
         <NavSection label="系 统" items={systemNav} onNavigate={onNavigate} />
       </nav>
 
@@ -160,8 +191,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AdminLayout() {
+function AdminLayoutInner() {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const { togglePanel, isPanelOpen } = useChatContext();
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,7 +207,7 @@ export function AdminLayout() {
           </SheetTrigger>
           <SheetContent side="left" className="w-60 p-0 bg-[var(--ink-deep)]">
             <SheetTitle className="sr-only">导航菜单</SheetTitle>
-            <SidebarContent onNavigate={() => setSheetOpen(false)} />
+            <SidebarContent onNavigate={() => setSheetOpen(false)} togglePanel={togglePanel} isPanelOpen={isPanelOpen} />
           </SheetContent>
         </Sheet>
         <span className="ml-3 font-heading font-semibold text-primary tracking-[2px]">智能体课程</span>
@@ -184,16 +216,25 @@ export function AdminLayout() {
       <div className="flex">
         {/* Desktop sidebar */}
         <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0 border-r border-[var(--ink-mid)] bg-[var(--ink-deep)]">
-          <SidebarContent />
+          <SidebarContent togglePanel={togglePanel} isPanelOpen={isPanelOpen} />
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 lg:ml-60">
-          <div className="min-w-0 px-6 py-8 lg:px-12 lg:py-12">
+        {/* Main content + Chat panel */}
+        <main className="flex-1 lg:ml-60 flex min-h-[calc(100vh-3.5rem)] lg:min-h-screen">
+          <div className="flex-1 min-w-0 px-6 py-8 lg:px-12 lg:py-12">
             <Outlet />
           </div>
+          <ChatPanel />
         </main>
       </div>
     </div>
+  );
+}
+
+export function AdminLayout() {
+  return (
+    <ChatProvider>
+      <AdminLayoutInner />
+    </ChatProvider>
   );
 }
