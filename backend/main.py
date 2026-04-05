@@ -29,6 +29,7 @@ from routers.sharing import router as sharing_router, admin_sharing_router
 from routers.backups import router as backups_router
 from routers.invite_codes import router as invite_codes_router
 from routers.assistant import router as assistant_router
+from routers.password_reset import public_router as pwd_reset_public_router, admin_router as pwd_reset_admin_router
 
 
 @asynccontextmanager
@@ -73,6 +74,8 @@ app.include_router(admin_sharing_router)
 app.include_router(backups_router)
 app.include_router(invite_codes_router)
 app.include_router(assistant_router)
+app.include_router(pwd_reset_public_router)
+app.include_router(pwd_reset_admin_router)
 
 # Mount frontend static files
 dist_path = Path(__file__).resolve().parent / "dist"
