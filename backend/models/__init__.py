@@ -11,11 +11,12 @@ from models.invite_code import InviteCode
 from models.refresh_token import RefreshToken
 from models.conversation import Conversation, ConversationMessage
 from models.search_result import SearchResult
+from models.password_reset_request import PasswordResetRequest
 
 __all__ = [
     "User", "Class", "ClassMember", "StudentRoster", "Task", "Submission",
     "ModelConfig", "SharingTopic", "TopicVote", "Backup",
     "InviteCode", "RefreshToken",
     "Conversation", "ConversationMessage",
-    "SearchResult",
+    "SearchResult", "PasswordResetRequest",
 ]
