@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import re
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from typing import Literal
 
 
 @dataclass
@@ -30,6 +32,24 @@ class ToolCall:
 class ChatResponse:
     text: str | None = None
     tool_calls: list[ToolCall] = field(default_factory=list)
+
+
+@dataclass
+class StreamEvent:
+    """Unified streaming event emitted by chat_stream() across all adapters."""
+
+    type: Literal[
+        "text_delta",
+        "tool_call_start",
+        "tool_call_args_delta",
+        "tool_call_end",
+        "message_end",
+    ]
+    text: str | None = None
+    tool_call_id: str | None = None
+    tool_name: str | None = None
+    partial_json: str | None = None
+    tool_calls: list[ToolCall] | None = None
 
 
 GRADING_PROMPT_TEMPLATE = """你是一位严格的作业批改助手。请根据以下打分标准对学生作业进行评分。
@@ -93,6 +113,22 @@ class BaseAIAdapter(ABC):
         messages: list[dict],
         tools: list[ToolDefinition] | None = None,
     ) -> ChatResponse:
+        ...
+
+    @abstractmethod
+    async def async_chat(
+        self,
+        messages: list[dict],
+        tools: list[ToolDefinition] | None = None,
+    ) -> ChatResponse:
+        ...
+
+    @abstractmethod
+    async def chat_stream(
+        self,
+        messages: list[dict],
+        tools: list[ToolDefinition] | None = None,
+    ) -> AsyncIterator[StreamEvent]:
         ...
 
     def grade_image(
