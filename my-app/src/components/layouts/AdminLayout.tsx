@@ -220,8 +220,8 @@ function AdminLayoutInner() {
         </aside>
 
         {/* Main content + Chat panel */}
-        <main className="flex-1 lg:ml-60 flex min-h-[calc(100vh-3.5rem)] lg:min-h-screen">
-          <div className="flex-1 min-w-0 px-6 py-8 lg:px-12 lg:py-12">
+        <main className="flex-1 lg:ml-60 flex h-[calc(100vh-3.5rem)] lg:h-screen">
+          <div className="flex-1 min-w-0 overflow-y-auto px-6 py-8 lg:px-12 lg:py-12">
             <Outlet />
           </div>
           <ChatPanel />

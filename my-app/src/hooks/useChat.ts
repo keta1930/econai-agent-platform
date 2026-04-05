@@ -1,15 +1,50 @@
 import { useCallback, useRef } from "react";
 import { flushSync } from "react-dom";
 import { toast } from "sonner";
-import { useChatContext } from "@/contexts/ChatContext";
+import { useChatContext, type ChatAction } from "@/contexts/ChatContext";
 import { assistantApi } from "@/api/assistant";
 import { streamChat, streamAnswer } from "@/api/stream";
 import {
   DEFAULT_MAX_CONTEXT,
+  type ConversationDetail,
   type Message,
   type SSEEvent,
   type UploadedFile,
 } from "@/types/assistant";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * If a conversation is in "pending_answer" status, find the last ask_user
+ * tool_use block and dispatch SET_PENDING_ANSWER to restore the UI state.
+ * Used by both refetchConversation and selectConversation.
+ */
+function restorePendingAnswerIfNeeded(
+  detail: ConversationDetail,
+  dispatch: React.Dispatch<ChatAction>,
+): void {
+  if (detail.status !== "pending_answer") return;
+
+  for (let i = detail.messages.length - 1; i >= 0; i--) {
+    const msg = detail.messages[i];
+    if (msg.role !== "assistant") continue;
+    for (let j = msg.content.length - 1; j >= 0; j--) {
+      const block = msg.content[j];
+      if (block.type === "tool_use" && block.name === "ask_user") {
+        const input = block.input as { question?: string; options?: string[] };
+        dispatch({
+          type: "SET_PENDING_ANSWER",
+          toolCallId: block.tool_call_id,
+          question: input.question ?? "",
+          options: input.options,
+        });
+        return;
+      }
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // useChat — orchestrates chat actions and SSE stream consumption
@@ -139,6 +174,8 @@ export function useChat() {
           id: detail.id,
           messages: detail.messages,
         });
+        // Restore pending answer state if the conversation is waiting for user input
+        restorePendingAnswerIfNeeded(detail, dispatch);
         if (detail.token_count > 0) {
           dispatch({
             type: "SET_TOKEN_USAGE",
@@ -275,29 +312,7 @@ export function useChat() {
       });
 
       // Restore pending answer state if the conversation is waiting
-      if (detail.status === "pending_answer") {
-        // Find the last ask_user tool_use block to restore UI state
-        for (let i = detail.messages.length - 1; i >= 0; i--) {
-          const msg = detail.messages[i];
-          if (msg.role !== "assistant") continue;
-          for (let j = msg.content.length - 1; j >= 0; j--) {
-            const block = msg.content[j];
-            if (block.type === "tool_use" && block.name === "ask_user") {
-              const input = block.input as {
-                question?: string;
-                options?: string[];
-              };
-              dispatch({
-                type: "SET_PENDING_ANSWER",
-                toolCallId: block.tool_call_id,
-                question: input.question ?? "",
-                options: input.options,
-              });
-              return;
-            }
-          }
-        }
-      }
+      restorePendingAnswerIfNeeded(detail, dispatch);
 
       // Restore token usage from conversation-level data.
       // The real max comes from SSE token_usage events during streaming;

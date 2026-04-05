@@ -7,14 +7,8 @@ import { TokenBar } from "./TokenBar";
 import { ChatInput } from "./ChatInput";
 import { cn } from "@/lib/utils";
 import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
   MessageSquare,
   ChevronRight,
-  ChevronLeft,
   List,
 } from "lucide-react";
 import { StreamingBlockDisplay } from "./StreamingBlockDisplay";
@@ -98,11 +92,40 @@ interface MessageAreaProps {
   isPendingAnswer: boolean;
   onAnswer: (answer: string) => void;
   streamingBlocks: StreamingBlock[];
+  activeConversationId: string | null;
 }
 
-function MessageArea({ messages, isStreaming, isPendingAnswer, onAnswer, streamingBlocks }: MessageAreaProps) {
+function MessageArea({
+  messages,
+  isStreaming,
+  isPendingAnswer,
+  onAnswer,
+  streamingBlocks,
+  activeConversationId,
+}: MessageAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [userScrolled, setUserScrolled] = useState(false);
+
+  // Track message count for fade-in-up animation on new messages only
+  const messageCountRef = useRef(0);
+  const animateFromIndex = useRef(Infinity);
+  const prevConvIdRef = useRef(activeConversationId);
+
+  useEffect(() => {
+    // Conversation switch — reset animation tracking, all messages are "history"
+    if (activeConversationId !== prevConvIdRef.current) {
+      prevConvIdRef.current = activeConversationId;
+      messageCountRef.current = messages.length;
+      animateFromIndex.current = Infinity;
+      return;
+    }
+
+    // New messages appended — mark them for animation
+    if (messages.length > messageCountRef.current) {
+      animateFromIndex.current = messageCountRef.current;
+    }
+    messageCountRef.current = messages.length;
+  }, [messages.length, activeConversationId]);
 
   // Auto-scroll to bottom when new messages arrive (unless user manually scrolled up)
   useEffect(() => {
@@ -130,25 +153,38 @@ function MessageArea({ messages, isStreaming, isPendingAnswer, onAnswer, streami
     >
       {messages.length === 0 && (
         <div className="flex flex-col items-center justify-center h-full text-center text-[var(--muted-foreground)]">
-          <MessageSquare className="h-10 w-10 mb-3 opacity-30" />
-          <p className="text-sm">开始与 AI 助教对话</p>
-          <p className="text-xs mt-1">输入消息或选择已有对话</p>
+          <MessageSquare className="h-10 w-10 mb-3 text-[var(--cyan-mid)] opacity-20" />
+          <div className="w-12 h-px bg-gradient-to-r from-transparent via-[var(--gold)]/30 to-transparent mb-3" />
+          <p className="font-heading text-sm text-foreground">开始与 AI 助教对话</p>
+          <p className="text-xs mt-1 text-[var(--muted-foreground)]">输入消息或选择已有对话</p>
         </div>
       )}
 
-      {messages.map((msg) => (
-        <MessageBubble
-          key={msg.id}
-          message={msg}
-          toolResults={toolResults}
-          isStreaming={false}
-          onAnswer={onAnswer}
-          isPendingAnswer={isPendingAnswer}
-        />
-      ))}
+      {messages.map((msg, index) => {
+        const shouldAnimate = index >= animateFromIndex.current;
+        const bubble = (
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            toolResults={toolResults}
+            isStreaming={false}
+            onAnswer={onAnswer}
+            isPendingAnswer={isPendingAnswer}
+          />
+        );
 
-      {isStreaming && streamingBlocks.length > 0 && (
-        <StreamingBlockDisplay blocks={streamingBlocks} />
+        if (shouldAnimate) {
+          return (
+            <div key={msg.id} className="animate-fade-in-up">
+              {bubble}
+            </div>
+          );
+        }
+        return bubble;
+      })}
+
+      {streamingBlocks.length > 0 && (
+        <StreamingBlockDisplay blocks={streamingBlocks} onAnswer={onAnswer} />
       )}
     </div>
   );
@@ -233,6 +269,7 @@ function PanelContent({ onClose }: { onClose: () => void }) {
             isPendingAnswer={state.isPendingAnswer}
             onAnswer={answerQuestion}
             streamingBlocks={state.streamingBlocks}
+            activeConversationId={state.activeConversationId}
           />
 
           {state.tokenUsage.total > 0 && (
@@ -263,33 +300,15 @@ export function ChatPanel() {
   const { isPanelOpen, closePanel } = useChatContext();
 
   return (
-    <>
-      {/* Desktop: inline panel (lg and up) */}
-      <div
-        className={cn(
-          "hidden lg:flex flex-col border-l border-[var(--paper-border)] transition-all duration-300 ease-in-out overflow-hidden",
-          isPanelOpen
-            ? "xl:w-[360px] lg:w-[320px] opacity-100"
-            : "w-0 opacity-0",
-        )}
-        style={{ minHeight: 0 }}
-      >
-        {isPanelOpen && <PanelContent onClose={closePanel} />}
-      </div>
-
-      {/* Mobile: sheet mode (below lg) */}
-      <div className="lg:hidden">
-        <Sheet open={isPanelOpen} onOpenChange={(open) => !open && closePanel()}>
-          <SheetContent
-            side="right"
-            className="w-full sm:w-[400px] p-0"
-            showCloseButton={false}
-          >
-            <SheetTitle className="sr-only">AI 助教</SheetTitle>
-            <PanelContent onClose={closePanel} />
-          </SheetContent>
-        </Sheet>
-      </div>
-    </>
+    <div
+      className={cn(
+        "flex flex-col border-l border-[var(--paper-border)] transition-all duration-300 ease-in-out overflow-hidden shrink-0",
+        isPanelOpen
+          ? "w-[420px] opacity-100"
+          : "w-0 opacity-0",
+      )}
+    >
+      {isPanelOpen && <PanelContent onClose={closePanel} />}
+    </div>
   );
 }
