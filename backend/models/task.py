@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Uuid, func
+from sqlalchemy import Column, JSON, String, Text, DateTime, ForeignKey, Uuid, func
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -12,6 +12,7 @@ class Task(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=False, default="")
     grading_criteria = Column(Text, nullable=False, default="")
+    learning_resources = Column(JSON, nullable=True)
     status = Column(String, nullable=False, default="draft")
     class_id = Column(Uuid, ForeignKey("classes.id"), nullable=False)
     created_by = Column(Uuid, ForeignKey("users.id"), nullable=False)

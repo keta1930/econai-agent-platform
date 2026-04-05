@@ -5,10 +5,17 @@ from typing import Literal
 from pydantic import BaseModel
 
 
+class LearningResource(BaseModel):
+    url: str
+    title: str
+    content: str
+
+
 class TaskDraftRequest(BaseModel):
     title: str
     description: str = ""
     grading_criteria: str = ""
+    learning_resources: list[LearningResource] | None = None
     class_id: uuid.UUID
 
 
@@ -16,6 +23,7 @@ class TaskUpdateRequest(BaseModel):
     title: str | None = None
     description: str | None = None
     grading_criteria: str | None = None
+    learning_resources: list[LearningResource] | None = None
     status: str | None = None
 
 
@@ -24,6 +32,7 @@ class TaskResponse(BaseModel):
     title: str
     description: str
     grading_criteria: str
+    learning_resources: list[LearningResource] | None = None
     status: str
     class_id: uuid.UUID
     created_by: uuid.UUID
@@ -69,6 +78,7 @@ class BatchPublishRequest(BaseModel):
     title: str
     description: str
     grading_criteria: str
+    learning_resources: list[LearningResource] | None = None
     class_ids: list[uuid.UUID]
     status: Literal["published"]
 
