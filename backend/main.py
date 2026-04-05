@@ -1,6 +1,13 @@
 import asyncio
+import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
+
+# psycopg async 不支持 Windows 默认的 ProactorEventLoop，
+# 必须在 uvicorn 创建 event loop 之前切换 policy。
+# 配合 uvicorn.run(loop="none") 使用，使 asyncio.run() 走 policy 路径。
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +28,7 @@ from routers.model_config import router as model_config_router
 from routers.sharing import router as sharing_router, admin_sharing_router
 from routers.backups import router as backups_router
 from routers.invite_codes import router as invite_codes_router
+from routers.assistant import router as assistant_router
 
 
 @asynccontextmanager
@@ -64,6 +72,7 @@ app.include_router(sharing_router)
 app.include_router(admin_sharing_router)
 app.include_router(backups_router)
 app.include_router(invite_codes_router)
+app.include_router(assistant_router)
 
 # Mount frontend static files
 dist_path = Path(__file__).resolve().parent / "dist"
@@ -81,4 +90,4 @@ if dist_path.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=PORT, loop="none")
