@@ -114,51 +114,61 @@ cd my-app && npm run build
 
 管理教师账号和邀请码，控制教师的启用/禁用状态。
 
-| 教师管理 | 邀请码管理 |
-|:---:|:---:|
-| ![教师管理](docs/screenshots/super-admin.png) | ![邀请码管理](docs/screenshots/super-admin-invite.png) |
+**教师管理**
+
+![教师管理](docs/screenshots/super-admin.png)
+
+**邀请码管理**
+
+![邀请码管理](docs/screenshots/super-admin-invite.png)
 
 ### 教师端界面
 
-#### 班级与学生管理
+**班级管理**
 
-| 班级管理 | 学生名单 |
-|:---:|:---:|
-| ![班级管理](docs/screenshots/admin-classes.png) | ![学生名单](docs/screenshots/admin-roster.png) |
+![班级管理](docs/screenshots/admin-classes.png)
 
-#### 作业管理
+**学生名单**
 
-| 作业列表 | 创建作业 |
-|:---:|:---:|
-| ![作业列表](docs/screenshots/admin-tasks.png) | ![创建作业](docs/screenshots/admin-create-task.png) |
+![学生名单](docs/screenshots/admin-roster.png)
 
-#### AI 助教
+**作业列表**
 
-支持自然语言交互，自动调用工具查询班级数据、设计作业、分析成绩。搜索结果自动沉淀为作业的学习资源。
+![作业列表](docs/screenshots/admin-tasks.png)
+
+**创建作业**
+
+![创建作业](docs/screenshots/admin-create-task.png)
+
+**AI 助教** — 支持自然语言交互，自动调用工具查询班级数据、设计作业、分析成绩。搜索结果自动沉淀为作业的学习资源。
 
 ![AI 助教](docs/screenshots/admin-assistant.png)
 
 ### 学生端界面
 
-#### 任务与成绩
+**任务列表**
 
-| 任务列表 | 我的成绩 |
-|:---:|:---:|
-| ![任务列表](docs/screenshots/student-tasks.png) | ![我的成绩](docs/screenshots/student-grades.png) |
+![任务列表](docs/screenshots/student-tasks.png)
 
-#### 作业提交与 AI 批改
+**我的成绩**
 
-学生查看作业要求和学习资源，提交后 AI 双 Agent 并行评审，产出结构化反馈。
+![我的成绩](docs/screenshots/student-grades.png)
 
-| 作业详情 | AI 批改反馈 |
-|:---:|:---:|
-| ![作业详情](docs/screenshots/student-task-detail.png) | ![批改反馈](docs/screenshots/student-feedback.png) |
+**作业详情** — 查看作业要求和学习资源，通过文本粘贴/文件上传/图片上传提交作业。
 
-#### 班级操作
+![作业详情](docs/screenshots/student-task-detail.png)
 
-| 加入班级 | 切换班级 |
-|:---:|:---:|
-| ![加入班级](docs/screenshots/student-join-class.png) | ![切换班级](docs/screenshots/student-switch-class.png) |
+**AI 批改反馈** — 双 Agent 并行评审，产出结构化反馈：维度得分、总评、改进建议、亮点。
+
+![批改反馈](docs/screenshots/student-feedback.png)
+
+**加入班级**
+
+![加入班级](docs/screenshots/student-join-class.png)
+
+**切换班级**
+
+![切换班级](docs/screenshots/student-switch-class.png)
 
 ---
 
