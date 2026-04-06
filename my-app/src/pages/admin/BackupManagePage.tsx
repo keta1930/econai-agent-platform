@@ -43,10 +43,9 @@ export default function BackupManagePage() {
     }
   }
 
-  async function handleDownload(id: string) {
+  async function handleDownload(backup: BackupInfo) {
     try {
-      const res = await backupsApi.getDownloadUrl(id);
-      window.open(res.download_url, "_blank");
+      await backupsApi.download(backup.id, `${backup.display_name}.json`);
     } catch {
       // Silently fail — user can retry
     }
@@ -188,7 +187,7 @@ export default function BackupManagePage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDownload(backup.id)}
+                        onClick={() => handleDownload(backup)}
                       >
                         <Download className="h-4 w-4" />
                       </Button>

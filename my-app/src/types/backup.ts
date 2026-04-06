@@ -8,8 +8,3 @@ export interface BackupInfo {
 export interface BackupListResponse {
   items: BackupInfo[];
 }
-
-export interface BackupDownloadResponse {
-  download_url: string;
-  filename: string;
-}
