@@ -8,6 +8,8 @@ __pycache__/
 *.db-shm
 *.db-wal
 storage/
+backend/backups/
+snapshots/
 backend/dist/
 homework-grading.tar.gz
 backend.tar.gz
