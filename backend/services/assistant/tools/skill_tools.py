@@ -97,9 +97,8 @@ def register_skill_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="use_skill",
             description=(
-                "加载专业技能指南。当面对需要特定工作流程的任务时，"
-                "使用此工具加载对应技能的详细指南。"
-                "加载后严格按照指南中的步骤执行。"
+                "加载专业技能的详细执行指南。传入技能名称（小写字母、数字和连字符），"
+                "返回该技能的完整步骤和格式要求。加载后严格按照指南执行，不要跳步。"
             ),
             parameters={
                 "type": "object",

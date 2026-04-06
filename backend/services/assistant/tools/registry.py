@@ -38,7 +38,6 @@ class ToolHandler:
     execute: ToolExecuteFn
     display_name: str
     allowed_roles: list[str] = field(default_factory=lambda: ["admin"])
-    requires_confirmation: bool = False
 
 
 class ToolRegistry:

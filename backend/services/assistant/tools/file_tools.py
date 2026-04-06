@@ -161,8 +161,9 @@ def register_file_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="read_file",
             description=(
-                "读取用户上传的文件，返回文件内容。"
-                "支持 Excel (.xlsx/.xls)、CSV (.csv)、Markdown (.md) 和纯文本 (.txt) 格式。"
+                "读取教师上传的文件。file_id 从消息中的 [附件: ... | file_id: ...] 标记提取，不要自行编造。\n"
+                "支持格式：.xlsx/.xls（表格，最多 200 行预览）、.csv、.md、.txt（最多 50000 字符）。\n"
+                "表格返回 header + rows 数组，文本返回 content 字符串。"
             ),
             parameters={
                 "type": "object",

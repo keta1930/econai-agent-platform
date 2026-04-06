@@ -470,7 +470,11 @@ def register_query_tools(reg: ToolRegistry) -> None:
     reg.register(ToolHandler(
         definition=ToolDefinition(
             name="list_classes",
-            description="获取教师管理的所有班级列表，包含班级名称、学生数和作业数。",
+            description=(
+                "获取教师管理的所有班级列表。"
+                "无需参数。返回每个班级的 ID、名称、学生数和已发布作业数。"
+                "返回的班级 ID 可直接用于其他工具的 class_id 参数。"
+            ),
             parameters={"type": "object", "properties": {}, "required": []},
         ),
         execute=execute_list_classes,
@@ -481,10 +485,11 @@ def register_query_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="query_class",
             description=(
-                "查询指定班级的数据。通过 entity 参数选择查询类型："
-                "tasks（作业列表，可选按 status 过滤）、"
-                "roster（学生名单，含预期与已注册对比）、"
-                "topics（分享主题列表，含投票数）。"
+                "查询指定班级的数据，通过 entity 选择查询维度：\n"
+                "- tasks: 作业列表（ID、标题、状态、创建时间），可用 status 过滤 draft/published\n"
+                "- roster: 学生名单，返回「预期名单」和「已注册」两个列表及匹配状态，"
+                "已注册列表含 user_id（UUID），可用于 query_submissions 的 student_id\n"
+                "- topics: 分享主题列表，含状态、汇报人和投票数"
             ),
             parameters={
                 "type": "object",
@@ -515,8 +520,11 @@ def register_query_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="get_task",
             description=(
-                "获取作业详情（标题、描述、评分标准、状态）。"
-                "include_stats=true 时追加提交统计（提交率、平均分、每个学生的提交状态）。"
+                "获取单个作业的完整信息。\n"
+                "始终返回：标题、描述、评分标准、学习资源、状态。\n"
+                "include_stats=true 时追加提交统计：提交率、平均分、"
+                "每个学生的最新提交（含 user_id、学号、版本、状态、分数）。"
+                "统计基于名单人数计算提交率，仅取每个学生的最新版本。"
             ),
             parameters={
                 "type": "object",
@@ -541,11 +549,13 @@ def register_query_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="query_submissions",
             description=(
-                "查询提交记录。三种查询模式（按优先级）："
-                "① 指定 submission_id 查单个提交（include_content=true 可读取内容）；"
-                "② 指定 student_id 查该学生的提交列表（可选 task_id 过滤）；"
-                "③ 仅指定 task_id 查该作业所有提交。"
-                "三个 ID 参数至少需要一个。"
+                "查询提交记录，三种模式按优先级分派：\n"
+                "1. submission_id → 查单条提交详情，include_content=true 时读取提交正文"
+                "（图片类型无法读取，会返回提示）\n"
+                "2. student_id → 查该学生的提交列表，可选 task_id 缩小范围\n"
+                "3. 仅 task_id → 查该作业全部提交\n"
+                "至少提供一个 ID。注意 student_id 是用户 UUID（非学号），"
+                "可通过 query_class(entity='roster') 或 get_task(include_stats=true) 获取。"
             ),
             parameters={
                 "type": "object",

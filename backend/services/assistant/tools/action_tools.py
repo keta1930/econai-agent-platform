@@ -567,9 +567,10 @@ def register_action_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="manage_class",
             description=(
-                "班级管理：创建班级（create）、获取加入凭证（get_token）、重新生成凭证（regenerate_token）。"
-                "创建班级时自动生成加入凭证并返回。"
-                "执行前必须先用 ask_user 向教师确认操作。"
+                "班级管理，通过 action 区分操作：\n"
+                "- create: 创建班级，需要 name。创建后自动生成并返回加入凭证\n"
+                "- get_token: 获取班级的加入凭证，需要 class_id。只读操作\n"
+                "- regenerate_token: 重新生成凭证（旧凭证立即失效），需要 class_id"
             ),
             parameters={
                 "type": "object",
@@ -593,17 +594,20 @@ def register_action_tools(reg: ToolRegistry) -> None:
         ),
         execute=execute_manage_class,
         display_name="班级管理",
-        requires_confirmation=True,
     ))
 
     reg.register(ToolHandler(
         definition=ToolDefinition(
             name="manage_task",
             description=(
-                "作业管理：创建草稿（create）、更新草稿（update）、发布（publish）、删除（delete）。"
-                "创建和更新只能操作草稿状态的作业。发布前需标题、说明和评分标准齐全。"
-                "删除会同时清理关联的提交文件。"
-                "执行前必须先用 ask_user 向教师确认操作。"
+                "作业管理，通过 action 区分操作：\n"
+                "- create: 创建草稿，需要 title + class_id。description/grading_criteria/learning_resources 可选\n"
+                "- update: 编辑草稿字段，需要 task_id + 至少一个修改字段。仅 draft 状态可编辑，"
+                "只传需要改的字段，其余保持不变\n"
+                "- publish: 发布草稿，需要 task_id。发布前 title、description、grading_criteria 必须齐全\n"
+                "- delete: 删除作业及关联提交文件，需要 task_id\n"
+                "learning_resources: 传入 URL 字符串数组，URL 必须来自当前对话中 tavily_search 的搜索结果，"
+                "系统自动关联标题和内容。不在搜索记录中的 URL 会被忽略。"
             ),
             parameters={
                 "type": "object",
@@ -644,17 +648,19 @@ def register_action_tools(reg: ToolRegistry) -> None:
         ),
         execute=execute_manage_task,
         display_name="作业管理",
-        requires_confirmation=True,
     ))
 
     reg.register(ToolHandler(
         definition=ToolDefinition(
             name="manage_topic",
             description=(
-                "分享主题管理：创建（create）、编辑（update）、删除（delete）。"
-                "status 可选 voting（投票中，默认）/ confirmed / completed。"
-                "completed 状态需要汇报人和分享次数。删除时关联投票自动级联删除。"
-                "执行前必须先用 ask_user 向教师确认操作。"
+                "分享主题管理，通过 action 区分操作：\n"
+                "- create: 创建主题，需要 title + class_id，默认 status='voting'\n"
+                "- update: 编辑主题字段，需要 topic_id + 至少一个修改字段\n"
+                "- delete: 删除主题（关联投票自动级联删除），需要 topic_id\n"
+                "status 取值: voting（投票中）→ confirmed（已确定）→ completed（已分享）。"
+                "设为 completed 时 presenters 和 session_number 必填。"
+                "shared_at 使用 ISO 8601 格式（如 2026-04-05T10:00:00）。"
             ),
             parameters={
                 "type": "object",
@@ -703,15 +709,14 @@ def register_action_tools(reg: ToolRegistry) -> None:
         ),
         execute=execute_manage_topic,
         display_name="分享主题管理",
-        requires_confirmation=True,
     ))
 
     reg.register(ToolHandler(
         definition=ToolDefinition(
             name="import_roster",
             description=(
-                "批量导入学生名单到指定班级。执行前必须先用 ask_user 向用户确认学号列表和目标班级。"
-                "已存在的学号会自动跳过。"
+                "批量导入学生学号到指定班级。需要 class_id 和 student_ids 数组。"
+                "已存在的学号自动跳过（幂等），返回新增数和跳过数。"
             ),
             parameters={
                 "type": "object",
@@ -731,5 +736,4 @@ def register_action_tools(reg: ToolRegistry) -> None:
         ),
         execute=execute_import_roster,
         display_name="导入学生名单",
-        requires_confirmation=True,
     ))
