@@ -25,9 +25,9 @@ class AnthropicAdapter(BaseAIAdapter):
     def _convert_messages(
         self, messages: list[dict]
     ) -> tuple[str | None, list[dict]]:
-        """Convert OpenAI-format messages to Anthropic API format.
+        """将 OpenAI 格式消息转换为 Anthropic API 格式。
 
-        Returns (system_content, api_messages).
+        返回 (system_content, api_messages)。
         """
         system_content = None
         api_messages: list[dict] = []
@@ -56,7 +56,7 @@ class AnthropicAdapter(BaseAIAdapter):
                         try:
                             tc_args = json.loads(tc_args)
                         except (json.JSONDecodeError, TypeError):
-                            logger.warning("Malformed tool call arguments: %s", tc_args[:200])
+                            logger.warning("工具调用参数格式错误: %s", tc_args[:200])
                             tc_args = {}
                     content.append({
                         "type": "tool_use",
@@ -74,10 +74,10 @@ class AnthropicAdapter(BaseAIAdapter):
 
     @staticmethod
     def _convert_content_blocks(blocks: list[dict]) -> list[dict]:
-        """Convert OpenAI-format content blocks to Anthropic format.
+        """将 OpenAI 格式内容块转换为 Anthropic 格式。
 
-        Handles image_url blocks by extracting base64 data from data URIs
-        and converting to Anthropic's image source format.
+        处理 image_url 块：从 data URI 中提取 base64 数据，
+        转换为 Anthropic 的 image source 格式。
         """
         converted: list[dict] = []
         for block in blocks:
@@ -94,7 +94,7 @@ class AnthropicAdapter(BaseAIAdapter):
                         },
                     })
                 else:
-                    # URL-based image (not base64) — pass as-is via url source
+                    # 非 base64 的 URL 图片 — 直接透传
                     converted.append({
                         "type": "image",
                         "source": {"type": "url", "url": url},
@@ -132,7 +132,13 @@ class AnthropicAdapter(BaseAIAdapter):
         if tools:
             kwargs["tools"] = self._build_tools_param(tools)
 
-        response = self.client.messages.create(**kwargs)
+        logger.info("Anthropic 调用 — 模型=%s, 消息数=%d", self.model_name, len(api_messages))
+        try:
+            response = self.client.messages.create(**kwargs)
+        except Exception:
+            logger.exception("Anthropic 调用失败 — 模型=%s", self.model_name)
+            raise
+        logger.info("Anthropic 完成 — 输入 token=%d, 输出 token=%d", response.usage.input_tokens, response.usage.output_tokens)
 
         text_parts = []
         tool_calls = []
@@ -171,7 +177,13 @@ class AnthropicAdapter(BaseAIAdapter):
         if tools:
             kwargs["tools"] = self._build_tools_param(tools)
 
-        response = await self.async_client.messages.create(**kwargs)
+        logger.info("Anthropic 异步调用 — 模型=%s, 消息数=%d", self.model_name, len(api_messages))
+        try:
+            response = await self.async_client.messages.create(**kwargs)
+        except Exception:
+            logger.exception("Anthropic 异步调用失败 — 模型=%s", self.model_name)
+            raise
+        logger.info("Anthropic 异步完成 — 输入 token=%d, 输出 token=%d", response.usage.input_tokens, response.usage.output_tokens)
 
         text_parts = []
         tool_calls = []
@@ -210,12 +222,20 @@ class AnthropicAdapter(BaseAIAdapter):
         if tools:
             kwargs["tools"] = self._build_tools_param(tools)
 
-        # Track content blocks by index — Anthropic sends
-        # content_block_start/delta/stop with an integer index.
+        logger.info("Anthropic 流式调用 — 模型=%s, 消息数=%d", self.model_name, len(api_messages))
+
+        # 按 index 追踪内容块 — Anthropic 通过整数 index
+        # 发送 content_block_start/delta/stop 事件
         active_blocks: dict[int, dict] = {}
         completed_tool_calls: list[ToolCall] = []
 
-        async with self.async_client.messages.stream(**kwargs) as stream:
+        try:
+            stream_ctx = self.async_client.messages.stream(**kwargs)
+        except Exception:
+            logger.exception("Anthropic 流式调用启动失败 — 模型=%s", self.model_name)
+            raise
+
+        async with stream_ctx as stream:
             async for event in stream:
                 event_type = event.type
 
@@ -260,7 +280,7 @@ class AnthropicAdapter(BaseAIAdapter):
                         try:
                             args = json.loads(block_info["arguments"]) if block_info["arguments"] else {}
                         except json.JSONDecodeError:
-                            logger.warning("Malformed tool call arguments: %s", block_info["arguments"][:200])
+                            logger.warning("工具调用参数格式错误: %s", block_info["arguments"][:200])
                             args = {}
                         completed_tool_calls.append(
                             ToolCall(id=block_info["id"], name=block_info["name"], arguments=args)

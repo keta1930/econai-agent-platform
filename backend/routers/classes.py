@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import secrets
 import uuid
 
@@ -6,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from database import get_db
 from auth.deps import require_admin, TokenPayload
@@ -32,7 +35,7 @@ async def list_classes(
     )
     classes = result.scalars().all()
 
-    # Batch count students and published tasks per class
+    # 批量统计每个班级的学生数和已发布任务数
     class_ids = [c.id for c in classes]
     student_counts: dict[uuid.UUID, int] = {}
     task_counts: dict[uuid.UUID, int] = {}
@@ -71,11 +74,14 @@ async def create_class(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Check uniqueness within admin's classes
+    logger.info("创建班级 — 管理员=%s, 名称=%s", admin.id, req.name)
+
+    # 检查同一管理员下班级名称是否重复
     result = await db.execute(
         select(Class).where(Class.name == req.name, Class.created_by == admin.id)
     )
     if result.scalar_one_or_none():
+        logger.warning("创建班级失败 — 名称重复, 管理员=%s, 名称=%s", admin.id, req.name)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="该班级名称已存在",
@@ -97,23 +103,26 @@ async def delete_class(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("删除班级 — class_id=%s, 管理员=%s", class_id, admin.id)
+
     result = await db.execute(
         select(Class).where(Class.id == class_id, Class.created_by == admin.id)
     )
     cls = result.scalar_one_or_none()
     if not cls:
+        logger.warning("删除班级失败 — 班级不存在, class_id=%s", class_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="班级不存在")
 
-    # Cascade delete: topic_votes -> sharing_topics -> submissions (+ files) -> tasks -> users -> roster -> class
+    # 级联删除：投票 → 分享主题 → 提交记录（含文件）→ 任务 → 成员 → 名单 → 班级
 
-    # 1. Delete topic_votes for topics in this class
+    # 1. 删除该班级下分享主题的投票
     topic_ids_stmt = select(SharingTopic.id).where(SharingTopic.class_id == class_id)
     await db.execute(delete(TopicVote).where(TopicVote.topic_id.in_(topic_ids_stmt)))
 
-    # 2. Delete sharing_topics
+    # 2. 删除分享主题
     await db.execute(delete(SharingTopic).where(SharingTopic.class_id == class_id))
 
-    # 3. Delete submissions + collect file paths for cleanup
+    # 3. 删除提交记录，收集文件路径用于清理存储
     task_ids_stmt = select(Task.id).where(Task.class_id == class_id)
     result = await db.execute(
         select(Submission.file_path).where(Submission.task_id.in_(task_ids_stmt))
@@ -122,22 +131,22 @@ async def delete_class(
 
     await db.execute(delete(Submission).where(Submission.task_id.in_(task_ids_stmt)))
 
-    # 4. Delete tasks
+    # 4. 删除任务
     await db.execute(delete(Task).where(Task.class_id == class_id))
 
-    # 5. Delete class_members records
+    # 5. 删除班级成员关系
     await db.execute(
         delete(ClassMember).where(ClassMember.class_id == class_id)
     )
 
-    # 6. Delete roster entries
+    # 6. 删除学生名单
     await db.execute(delete(StudentRoster).where(StudentRoster.class_id == class_id))
 
-    # 7. Delete the class
+    # 7. 删除班级
     await db.delete(cls)
     await db.commit()
 
-    # Clean up files in MinIO
+    # 清理 MinIO 中的文件
     if file_paths:
         await asyncio.to_thread(storage_service.remove_objects, file_paths)
 
@@ -155,6 +164,7 @@ async def get_class_token(
     )
     cls = result.scalar_one_or_none()
     if not cls:
+        logger.warning("获取加入凭证失败 — 班级不存在, class_id=%s", class_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="班级不存在")
     return {"join_token": cls.join_token}
 
@@ -165,11 +175,14 @@ async def regenerate_class_token(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("重新生成加入凭证 — class_id=%s, 管理员=%s", class_id, admin.id)
+
     result = await db.execute(
         select(Class).where(Class.id == class_id, Class.created_by == admin.id)
     )
     cls = result.scalar_one_or_none()
     if not cls:
+        logger.warning("重新生成加入凭证失败 — 班级不存在, class_id=%s", class_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="班级不存在")
 
     cls.join_token = secrets.token_urlsafe(16)

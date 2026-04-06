@@ -26,7 +26,7 @@ async def _seed_super_admin(db: AsyncSession) -> None:
 
 
 async def run_seed(db: AsyncSession) -> None:
-    """Execute all seed data upserts idempotently."""
+    """幂等执行所有种子数据。"""
     await _seed_super_admin(db)
     await db.commit()
-    logger.info("Seed data applied")
+    logger.info("种子数据已应用")

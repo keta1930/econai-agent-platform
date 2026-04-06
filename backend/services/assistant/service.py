@@ -1,4 +1,4 @@
-"""AssistantService — Agent Loop core engine with tool orchestration and SSE streaming."""
+"""AssistantService — Agent Loop 核心引擎，工具编排与 SSE 流式输出。"""
 
 from __future__ import annotations
 
@@ -33,22 +33,22 @@ MAX_TOOL_CALLS_PER_TURN = 50
 
 
 def format_sse(event_type: str, data: dict[str, Any]) -> str:
-    """Format a single SSE event string (event + data + blank line)."""
+    """格式化单条 SSE 事件字符串（event + data + 空行）。"""
     payload = json.dumps(data, ensure_ascii=False)
     return f"event: {event_type}\ndata: {payload}\n\n"
 
 
 class AssistantService:
-    """Manages conversations and drives the Agent Loop."""
+    """管理对话并驱动 Agent Loop。"""
 
-    # Class-level cancel flags shared across instances (keyed by conversation id).
+    # 类级别的取消标志，所有实例共享（按对话 ID 索引）
     _cancel_flags: dict[uuid.UUID, bool] = {}
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
     # ------------------------------------------------------------------
-    # CRUD
+    # CRUD 操作
     # ------------------------------------------------------------------
 
     async def create_conversation(
@@ -123,7 +123,7 @@ class AssistantService:
         return conversation
 
     # ------------------------------------------------------------------
-    # Message handling
+    # 消息处理
     # ------------------------------------------------------------------
 
     async def handle_message(
@@ -134,7 +134,9 @@ class AssistantService:
         files: list[dict] | None = None,
         class_id: uuid.UUID | None = None,
     ) -> AsyncGenerator[str, None]:
-        """Send a user message and stream back the assistant response via SSE."""
+        """发送用户消息并通过 SSE 流式返回助手响应。"""
+        logger.info("收到用户消息 — 对话=%s, 内容长度=%d", conversation_id, len(content))
+
         conversation = await self._load_owned_conversation(
             conversation_id, user_id, with_messages=True,
         )
@@ -142,12 +144,16 @@ class AssistantService:
             yield format_sse("error", {"type": "error", "message": "请先回答助教的问题"})
             return
 
-        # Build user message content blocks
+        # 构建用户消息内容块
         blocks: list[dict] = [{"type": "text", "text": content}]
         if files:
             for f in files:
                 mime = f.get("mime_type", "")
                 block_type = "image" if mime.startswith("image/") else "file"
+                if block_type == "image":
+                    logger.info("收到图片 — 文件名=%s, 类型=%s", f["filename"], mime)
+                else:
+                    logger.info("收到文件附件 — 文件名=%s, 类型=%s", f["filename"], mime)
                 blocks.append({
                     "type": block_type,
                     "file_id": f["file_id"],
@@ -163,54 +169,55 @@ class AssistantService:
         )
         self.db.add(user_msg)
 
-        # Auto-generate title: set temporary title to prevent re-triggering,
-        # then launch async LLM title generation after adapter is resolved.
+        # 自动生成标题：先设临时标题防止重复触发，
+        # adapter 解析后再启动异步 LLM 标题生成。
         needs_title = conversation.title is None
         if needs_title:
             conversation.title = content[:20]
 
         await self.db.flush()
 
-        # Resolve model config
+        # 解析模型配置
         adapter = await self._get_adapter(user_id)
         if adapter is None:
             yield format_sse("error", {"type": "error", "message": "未配置 AI 模型，请先在模型管理中添加并激活模型"})
             return
 
-        # Launch background title generation (must happen after adapter is resolved)
+        # 启动后台标题生成（必须在 adapter 解析之后）
         title_queue: asyncio.Queue | None = None
         if needs_title:
+            logger.info("标题生成启动 — 对话=%s", conversation_id)
             title_queue = asyncio.Queue()
-            # Save task reference to prevent GC from collecting it before completion
+            # 保留任务引用防止 GC 在完成前回收
             _title_task = asyncio.create_task(
                 self._generate_title(
                     conversation.id, content, adapter, title_queue,
                 )
             )
 
-        # Resolve context window limit for this model
+        # 解析模型上下文窗口限制
         max_context = get_model_context_limit(adapter.model_name)
 
-        # Resolve class context for system prompt
+        # 解析班级上下文用于 system prompt
         effective_class_id = class_id or conversation.class_id
         system_prompt = await self._build_system_prompt(user_id, effective_class_id)
 
-        # Prepare tool definitions
+        # 准备工具定义
         tool_defs = registry.get_definitions(role="admin")
 
-        # Prepare API messages (loads history, compresses if needed)
+        # 准备 API 消息（加载历史，必要时压缩）
         api_messages, total_tokens = await prepare_messages(
             str(conversation.id), self.db, adapter, system_prompt, len(tool_defs),
             max_context=max_context,
         )
 
-        # Update token count
+        # 更新 token 计数
         conversation.token_count = total_tokens
         if effective_class_id and not conversation.class_id:
             conversation.class_id = effective_class_id
         await self.db.flush()
 
-        # Run agent loop, interleaving title_update events
+        # 运行 agent loop，穿插 title_update 事件
         tool_ctx = ToolContext(
             user_id=user_id,
             admin_id=user_id,
@@ -224,7 +231,7 @@ class AssistantService:
             max_context=max_context,
         ):
             yield sse_event
-            # Check if title generation completed between SSE chunks
+            # 检查标题生成是否在 SSE 块之间完成
             if title_queue is not None:
                 try:
                     title_data = title_queue.get_nowait()
@@ -233,13 +240,13 @@ class AssistantService:
                 except asyncio.QueueEmpty:
                     pass
 
-        # After the stream ends, wait briefly for the title if still pending
+        # 流结束后，短暂等待标题生成（如仍在进行）
         if title_queue is not None:
             try:
                 title_data = await asyncio.wait_for(title_queue.get(), timeout=3.0)
                 yield await self._apply_title_update(conversation, title_data)
             except asyncio.TimeoutError:
-                logger.warning("Title generation timed out for %s", conversation.id)
+                logger.warning("标题生成超时 — 对话=%s", conversation.id)
 
     async def handle_answer(
         self,
@@ -247,7 +254,8 @@ class AssistantService:
         user_id: uuid.UUID,
         answer: str,
     ) -> AsyncGenerator[str, None]:
-        """Resume the agent loop after the user answers an ask_user question."""
+        """用户回答 ask_user 问题后恢复 agent loop。"""
+        logger.info("收到用户回答 — 对话=%s, 内容长度=%d", conversation_id, len(answer))
         conversation = await self._load_owned_conversation(
             conversation_id, user_id, with_messages=True,
         )
@@ -260,7 +268,7 @@ class AssistantService:
             yield format_sse("error", {"type": "error", "message": "缺少 pending_tool_call_id"})
             return
 
-        # Save the user's answer as a tool_result message
+        # 将用户的回答保存为 tool_result 消息
         result_blocks: list[dict] = [{
             "type": "tool_result",
             "tool_call_id": pending_tool_call_id,
@@ -275,12 +283,12 @@ class AssistantService:
         )
         self.db.add(tool_msg)
 
-        # Reset conversation status
+        # 重置对话状态
         conversation.status = "active"
         conversation.pending_tool_call_id = None
         await self.db.flush()
 
-        # Resume the loop
+        # 恢复 loop
         adapter = await self._get_adapter(user_id)
         if adapter is None:
             yield format_sse("error", {"type": "error", "message": "未配置 AI 模型"})
@@ -313,7 +321,8 @@ class AssistantService:
             yield sse_event
 
     async def stop_generation(self, conversation_id: uuid.UUID) -> None:
-        """Signal the agent loop to stop at the next yield point."""
+        """通知 agent loop 在下一个 yield 点停止。"""
+        logger.info("收到停止生成请求 — 对话=%s", conversation_id)
         AssistantService._cancel_flags[conversation_id] = True
 
     # ------------------------------------------------------------------
@@ -331,20 +340,21 @@ class AssistantService:
         *,
         max_context: int = 200_000,
     ) -> AsyncGenerator[str, None]:
-        """Core loop: stream model output, execute tools, repeat until done."""
+        """核心循环：流式输出模型响应，执行工具，重复直到完成。"""
         conv_id = conversation.id
+        logger.info("流式响应开始 — 对话=%s", conv_id)
         AssistantService._cancel_flags[conv_id] = False
         tool_call_count = 0
         current_tools: list[ToolDefinition] | None = tool_defs
 
         try:
             while True:
-                # Check cancel flag
+                # 检查取消标志
                 if AssistantService._cancel_flags.get(conv_id, False):
                     yield format_sse("done", {"type": "done"})
                     break
 
-                # Accumulate the full assistant response
+                # 累积完整的助手响应
                 text_parts: list[str] = []
                 tool_calls_accumulated: dict[str, dict] = {}  # id -> {name, args_json}
                 completed_tool_calls: list[ToolCall] = []
@@ -390,7 +400,7 @@ class AssistantService:
                                     args = json.loads(acc["args_json"]) if acc["args_json"] else {}
                                 except json.JSONDecodeError:
                                     args = {}
-                                # Emit parsed args to frontend
+                                # 发送解析后的参数到前端
                                 yield format_sse("tool_call_args", {
                                     "type": "tool_call_args",
                                     "id": tc_id,
@@ -405,21 +415,21 @@ class AssistantService:
                                 completed_tool_calls = event.tool_calls
 
                 except Exception:
-                    logger.exception("Error during chat_stream for conversation %s", conv_id)
+                    logger.exception("模型流式调用异常 — 对话=%s", conv_id)
                     yield format_sse("error", {"type": "error", "message": "模型调用失败，请稍后重试"})
                     return
 
-                # Cancelled mid-stream
+                # 流中途被取消
                 if AssistantService._cancel_flags.get(conv_id, False):
-                    # Save whatever text we have so far
+                    # 保存已有的文本
                     if text_parts:
                         await self._save_assistant_message(conversation, text_parts, [])
                     yield format_sse("done", {"type": "done"})
                     break
 
-                # Process tool calls if any
+                # 处理工具调用（如有）
                 if completed_tool_calls:
-                    # Build assistant message blocks (text + tool_use blocks)
+                    # 构建助手消息块（text + tool_use 块）
                     assistant_blocks: list[dict] = []
                     full_text = "".join(text_parts)
                     if full_text:
@@ -432,7 +442,7 @@ class AssistantService:
                             "input": tc.arguments,
                         })
 
-                    # Save assistant message
+                    # 保存助手消息
                     assistant_msg = ConversationMessage(
                         conversation_id=conversation.id,
                         role="assistant",
@@ -442,7 +452,7 @@ class AssistantService:
                     self.db.add(assistant_msg)
                     await self.db.flush()
 
-                    # Append to api_messages in OpenAI format for adapter compatibility
+                    # 以 OpenAI 格式追加到 api_messages 以兼容 adapter
                     openai_tool_calls = [
                         {
                             "id": tc.id,
@@ -460,14 +470,15 @@ class AssistantService:
                         "tool_calls": openai_tool_calls,
                     })
 
-                    # Execute each tool
+                    # 逐个执行工具
                     for tc in completed_tool_calls:
                         if AssistantService._cancel_flags.get(conv_id, False):
                             break
 
-                        # --- ask_user interception ---
+                        # --- ask_user 拦截 ---
                         if tc.name == "ask_user":
-                            # Normalize to questions array (handles legacy single-question format)
+                            logger.info("ask_user 暂停 — 对话=%s, tool_call_id=%s", conv_id, tc.id)
+                            # 归一化为 questions 数组（兼容旧版单问题格式）
                             questions = tc.arguments.get("questions")
                             if not questions:
                                 questions = [{
@@ -482,10 +493,9 @@ class AssistantService:
                                 "questions": questions,
                             })
 
-                            # Insert placeholder tool_results for all remaining
-                            # tool_calls (including this ask_user's siblings that
-                            # haven't been executed) to keep tool_use/tool_result
-                            # pairs complete.
+                            # 为所有剩余的 tool_calls 插入占位 tool_results
+                            # （包括 ask_user 的同级未执行调用），保持
+                            # tool_use/tool_result 配对完整。
                             current_idx = completed_tool_calls.index(tc)
                             for remaining_tc in completed_tool_calls[current_idx + 1:]:
                                 skip_blocks: list[dict] = [{
@@ -502,14 +512,15 @@ class AssistantService:
                                 )
                                 self.db.add(skip_msg)
 
-                            # Pause the loop
+                            # 暂停循环
                             conversation.status = "pending_answer"
                             conversation.pending_tool_call_id = tc.id
                             await self.db.commit()
                             yield format_sse("done", {"type": "done"})
                             return
 
-                        # --- Normal tool execution ---
+                        # --- 常规工具执行 ---
+                        logger.info("工具调用开始 — 工具=%s, 对话=%s", tc.name, conv_id)
                         handler = registry.get_handler(tc.name)
                         if handler is None:
                             result_content = f"错误：未知工具 {tc.name}"
@@ -518,8 +529,9 @@ class AssistantService:
                             try:
                                 result_content = await handler.execute(tc.arguments, tool_ctx)
                                 is_error = False
+                                logger.info("工具调用完成 — 工具=%s, 对话=%s", tc.name, conv_id)
                             except Exception:
-                                logger.exception("Tool %s execution failed", tc.name)
+                                logger.exception("工具执行失败 — 工具=%s, 对话=%s", tc.name, conv_id)
                                 result_content = f"工具执行失败: {tc.name}"
                                 is_error = True
 
@@ -530,7 +542,7 @@ class AssistantService:
                             "is_error": is_error,
                         })
 
-                        # Save tool result message
+                        # 保存工具结果消息
                         result_blocks: list[dict] = [{
                             "type": "tool_result",
                             "tool_call_id": tc.id,
@@ -546,8 +558,8 @@ class AssistantService:
                         self.db.add(tool_msg)
                         await self.db.flush()
 
-                        # Append to api_messages (encode error status in content
-                        # text — OpenAI API rejects unknown fields like is_error)
+                        # 追加到 api_messages（将错误状态编码到内容文本中
+                        # — OpenAI API 拒绝 is_error 等未知字段）
                         api_content = f"[ERROR] {result_content}" if is_error else result_content
                         api_messages.append({
                             "role": "tool",
@@ -555,24 +567,24 @@ class AssistantService:
                             "content": api_content,
                         })
 
-                    # Update tool call count and enforce limit
+                    # 更新工具调用计数并检查限制
                     tool_call_count += len(completed_tool_calls)
                     if tool_call_count >= MAX_TOOL_CALLS_PER_TURN:
                         logger.info(
-                            "Tool call limit reached (%d) for conversation %s",
+                            "工具调用次数达到上限 — 次数=%d, 对话=%s",
                             tool_call_count, conv_id,
                         )
-                        current_tools = None  # Force final text response
+                        current_tools = None  # 强制最终文本响应
 
-                    # Continue loop for next model turn
+                    # 继续循环进入下一轮模型调用
                     continue
 
-                # No tool calls — this is the final text response
+                # 无工具调用 — 这是最终文本响应
                 full_text = "".join(text_parts)
                 if full_text:
                     await self._save_assistant_message(conversation, text_parts, [])
 
-                # Emit token usage
+                # 发送 token 使用量
                 total_tokens = conversation.token_count + estimate_message_tokens(
                     [{"type": "text", "text": full_text}]
                 ) if full_text else conversation.token_count
@@ -585,13 +597,14 @@ class AssistantService:
                     "max_tokens": max_context,
                     "ratio": round(total_tokens / max_context, 4),
                 })
+                logger.info("流式响应结束 — 对话=%s, 工具调用次数=%d", conv_id, tool_call_count)
                 yield format_sse("done", {"type": "done"})
                 break
         finally:
             AssistantService._cancel_flags.pop(conv_id, None)
 
     # ------------------------------------------------------------------
-    # Private helpers
+    # 内部方法
     # ------------------------------------------------------------------
 
     async def _apply_title_update(
@@ -599,7 +612,7 @@ class AssistantService:
         conversation: Conversation,
         title_data: dict[str, str],
     ) -> str:
-        """Persist the generated title and return the SSE event string."""
+        """持久化生成的标题并返回 SSE 事件字符串。"""
         conversation.title = title_data["title"]
         await self.db.flush()
         return format_sse("title_update", {
@@ -615,7 +628,7 @@ class AssistantService:
         adapter: BaseAIAdapter,
         title_queue: asyncio.Queue,
     ) -> None:
-        """Background task: call LLM to generate a conversation title, put result into queue."""
+        """后台任务：调用 LLM 生成对话标题，将结果放入队列。"""
         try:
             prompt = TITLE_GENERATION_PROMPT.format(user_message=user_message[:200])
             response = await adapter.async_chat(
@@ -623,8 +636,9 @@ class AssistantService:
                 tools=None,
             )
             title = (response.text or "").strip()[:30] or user_message[:20]
+            logger.info("标题生成完成 — 对话=%s, 标题=%s", conversation_id, title)
         except Exception:
-            logger.warning("Title generation failed for %s, falling back", conversation_id)
+            logger.warning("标题生成失败，使用回退 — 对话=%s", conversation_id)
             title = user_message[:20]
 
         await title_queue.put({
@@ -639,7 +653,7 @@ class AssistantService:
         *,
         with_messages: bool = False,
     ) -> Conversation:
-        """Load a conversation and verify ownership."""
+        """加载对话并验证所有权。"""
         stmt = select(Conversation).where(Conversation.id == conversation_id)
         if with_messages:
             stmt = stmt.options(selectinload(Conversation.messages))
@@ -653,7 +667,7 @@ class AssistantService:
         return conversation
 
     async def _get_adapter(self, admin_id: uuid.UUID) -> BaseAIAdapter | None:
-        """Resolve the active model config for the admin and create an adapter."""
+        """解析管理员的活跃模型配置并创建 adapter。"""
         result = await self.db.execute(
             select(ModelConfig).where(
                 ModelConfig.admin_id == admin_id,
@@ -670,7 +684,7 @@ class AssistantService:
         admin_id: uuid.UUID,
         class_id: uuid.UUID | None,
     ) -> str:
-        """Build the system prompt with class context if available."""
+        """根据班级上下文构建 system prompt。"""
         if class_id:
             cls = await self.db.get(Class, class_id)
             if cls:
@@ -682,7 +696,7 @@ class AssistantService:
                     class_id=str(cls.id),
                     admin_name=admin_name,
                 )
-        # Fallback: no specific class context
+        # 回退：无特定班级上下文
         return build_system_prompt(
             class_name="未指定班级",
             class_id="",
@@ -695,7 +709,7 @@ class AssistantService:
         text_parts: list[str],
         tool_use_blocks: list[dict],
     ) -> ConversationMessage:
-        """Save a complete assistant message to the database."""
+        """保存完整的助手消息到数据库。"""
         blocks: list[dict] = []
         full_text = "".join(text_parts)
         if full_text:

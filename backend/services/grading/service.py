@@ -28,7 +28,7 @@ def _build_feedback(
     review: StandardReviewResult | None,
     highlight: HighlightResult | None,
 ) -> dict:
-    """Merge results from both agents into a flat feedback dict."""
+    """合并两个 Agent 的结果为扁平反馈字典。"""
     return {
         "dimensions": review.dimensions if review else [],
         "improvements": review.improvements if review else [],
@@ -38,7 +38,7 @@ def _build_feedback(
 
 
 async def grade_submission(submission_id: uuid.UUID) -> None:
-    """Background task: grade a submission using dual-agent review."""
+    """后台任务：使用双 Agent 批改提交。"""
     async with async_session_factory() as db:
         try:
             result = await db.execute(
@@ -46,20 +46,22 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
             )
             submission = result.scalar_one_or_none()
             if not submission:
-                logger.error("Submission %s not found", submission_id)
+                logger.error("提交不存在 — id=%s", submission_id)
                 return
 
             submission.status = "grading"
             await db.commit()
 
-            # Query chain: Task -> Class -> ModelConfig
+            logger.info("批改开始 — 提交=%s, 类型=%s", submission_id, submission.content_type)
+
+            # 查询链：Task -> Class -> ModelConfig
             result = await db.execute(
                 select(Task).where(Task.id == submission.task_id)
             )
             task = result.scalar_one_or_none()
             if not task:
                 logger.error(
-                    "Task %s not found for submission %s",
+                    "作业不存在 — 作业=%s, 提交=%s",
                     submission.task_id,
                     submission_id,
                 )
@@ -72,7 +74,7 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
             )
             cls = result.scalar_one_or_none()
             if not cls:
-                logger.error("Class %s not found for task %s", task.class_id, task.id)
+                logger.error("班级不存在 — 班级=%s, 作业=%s", task.class_id, task.id)
                 submission.status = "failed"
                 await db.commit()
                 return
@@ -85,7 +87,7 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
             )
             model_config = result.scalar_one_or_none()
             if not model_config:
-                logger.error("No active model for admin %s", cls.created_by)
+                logger.error("无可用模型 — 管理员=%s", cls.created_by)
                 submission.status = "failed"
                 await db.commit()
                 return
@@ -99,13 +101,13 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
                 ),
             }
 
-            file_paths: list[str] = submission.file_path  # JSON array
+            file_paths: list[str] = submission.file_path  # JSON 数组
 
             if submission.content_type == "image":
-                # VLM capability check
+                # 视觉能力检查
                 if not model_config.supports_vision:
                     logger.info(
-                        "Model %s does not support vision, marking submission %s as manual_review",
+                        "模型不支持视觉 — 模型=%s, 提交=%s, 转为人工批改",
                         model_config.name,
                         submission_id,
                     )
@@ -113,7 +115,7 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
                     await db.commit()
                     return
 
-                # Read all images from storage
+                # 从存储读取所有图片
                 images: list[tuple[bytes, str]] = []
                 total_size = 0
                 for path in file_paths:
@@ -125,7 +127,7 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
                     total_size += len(img_bytes)
 
                 logger.info(
-                    "Submission %s: %d images, total %.1f MB",
+                    "图片读取完成 — 提交=%s, 数量=%d, 总大小=%.1fMB",
                     submission_id,
                     len(images),
                     total_size / (1024 * 1024),
@@ -133,13 +135,13 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
                 context["images"] = images
                 context["submission_content"] = ""
             else:
-                # Text / file: read content as string (file_path is a JSON array, take first)
+                # 文本/文件：读取内容字符串（file_path 是 JSON 数组，取第一个）
                 content = await asyncio.to_thread(
                     storage_service.get_text, file_paths[0],
                 )
                 context["submission_content"] = content
 
-            # Run both agents in parallel
+            # 并行运行两个 Agent
             results = await asyncio.gather(
                 run_standard_reviewer(adapter, context),
                 run_highlight_discoverer(adapter, context),
@@ -153,9 +155,9 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
             highlight_ok = isinstance(highlight_result, HighlightResult)
 
             if not review_ok and not highlight_ok:
-                # Both agents failed
+                # 两个 Agent 都失败
                 logger.error(
-                    "Both agents failed for submission %s: reviewer=%s, highlighter=%s",
+                    "双 Agent 均失败 — 提交=%s, 评审=%s, 亮点=%s",
                     submission_id,
                     review_result,
                     highlight_result,
@@ -169,19 +171,19 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
 
             if not review_ok:
                 logger.warning(
-                    "Standard reviewer failed for submission %s: %s",
+                    "标准评审 Agent 失败 — 提交=%s, 错误=%s",
                     submission_id,
                     review_result,
                 )
 
             if not highlight_ok:
                 logger.warning(
-                    "Highlight discoverer failed for submission %s: %s",
+                    "亮点发现 Agent 失败 — 提交=%s, 错误=%s",
                     submission_id,
                     highlight_result,
                 )
 
-            # Final score: max of available scores
+            # 最终得分：取可用分数的最大值
             scores = []
             if review:
                 scores.append(review.score)
@@ -196,18 +198,18 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
             await db.commit()
 
             logger.info(
-                "Submission %s graded: score=%s (reviewer=%s, highlighter=%s)",
+                "批改完成 — 提交=%s, 得分=%.1f (评审=%s, 亮点=%s)",
                 submission_id,
                 final_score,
-                review.score if review else "FAILED",
-                highlight.score if highlight else "FAILED",
+                review.score if review else "失败",
+                highlight.score if highlight else "失败",
             )
 
         except Exception:
-            logger.exception("Grading failed for submission %s", submission_id)
+            logger.exception("批改异常 — 提交=%s", submission_id)
             try:
                 if "submission" in locals() and submission is not None:
                     submission.status = "failed"
                     await db.commit()
             except Exception:
-                logger.exception("Failed to update submission status to failed")
+                logger.exception("更新提交状态为 failed 时出错")

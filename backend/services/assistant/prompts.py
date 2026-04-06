@@ -1,4 +1,4 @@
-"""System prompt templates for the AI assistant."""
+"""AI 助手的 system prompt 模板。"""
 
 ASSISTANT_SYSTEM_PROMPT = """\
 你是"{class_name}"班级的 AI 助教，由教师{admin_name}管理。你通过对话和工具帮助教师高效完成教学管理事务。
@@ -251,7 +251,7 @@ TITLE_GENERATION_PROMPT = """\
 
 
 def _build_skills_section() -> str:
-    """Dynamically build the skills table from SKILL.md frontmatter."""
+    """从 SKILL.md frontmatter 动态构建技能表格。"""
     from services.assistant.tools.skill_tools import discover_skills
 
     skills = discover_skills()
@@ -269,7 +269,7 @@ def build_system_prompt(
     class_id: str,
     admin_name: str,
 ) -> str:
-    """Inject class context and skill metadata into the system prompt."""
+    """将班级上下文和技能元数据注入 system prompt。"""
     return ASSISTANT_SYSTEM_PROMPT.format(
         class_name=class_name,
         class_id=class_id,

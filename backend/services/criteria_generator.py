@@ -66,7 +66,7 @@ TAVILY_TOOL = ToolDefinition(
 
 
 def execute_tavily_search(query: str) -> str:
-    """Call Tavily API and format results as markdown."""
+    """调用 Tavily API 并将结果格式化为 markdown。"""
     client = TavilyClient(api_key=TAVILY_API_KEY)
     response = client.search(
         query=query,
@@ -81,12 +81,12 @@ def execute_tavily_search(query: str) -> str:
 
     parts = []
 
-    # Include the AI-generated answer if present
+    # 包含 AI 生成的摘要答案（如有）
     if response.get("answer"):
         parts.append(f"**Answer:** {response['answer']}")
         parts.append("---")
 
-    # Include individual results — only extract raw_content, url, title
+    # 包含各条搜索结果 — 仅提取 raw_content、url、title
     for result in response.get("results", []):
         title = result.get("title", "Untitled")
         url = result.get("url", "")
@@ -97,10 +97,9 @@ def execute_tavily_search(query: str) -> str:
 
 
 async def generate_criteria(title: str, description: str, model_config: "ModelConfig") -> str:
-    """Generate grading criteria using the given model with ReAct loop.
+    """使用指定模型通过 ReAct 循环生成评分标准。
 
-    The model can search for documentation via Tavily before generating
-    the final criteria in the standardized template format.
+    模型可在生成最终标准化模板前，通过 Tavily 搜索相关文档。
     """
     adapter = get_adapter(model_config)
 
@@ -112,7 +111,9 @@ async def generate_criteria(title: str, description: str, model_config: "ModelCo
     tools = [TAVILY_TOOL]
     tool_call_count = 0
 
-    # ReAct loop
+    logger.info("评分标准生成开始 — 任务=%s", title)
+
+    # ReAct 循环
     while True:
         response = await asyncio.to_thread(
             adapter.chat,
@@ -141,10 +142,11 @@ async def generate_criteria(title: str, description: str, model_config: "ModelCo
             for tc in response.tool_calls:
                 if tc.name == "tavily_search":
                     tool_call_count += 1
+                    logger.info("搜索工具调用 — query=%s", tc.arguments.get("query"))
                     try:
                         result = execute_tavily_search(tc.arguments["query"])
                     except Exception:
-                        logger.exception("Tavily search failed for query: %s", tc.arguments.get("query"))
+                        logger.exception("Tavily 搜索失败 — query=%s", tc.arguments.get("query"))
                         result = "Search failed. Please generate criteria based on your existing knowledge."
                 else:
                     result = f"Unknown tool: {tc.name}"
@@ -158,6 +160,7 @@ async def generate_criteria(title: str, description: str, model_config: "ModelCo
             continue
 
         if response.text:
+            logger.info("评分标准生成完成 — 任务=%s, 搜索次数=%d", title, tool_call_count)
             return response.text
 
         raise RuntimeError("Model returned empty response")

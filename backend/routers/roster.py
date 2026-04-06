@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,6 +25,8 @@ from schemas.roster import (
 from services.auth_service import hash_password
 from services.storage import storage_service
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(
     prefix="/api/admin/classes/{class_id}",
     tags=["roster"],
@@ -33,7 +36,7 @@ router = APIRouter(
 async def _verify_class_ownership(
     class_id: uuid.UUID, admin: TokenPayload, db: AsyncSession,
 ) -> Class:
-    """Verify class exists and belongs to admin."""
+    """验证班级存在且属于该管理员。"""
     result = await db.execute(
         select(Class).where(Class.id == class_id, Class.created_by == admin.id)
     )
@@ -51,13 +54,13 @@ async def list_roster(
 ):
     await _verify_class_ownership(class_id, admin, db)
 
-    # Class members (student_roster entries)
+    # 学生名单条目
     result = await db.execute(
         select(StudentRoster).where(StudentRoster.class_id == class_id)
     )
     roster_entries = result.scalars().all()
 
-    # Registered students (class_members JOIN users)
+    # 已注册学生（班级成员 JOIN 用户表）
     result = await db.execute(
         select(User, ClassMember.joined_at)
         .join(ClassMember, ClassMember.user_id == User.id)
@@ -65,7 +68,7 @@ async def list_roster(
     )
     actual_rows = result.all()
 
-    # Build set of registered usernames for matching
+    # 构建已注册用户名集合用于匹配
     registered_usernames = {user.username for user, _ in actual_rows}
 
     expected = [
@@ -95,6 +98,7 @@ async def add_student(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("添加学生到名单 — class_id=%s, student_id=%s", class_id, req.student_id)
     await _verify_class_ownership(class_id, admin, db)
 
     result = await db.execute(
@@ -104,6 +108,7 @@ async def add_student(
         )
     )
     if result.scalar_one_or_none():
+        logger.warning("添加学生失败 — 学号已存在, student_id=%s", req.student_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="该学号已在名单中",
@@ -122,6 +127,7 @@ async def batch_import(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("批量导入学生名单 — class_id=%s, 数量=%d", class_id, len(req.student_ids))
     await _verify_class_ownership(class_id, admin, db)
 
     result = await db.execute(
@@ -152,7 +158,8 @@ async def delete_student(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a student_id from the class member list."""
+    """从班级名单中删除学号。"""
+    logger.info("删除名单学号 — class_id=%s, student_id=%s", class_id, student_id)
     await _verify_class_ownership(class_id, admin, db)
 
     result = await db.execute(
@@ -163,6 +170,7 @@ async def delete_student(
     )
     entry = result.scalar_one_or_none()
     if not entry:
+        logger.warning("删除名单学号失败 — 学号不存在, student_id=%s", student_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="学号不在名单中",
@@ -179,7 +187,8 @@ async def batch_delete_students(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Batch delete student_ids from the class roster."""
+    """批量删除名单学号。"""
+    logger.info("批量删除名单学号 — class_id=%s, 数量=%d", class_id, len(req.student_ids))
     await _verify_class_ownership(class_id, admin, db)
 
     result = await db.execute(
@@ -199,10 +208,11 @@ async def batch_remove_members(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Batch remove students from this class. Deletes memberships + class-scoped data."""
+    """批量移除班级成员，删除成员关系及班级内数据。"""
+    logger.info("批量移除班级成员 — class_id=%s, 数量=%d", class_id, len(req.user_ids))
     await _verify_class_ownership(class_id, admin, db)
 
-    # Verify which user_ids are actual members
+    # 验证哪些 user_id 确实是该班级的成员
     result = await db.execute(
         select(ClassMember.user_id).where(
             ClassMember.class_id == class_id,
@@ -213,7 +223,7 @@ async def batch_remove_members(
     if not verified_ids:
         return MemberBatchRemoveResponse(removed=0)
 
-    # Collect submissions for MinIO cleanup
+    # 收集提交记录的文件路径用于清理存储
     task_ids_stmt = select(Task.id).where(Task.class_id == class_id)
     result = await db.execute(
         select(Submission).where(
@@ -224,7 +234,7 @@ async def batch_remove_members(
     submissions = result.scalars().all()
     file_paths = [s.file_path for s in submissions if s.file_path]
 
-    # Delete submissions
+    # 删除提交记录
     if submissions:
         await db.execute(
             delete(Submission).where(
@@ -233,7 +243,7 @@ async def batch_remove_members(
             )
         )
 
-    # Delete topic votes
+    # 删除投票记录
     topic_ids_stmt = select(SharingTopic.id).where(SharingTopic.class_id == class_id)
     await db.execute(
         delete(TopicVote).where(
@@ -242,7 +252,7 @@ async def batch_remove_members(
         )
     )
 
-    # Delete class_members records
+    # 删除班级成员关系
     await db.execute(
         delete(ClassMember).where(
             ClassMember.class_id == class_id,
@@ -252,7 +262,7 @@ async def batch_remove_members(
 
     await db.commit()
 
-    # Clean up MinIO files
+    # 清理 MinIO 中的文件
     if file_paths:
         await asyncio.to_thread(storage_service.remove_objects, file_paths)
 
@@ -266,10 +276,11 @@ async def reset_student_password(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Reset a student's password. Teacher-initiated, does not count toward limit."""
+    """重置学生密码（教师发起，不计入修改次数限制）。"""
+    logger.info("重置学生密码 — class_id=%s, user_id=%s", class_id, req.user_id)
     await _verify_class_ownership(class_id, admin, db)
 
-    # Verify user is a member of this class
+    # 验证用户是该班级成员
     result = await db.execute(
         select(ClassMember).where(
             ClassMember.user_id == req.user_id,
@@ -277,6 +288,7 @@ async def reset_student_password(
         )
     )
     if not result.scalar_one_or_none():
+        logger.warning("重置学生密码失败 — 学生不在班级中, user_id=%s", req.user_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="该学生不在此班级中",
@@ -285,6 +297,7 @@ async def reset_student_password(
     result = await db.execute(select(User).where(User.id == req.user_id))
     user = result.scalar_one_or_none()
     if not user:
+        logger.warning("重置学生密码失败 — 用户不存在, user_id=%s", req.user_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在",
@@ -302,10 +315,11 @@ async def remove_member(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Remove a student from this class. Deletes membership + class-scoped submissions."""
+    """移除班级成员，删除成员关系及班级内提交记录。"""
+    logger.info("移除班级成员 — class_id=%s, user_id=%s", class_id, user_id)
     await _verify_class_ownership(class_id, admin, db)
 
-    # Verify membership exists
+    # 验证成员关系存在
     result = await db.execute(
         select(ClassMember).where(
             ClassMember.user_id == user_id,
@@ -314,12 +328,13 @@ async def remove_member(
     )
     member = result.scalar_one_or_none()
     if not member:
+        logger.warning("移除班级成员失败 — 学生不在班级中, user_id=%s", user_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="该学生不在此班级中",
         )
 
-    # Collect submissions for this student in this class's tasks
+    # 收集该学生在该班级任务下的提交记录
     task_ids_stmt = select(Task.id).where(Task.class_id == class_id)
     result = await db.execute(
         select(Submission).where(
@@ -330,7 +345,7 @@ async def remove_member(
     submissions = result.scalars().all()
     file_paths = [s.file_path for s in submissions if s.file_path]
 
-    # Delete submissions
+    # 删除提交记录
     if submissions:
         await db.execute(
             delete(Submission).where(
@@ -339,7 +354,7 @@ async def remove_member(
             )
         )
 
-    # Delete topic votes for topics in this class
+    # 删除该班级下的投票记录
     topic_ids_stmt = select(SharingTopic.id).where(SharingTopic.class_id == class_id)
     await db.execute(
         delete(TopicVote).where(
@@ -348,10 +363,10 @@ async def remove_member(
         )
     )
 
-    # Delete class_members record
+    # 删除班级成员关系
     await db.delete(member)
     await db.commit()
 
-    # Clean up MinIO files
+    # 清理 MinIO 中的文件
     if file_paths:
         await asyncio.to_thread(storage_service.remove_objects, file_paths)

@@ -24,7 +24,7 @@ def _json(data: object) -> str:
 async def _verify_class_ownership(
     class_id: uuid.UUID, ctx: ToolContext,
 ) -> Class | None:
-    """Return the Class if it belongs to the admin, otherwise None."""
+    """如果班级属于该管理员则返回 Class，否则返回 None。"""
     result = await ctx.db.execute(
         select(Class).where(Class.id == class_id, Class.created_by == ctx.admin_id)
     )
@@ -32,7 +32,7 @@ async def _verify_class_ownership(
 
 
 def _resolve_class_id(args: dict, ctx: ToolContext) -> uuid.UUID | None:
-    """Extract class_id from args, falling back to ctx.class_id."""
+    """从 args 中提取 class_id，回退到 ctx.class_id。"""
     raw = args.get("class_id") or ctx.class_id
     if raw is None:
         return None
@@ -40,7 +40,7 @@ def _resolve_class_id(args: dict, ctx: ToolContext) -> uuid.UUID | None:
 
 
 # ---------------------------------------------------------------------------
-# 1. list_classes (unchanged)
+# 1. list_classes
 # ---------------------------------------------------------------------------
 
 async def execute_list_classes(args: dict, ctx: ToolContext) -> str:
@@ -82,7 +82,7 @@ async def execute_list_classes(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 2. query_class — merged from list_tasks + list_roster + list_sharing_topics
+# 2. query_class — 合并自 list_tasks + list_roster + list_sharing_topics
 # ---------------------------------------------------------------------------
 
 async def _query_tasks(class_id: uuid.UUID, args: dict, ctx: ToolContext) -> str:
@@ -201,7 +201,7 @@ async def execute_query_class(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 3. get_task — merged from get_task_detail + get_task_stats
+# 3. get_task — 合并自 get_task_detail + get_task_stats
 # ---------------------------------------------------------------------------
 
 async def execute_get_task(args: dict, ctx: ToolContext) -> str:
@@ -233,13 +233,13 @@ async def execute_get_task(args: dict, ctx: ToolContext) -> str:
     }
 
     if args.get("include_stats"):
-        # Total expected students from roster
+        # 从名单获取预期学生总数
         result = await ctx.db.execute(
             select(func.count(StudentRoster.id)).where(StudentRoster.class_id == task.class_id)
         )
         total_students = result.scalar_one()
 
-        # All submissions, ordered for latest-version extraction
+        # 所有提交，按顺序排列用于提取最新版本
         result = await ctx.db.execute(
             select(Submission)
             .where(Submission.task_id == task.id)
@@ -247,7 +247,7 @@ async def execute_get_task(args: dict, ctx: ToolContext) -> str:
         )
         submissions = result.scalars().all()
 
-        # Keep only latest version per student
+        # 仅保留每个学生的最新版本
         latest_by_student: dict[uuid.UUID, Submission] = {}
         for s in submissions:
             if s.student_id not in latest_by_student:
@@ -259,7 +259,7 @@ async def execute_get_task(args: dict, ctx: ToolContext) -> str:
         scores = [s.score for s in latest_by_student.values() if s.score is not None]
         avg_score = sum(scores) / len(scores) if scores else None
 
-        # Resolve usernames
+        # 解析用户名
         submitted_ids = list(latest_by_student.keys())
         username_map: dict[uuid.UUID, str] = {}
         if submitted_ids:
@@ -292,7 +292,7 @@ async def execute_get_task(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 4. query_submissions — merged from get_student_submissions + get_submission_content
+# 4. query_submissions — 合并自 get_student_submissions + get_submission_content
 # ---------------------------------------------------------------------------
 
 async def _query_single_submission(
@@ -305,7 +305,7 @@ async def _query_single_submission(
     if not submission:
         return _json({"error": "提交记录不存在"})
 
-    # Verify ownership via task's class
+    # 通过作业所属班级验证所有权
     result = await ctx.db.execute(select(Task).where(Task.id == submission.task_id))
     task = result.scalar_one_or_none()
     if not task or not await _verify_class_ownership(task.class_id, ctx):
@@ -343,7 +343,7 @@ async def _query_single_submission(
 async def _query_submissions_by_student(
     student_id: uuid.UUID, task_id: uuid.UUID | None, ctx: ToolContext,
 ) -> str:
-    # Verify student belongs to one of admin's classes
+    # 验证学生属于管理员的某个班级
     result = await ctx.db.execute(
         select(ClassMember).where(
             ClassMember.user_id == student_id,
@@ -368,7 +368,7 @@ async def _query_submissions_by_student(
     result = await ctx.db.execute(stmt)
     submissions = result.scalars().all()
 
-    # Resolve task titles
+    # 解析作业标题
     task_ids = list({s.task_id for s in submissions})
     task_map: dict[uuid.UUID, str] = {}
     if task_ids:
@@ -412,7 +412,7 @@ async def _query_submissions_by_task(task_id: uuid.UUID, ctx: ToolContext) -> st
     )
     submissions = result.scalars().all()
 
-    # Resolve usernames
+    # 解析用户名
     student_ids = list({s.student_id for s in submissions})
     username_map: dict[uuid.UUID, str] = {}
     if student_ids:
@@ -445,7 +445,7 @@ async def execute_query_submissions(args: dict, ctx: ToolContext) -> str:
     if not any([submission_id_raw, student_id_raw, task_id_raw]):
         return _json({"error": "请至少指定 submission_id、student_id 或 task_id 中的一个"})
 
-    # Priority: submission_id > student_id > task_id
+    # 优先级: submission_id > student_id > task_id
     if submission_id_raw:
         include_content = bool(args.get("include_content"))
         return await _query_single_submission(
@@ -458,12 +458,12 @@ async def execute_query_submissions(args: dict, ctx: ToolContext) -> str:
             uuid.UUID(str(student_id_raw)), task_id, ctx,
         )
 
-    # Only task_id provided
+    # 仅提供了 task_id
     return await _query_submissions_by_task(uuid.UUID(str(task_id_raw)), ctx)
 
 
 # ---------------------------------------------------------------------------
-# Registration
+# 注册
 # ---------------------------------------------------------------------------
 
 def register_query_tools(reg: ToolRegistry) -> None:

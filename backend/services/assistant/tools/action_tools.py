@@ -26,6 +26,7 @@ def _json(data: object) -> str:
 async def _verify_class_ownership(
     class_id: uuid.UUID, ctx: ToolContext,
 ) -> Class | None:
+    """如果班级属于该管理员则返回 Class，否则返回 None。"""
     result = await ctx.db.execute(
         select(Class).where(Class.id == class_id, Class.created_by == ctx.admin_id)
     )
@@ -44,7 +45,7 @@ async def execute_manage_class(args: dict, ctx: ToolContext) -> str:
         if not name:
             return _json({"error": "请提供班级名称"})
 
-        # Check uniqueness under this admin
+        # 检查该管理员下班级名称唯一性
         existing = await ctx.db.execute(
             select(Class).where(
                 Class.name == name, Class.created_by == ctx.admin_id,
@@ -140,7 +141,7 @@ async def _task_create(args: dict, ctx: ToolContext) -> str:
     if not cls:
         return _json({"error": "班级不存在或无权访问"})
 
-    # Resolve learning_resources URLs from search records
+    # 从搜索记录解析 learning_resources URL
     lr_urls = args.get("learning_resources") or []
     learning_resources = None
     rejected_urls: list[str] = []
@@ -152,7 +153,7 @@ async def _task_create(args: dict, ctx: ToolContext) -> str:
             )
         )
         matched = result.scalars().all()
-        # Deduplicate by URL (same URL may appear in multiple search rounds)
+        # 按 URL 去重（同一 URL 可能出现在多次搜索中）
         seen: dict[str, SearchResult] = {}
         for r in matched:
             if r.url not in seen:
@@ -219,7 +220,7 @@ async def _task_update(args: dict, ctx: ToolContext) -> str:
             continue
         value = args[field]
         if field == "learning_resources":
-            # URL string list from LLM -> resolve from SearchResult
+            # LLM 返回的 URL 字符串列表 -> 从 SearchResult 解析
             if isinstance(value, list) and value and isinstance(value[0], str):
                 if ctx.conversation_id:
                     result = await ctx.db.execute(
@@ -229,7 +230,7 @@ async def _task_update(args: dict, ctx: ToolContext) -> str:
                         )
                     )
                     matched = result.scalars().all()
-                    # Deduplicate by URL
+                    # 按 URL 去重
                     seen_urls: dict[str, SearchResult] = {}
                     for r in matched:
                         if r.url not in seen_urls:
@@ -316,20 +317,20 @@ async def _task_delete(args: dict, ctx: ToolContext) -> str:
 
     task_title = task.title
 
-    # Collect file paths from submissions for MinIO cleanup
+    # 收集提交的文件路径用于 MinIO 清理
     sub_result = await ctx.db.execute(
         select(Submission.file_path).where(Submission.task_id == task_id)
     )
     file_paths = [row[0] for row in sub_result.all() if row[0]]
 
-    # Delete submissions then task
+    # 先删提交再删作业
     await ctx.db.execute(
         Submission.__table__.delete().where(Submission.task_id == task_id)
     )
     await ctx.db.delete(task)
     await ctx.db.commit()
 
-    # Async cleanup of MinIO files (best-effort)
+    # 异步清理 MinIO 文件（尽力而为）
     if file_paths:
         await asyncio.to_thread(storage_service.remove_objects, file_paths)
 
@@ -429,7 +430,7 @@ async def _topic_update(args: dict, ctx: ToolContext) -> str:
     if not cls:
         return _json({"error": "无权访问该主题"})
 
-    # Field-level update (exclude_unset semantics)
+    # 字段级更新（exclude_unset 语义）
     updatable_fields = ("title", "status", "presenters", "session_number", "shared_at", "materials_content")
     updated = []
     for field in updatable_fields:
@@ -438,13 +439,13 @@ async def _topic_update(args: dict, ctx: ToolContext) -> str:
 
         value = args[field]
 
-        # String fields: strip and reject empty for title
+        # 字符串字段：trim 后标题不允许为空
         if field == "title":
             value = (value or "").strip()
             if not value:
                 return _json({"error": "标题不能为空"})
 
-        # Parse shared_at
+        # 解析 shared_at
         if field == "shared_at" and value is not None:
             try:
                 value = datetime.fromisoformat(str(value))
@@ -459,7 +460,7 @@ async def _topic_update(args: dict, ctx: ToolContext) -> str:
     if not updated:
         return _json({"error": "未提供任何需要更新的字段"})
 
-    # Status validation: completed requires presenters + session_number
+    # 状态校验：completed 需要 presenters + session_number
     if topic.status == "completed":
         if not topic.presenters:
             return _json({"error": "已分享状态需要填写汇报人"})
@@ -499,7 +500,7 @@ async def _topic_delete(args: dict, ctx: ToolContext) -> str:
         return _json({"error": "无权访问该主题"})
 
     topic_title = topic.title
-    # TopicVote cascade deletes via FK relationship
+    # TopicVote 通过 FK 关系级联删除
     await ctx.db.delete(topic)
     await ctx.db.commit()
 
@@ -510,7 +511,7 @@ async def _topic_delete(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 4. import_roster (unchanged)
+# 4. import_roster
 # ---------------------------------------------------------------------------
 
 async def execute_import_roster(args: dict, ctx: ToolContext) -> str:
@@ -527,7 +528,7 @@ async def execute_import_roster(args: dict, ctx: ToolContext) -> str:
     if not cls:
         return _json({"error": "班级不存在或无权访问"})
 
-    # Check existing entries
+    # 检查已有记录
     result = await ctx.db.execute(
         select(StudentRoster.student_id).where(
             StudentRoster.student_id.in_(student_ids),
@@ -558,7 +559,7 @@ async def execute_import_roster(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Registration
+# 注册
 # ---------------------------------------------------------------------------
 
 def register_action_tools(reg: ToolRegistry) -> None:

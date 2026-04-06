@@ -18,7 +18,7 @@ from services.grading.prompts import (
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 2  # 3 attempts total
+MAX_RETRIES = 2  # 共 3 次尝试
 
 
 @dataclass
@@ -36,14 +36,13 @@ class HighlightResult:
 
 
 class GradingParseError(Exception):
-    """Raised when LLM response cannot be parsed into valid grading result."""
+    """LLM 响应无法解析为有效批改结果时抛出。"""
 
 
 def parse_json_response(raw: str) -> dict:
-    """Extract JSON object from LLM response text.
+    """从 LLM 响应文本中提取 JSON 对象。
 
-    Tries direct parse first, then falls back to regex extraction
-    for responses wrapped in markdown code blocks or mixed text.
+    先尝试直接解析，失败后回退到正则提取（处理 markdown 代码块或混合文本）。
     """
     try:
         return json.loads(raw)
@@ -61,7 +60,7 @@ def parse_json_response(raw: str) -> dict:
 
 
 def _validate_score(value: object) -> int:
-    """Validate and coerce score to int in [0, 100]."""
+    """校验并转换分数为 [0, 100] 范围内的整数。"""
     if not isinstance(value, (int, float)):
         raise GradingParseError(f"score must be numeric, got {type(value).__name__}")
     score = int(value)
@@ -71,7 +70,7 @@ def _validate_score(value: object) -> int:
 
 
 def validate_standard_review(data: dict) -> StandardReviewResult:
-    """Validate Agent 1 output and convert to typed result."""
+    """校验标准评审 Agent 输出并转换为类型化结果。"""
     score = _validate_score(data.get("score"))
 
     dimensions = data.get("dimensions")
@@ -101,7 +100,7 @@ def validate_standard_review(data: dict) -> StandardReviewResult:
 
 
 def validate_highlight(data: dict) -> HighlightResult:
-    """Validate Agent 2 output and convert to typed result."""
+    """校验亮点发现 Agent 输出并转换为类型化结果。"""
     score = _validate_score(data.get("score"))
 
     highlights = data.get("highlights")
@@ -115,7 +114,7 @@ def validate_highlight(data: dict) -> HighlightResult:
 
 
 def format_learning_resources(resources: list[dict] | None) -> str:
-    """Format Task.learning_resources array into prompt text."""
+    """将 Task.learning_resources 数组格式化为 prompt 文本。"""
     if not resources:
         return "无"
     parts = []
@@ -129,7 +128,7 @@ def _build_user_content(
     image_template: str,
     context: dict,
 ) -> str | list[dict]:
-    """Build user message content, using multimodal format when images are present."""
+    """构建用户消息内容，存在图片时使用多模态格式。"""
     images: list[tuple[bytes, str]] | None = context.get("images")
     if images:
         prompt_text = image_template.format(**context)
@@ -141,7 +140,7 @@ async def run_standard_reviewer(
     adapter: BaseAIAdapter,
     context: dict,
 ) -> StandardReviewResult:
-    """Execute the Standard Reviewer agent with retry on parse failure."""
+    """执行标准评审 Agent，解析失败时自动重试。"""
     user_content = _build_user_content(
         STANDARD_REVIEWER_USER, STANDARD_REVIEWER_USER_IMAGE, context,
     )
@@ -159,7 +158,7 @@ async def run_standard_reviewer(
         except (GradingParseError, KeyError, TypeError) as exc:
             last_error = exc
             logger.warning(
-                "Standard reviewer attempt %d/%d failed: %s",
+                "标准评审 Agent 第 %d/%d 次尝试失败: %s",
                 attempt + 1,
                 MAX_RETRIES + 1,
                 exc,
@@ -173,7 +172,7 @@ async def run_highlight_discoverer(
     adapter: BaseAIAdapter,
     context: dict,
 ) -> HighlightResult:
-    """Execute the Highlight Discoverer agent with retry on parse failure."""
+    """执行亮点发现 Agent，解析失败时自动重试。"""
     user_content = _build_user_content(
         HIGHLIGHT_DISCOVERER_USER, HIGHLIGHT_DISCOVERER_USER_IMAGE, context,
     )
@@ -191,7 +190,7 @@ async def run_highlight_discoverer(
         except (GradingParseError, KeyError, TypeError) as exc:
             last_error = exc
             logger.warning(
-                "Highlight discoverer attempt %d/%d failed: %s",
+                "亮点发现 Agent 第 %d/%d 次尝试失败: %s",
                 attempt + 1,
                 MAX_RETRIES + 1,
                 exc,

@@ -29,7 +29,7 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 
 async def _build_task_response(task: Task, db: AsyncSession) -> TaskResponse:
-    """Build a TaskResponse with joined class_name and created_by_name."""
+    """构建 TaskResponse，关联班级名称和创建者名称。"""
     cls = await db.get(Class, task.class_id)
     creator = await db.get(User, task.created_by)
     return TaskResponse(
@@ -49,7 +49,7 @@ async def _build_task_response(task: Task, db: AsyncSession) -> TaskResponse:
 
 
 async def _verify_task_ownership(task: Task, admin: TokenPayload, db: AsyncSession) -> None:
-    """Verify admin owns the class that this task belongs to."""
+    """验证管理员拥有该任务所属的班级。"""
     result = await db.execute(
         select(Class).where(Class.id == task.class_id, Class.created_by == admin.id)
     )
@@ -110,7 +110,9 @@ async def generate_criteria_endpoint(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Find admin's active model
+    logger.info("生成评分标准 — 管理员=%s, 标题=%s", admin.id, req.title)
+
+    # 查找管理员的活跃模型
     result = await db.execute(
         select(ModelConfig).where(
             ModelConfig.admin_id == admin.id,
@@ -119,6 +121,7 @@ async def generate_criteria_endpoint(
     )
     model_config = result.scalar_one_or_none()
     if not model_config:
+        logger.warning("生成评分标准失败 — 未配置活跃模型, 管理员=%s", admin.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="请先配置并激活 AI 模型",
@@ -130,7 +133,7 @@ async def generate_criteria_endpoint(
         criteria = await generate_criteria(req.title, req.description, model_config)
         return GenerateCriteriaResponse(criteria=criteria)
     except Exception:
-        logger.exception("Failed to generate criteria")
+        logger.exception("生成评分标准异常 — 管理员=%s", admin.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="生成失败，请稍后重试",
@@ -165,11 +168,14 @@ async def create_task(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify class belongs to admin
+    logger.info("创建任务 — 管理员=%s, 班级=%s, 标题=%s", admin.id, req.class_id, req.title)
+
+    # 验证班级属于该管理员
     result = await db.execute(
         select(Class).where(Class.id == req.class_id, Class.created_by == admin.id)
     )
     if not result.scalar_one_or_none():
+        logger.warning("创建任务失败 — 班级不存在, class_id=%s", req.class_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="班级不存在")
 
     task = Task(
@@ -192,7 +198,9 @@ async def batch_publish(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify all class_ids belong to admin
+    logger.info("批量发布任务 — 管理员=%s, 班级数=%d, 标题=%s", admin.id, len(req.class_ids), req.title)
+
+    # 验证所有班级属于该管理员
     result = await db.execute(
         select(Class).where(Class.id.in_(req.class_ids), Class.created_by == admin.id)
     )
@@ -200,13 +208,15 @@ async def batch_publish(
 
     if len(valid_classes) != len(req.class_ids):
         invalid = set(req.class_ids) - set(valid_classes.keys())
+        logger.warning("批量发布任务失败 — 无效班级 ID: %s", invalid)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"无效的班级 ID: {invalid}",
         )
 
-    # Validate content
+    # 校验内容完整性
     if not req.title.strip() or not req.description.strip() or not req.grading_criteria.strip():
+        logger.warning("批量发布任务失败 — 内容不完整")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="发布任务需要填写标题、任务说明和打分标准",
@@ -246,14 +256,18 @@ async def update_task(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("更新任务 — task_id=%s, 管理员=%s", task_id, admin.id)
+
     result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if not task:
+        logger.warning("更新任务失败 — 任务不存在, task_id=%s", task_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
 
     await _verify_task_ownership(task, admin, db)
 
     if task.status != "draft":
+        logger.warning("更新任务失败 — 已发布任务不可编辑, task_id=%s", task_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="已发布任务不可编辑",
         )
@@ -294,14 +308,17 @@ async def delete_task(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("删除任务 — task_id=%s, 管理员=%s", task_id, admin.id)
+
     result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if not task:
+        logger.warning("删除任务失败 — 任务不存在, task_id=%s", task_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
 
     await _verify_task_ownership(task, admin, db)
 
-    # Cascade: delete submissions and task, then clean up files
+    # 级联删除：先删提交记录和任务，再清理文件
     result = await db.execute(select(Submission).where(Submission.task_id == task_id))
     submissions = result.scalars().all()
     file_paths = [s.file_path for s in submissions if s.file_path]
@@ -329,14 +346,14 @@ async def get_task_stats(
 
     await _verify_task_ownership(task, admin, db)
 
-    # Get roster for the task's class
+    # 获取该班级的学生名单
     result = await db.execute(
         select(StudentRoster.student_id).where(StudentRoster.class_id == task.class_id)
     )
     all_student_ids = result.scalars().all()
     total_students = len(all_student_ids)
 
-    # Get submissions for this task
+    # 获取该任务的提交记录
     result = await db.execute(
         select(Submission)
         .where(Submission.task_id == task_id)
@@ -344,7 +361,7 @@ async def get_task_stats(
     )
     submissions = result.scalars().all()
 
-    # Build user_id -> username map for submitted students
+    # 构建 user_id → username 映射
     submitted_user_ids = {s.student_id for s in submissions}
     username_map: dict[uuid.UUID, str] = {}
     if submitted_user_ids:
@@ -353,7 +370,7 @@ async def get_task_stats(
         )
         username_map = {uid: uname for uid, uname in result.all()}
 
-    # Group by student: pick latest version, count total submissions
+    # 按学生分组：取最新版本，统计总提交次数
     latest_by_student: dict[uuid.UUID, Submission] = {}
     count_by_student: dict[uuid.UUID, int] = {}
     for s in submissions:
@@ -361,7 +378,7 @@ async def get_task_stats(
         if s.student_id not in latest_by_student:
             latest_by_student[s.student_id] = s
 
-    # Build set of submitted student_ids (usernames) for not_submitted calculation
+    # 构建已提交学号集合，用于计算未提交名单
     submitted_usernames = {username_map.get(uid, "") for uid in latest_by_student}
 
     submission_items = [

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class ToolContext:
-    """Execution context passed to every tool handler."""
+    """传递给每个工具处理器的执行上下文。"""
 
     user_id: uuid.UUID
     admin_id: uuid.UUID
@@ -25,14 +25,14 @@ class ToolContext:
     conversation_id: uuid.UUID | None = None
 
 
-# Type alias for tool execute functions:
+# 工具执行函数的类型别名：
 #   async def execute(args: dict, ctx: ToolContext) -> str
 ToolExecuteFn = Callable[[dict[str, Any], ToolContext], Coroutine[Any, Any, str]]
 
 
 @dataclass
 class ToolHandler:
-    """A registered tool: its AI-facing definition + runtime metadata."""
+    """已注册的工具：AI 可见的定义 + 运行时元数据。"""
 
     definition: ToolDefinition
     execute: ToolExecuteFn
@@ -42,7 +42,7 @@ class ToolHandler:
 
 
 class ToolRegistry:
-    """Central registry for all assistant tools."""
+    """所有助手工具的中央注册表。"""
 
     def __init__(self) -> None:
         self._handlers: dict[str, ToolHandler] = {}
@@ -51,7 +51,7 @@ class ToolRegistry:
         self._handlers[handler.definition.name] = handler
 
     def get_definitions(self, role: str) -> list[ToolDefinition]:
-        """Return tool definitions visible to the given role."""
+        """返回对给定角色可见的工具定义。"""
         return [
             h.definition
             for h in self._handlers.values()
@@ -66,5 +66,5 @@ class ToolRegistry:
         return handler.display_name if handler else name
 
 
-# Module-level singleton
+# 模块级单例
 registry = ToolRegistry()

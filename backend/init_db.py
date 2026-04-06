@@ -8,7 +8,7 @@ from config import ENV, SECRET_KEY, _DEFAULT_SECRET_KEY
 from database import async_session_factory
 from seed import run_seed
 
-# Import all models so Base.metadata knows about them
+# 导入所有模型，确保 Base.metadata 包含它们
 import models  # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ def _check_secret_key() -> None:
         )
 
     logger.warning(
-        "SECURITY WARNING: Using default SECRET_KEY. "
-        "Set SECRET_KEY environment variable for production use."
+        "安全警告: 正在使用默认 SECRET_KEY。"
+        "生产环境请设置 SECRET_KEY 环境变量。"
     )
 
 
@@ -38,13 +38,13 @@ def _alembic_config() -> Config:
     return cfg
 
 
-# Revision that matches the schema created by the old Base.metadata.create_all.
-# Used once to stamp existing databases, then never triggered again.
+# 对应旧版 Base.metadata.create_all 创建的 schema 的 revision。
+# 仅用于一次性 stamp 已有数据库，之后不再触发。
 _CREATE_ALL_REVISION = "6bafd916a45d"
 
 
 def _stamp_existing_database() -> None:
-    """One-time transition: if DB was built by create_all, stamp alembic_version."""
+    """一次性过渡：若数据库由 create_all 创建，则 stamp alembic_version。"""
     from sqlalchemy import create_engine, inspect
     from config import DATABASE_URL
 
@@ -56,14 +56,14 @@ def _stamp_existing_database() -> None:
         if "users" in tables and "alembic_version" not in tables:
             command.stamp(_alembic_config(), _CREATE_ALL_REVISION)
             logger.info(
-                "Auto-stamped existing database to %s", _CREATE_ALL_REVISION,
+                "已自动 stamp 现有数据库到 %s", _CREATE_ALL_REVISION,
             )
     finally:
         engine.dispose()
 
 
 def _run_migrations() -> None:
-    """Run Alembic migrations (upgrade head) programmatically."""
+    """以编程方式执行 Alembic 迁移（upgrade head）。"""
     _stamp_existing_database()
     command.upgrade(_alembic_config(), "head")
 
@@ -71,9 +71,9 @@ def _run_migrations() -> None:
 async def init_database():
     _check_secret_key()
 
-    logger.info("Running Alembic migrations...")
+    logger.info("数据库迁移执行中...")
     _run_migrations()
-    logger.info("Database migrations complete")
+    logger.info("数据库迁移完成")
 
     async with async_session_factory() as db:
         await run_seed(db)

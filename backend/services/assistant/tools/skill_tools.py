@@ -11,12 +11,12 @@ from services.assistant.tools.registry import ToolContext, ToolHandler, ToolRegi
 
 SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
 
-# Regex to extract YAML frontmatter between --- delimiters
+# 正则提取 --- 分隔符之间的 YAML frontmatter
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?\n)---\s*\n", re.DOTALL)
 
 
 def _parse_skill(skill_path: Path) -> tuple[dict, str]:
-    """Parse a SKILL.md file into (frontmatter_dict, body_content)."""
+    """将 SKILL.md 文件解析为 (frontmatter_dict, body_content)。"""
     raw = skill_path.read_text(encoding="utf-8")
     match = _FRONTMATTER_RE.match(raw)
     if match:
@@ -29,12 +29,12 @@ def _parse_skill(skill_path: Path) -> tuple[dict, str]:
 
 
 def discover_skills() -> list[dict]:
-    """Scan SKILLS_DIR for valid skill directories and return metadata.
+    """扫描 SKILLS_DIR 中的有效技能目录并返回元数据。
 
-    Each valid skill is a subdirectory containing SKILL.md with YAML
-    frontmatter that includes 'name' and 'description' fields.
+    每个有效技能是包含 SKILL.md 的子目录，SKILL.md 的 YAML
+    frontmatter 必须包含 'name' 和 'description' 字段。
 
-    Returns a list of dicts: [{"name": ..., "description": ...}, ...]
+    返回 dict 列表: [{"name": ..., "description": ...}, ...]
     """
     skills: list[dict] = []
     if not SKILLS_DIR.is_dir():
@@ -63,7 +63,7 @@ async def execute_use_skill(args: dict, ctx: ToolContext) -> str:
     if not skill_name:
         return json.dumps({"error": "请提供技能名称（skill_name）"}, ensure_ascii=False)
 
-    # Prevent path traversal: only allow lowercase alphanumeric, hyphens
+    # 防止路径遍历：只允许小写字母、数字和连字符
     if not re.fullmatch(r"[a-z0-9][a-z0-9\-]*", skill_name):
         return json.dumps(
             {"error": "技能名称只能包含小写字母、数字和连字符"},
@@ -89,7 +89,7 @@ async def execute_use_skill(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Registration
+# 注册
 # ---------------------------------------------------------------------------
 
 def register_skill_tools(reg: ToolRegistry) -> None:

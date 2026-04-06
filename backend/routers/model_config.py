@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,6 +12,8 @@ from schemas.model_config import (
     ModelConfigCreateRequest, ModelConfigResponse,
     ModelConfigListResponse, ModelActivateResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/admin/models",
@@ -40,6 +43,8 @@ async def create_model(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("创建模型配置 — 管理员=%s, 名称=%s", admin.id, req.name)
+
     result = await db.execute(
         select(ModelConfig).where(
             ModelConfig.name == req.name, ModelConfig.admin_id == admin.id
@@ -47,6 +52,7 @@ async def create_model(
     )
     existing = result.scalar_one_or_none()
     if existing:
+        logger.warning("创建模型配置失败 — 名称重复, 名称=%s", req.name)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="模型名称已存在",
@@ -70,20 +76,24 @@ async def activate_model(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("激活模型 — model_id=%s, 管理员=%s", model_id, admin.id)
+
     result = await db.execute(select(ModelConfig).where(ModelConfig.id == model_id))
     target = result.scalar_one_or_none()
     if not target:
+        logger.warning("激活模型失败 — 模型不存在, model_id=%s", model_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="模型不存在",
         )
     if target.admin_id != admin.id:
+        logger.warning("激活模型失败 — 无权操作, model_id=%s, 管理员=%s", model_id, admin.id)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权操作",
         )
 
-    # Deactivate all models for this admin, then activate target
+    # 先停用该管理员的所有模型，再激活目标模型
     await db.execute(
         update(ModelConfig)
         .where(ModelConfig.admin_id == admin.id)
@@ -100,19 +110,24 @@ async def delete_model(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("删除模型配置 — model_id=%s, 管理员=%s", model_id, admin.id)
+
     result = await db.execute(select(ModelConfig).where(ModelConfig.id == model_id))
     target = result.scalar_one_or_none()
     if not target:
+        logger.warning("删除模型配置失败 — 模型不存在, model_id=%s", model_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="模型不存在",
         )
     if target.admin_id != admin.id:
+        logger.warning("删除模型配置失败 — 无权操作, model_id=%s, 管理员=%s", model_id, admin.id)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权操作",
         )
     if target.is_active:
+        logger.warning("删除模型配置失败 — 不能删除活跃模型, model_id=%s", model_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="无法删除活跃模型，请先激活其他模型",

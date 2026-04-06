@@ -12,13 +12,13 @@ from services.storage import storage_service
 
 logger = logging.getLogger(__name__)
 
-# Limit rows returned to keep token usage reasonable
+# 限制返回行数以控制 token 用量
 MAX_PREVIEW_ROWS = 200
 MAX_TEXT_CHARS = 50_000
 
 
 def _parse_xlsx(data: bytes) -> list[list[str]]:
-    """Parse .xlsx/.xls bytes into a list of rows (header + data)."""
+    """将 .xlsx/.xls 字节解析为行列表（表头 + 数据）。"""
     import openpyxl
 
     wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
@@ -29,7 +29,7 @@ def _parse_xlsx(data: bytes) -> list[list[str]]:
     rows: list[list[str]] = []
     for row in ws.iter_rows(values_only=True):
         rows.append([str(cell) if cell is not None else "" for cell in row])
-        if len(rows) >= MAX_PREVIEW_ROWS + 1:  # +1 for header
+        if len(rows) >= MAX_PREVIEW_ROWS + 1:  # +1 表头行
             break
 
     wb.close()
@@ -37,10 +37,10 @@ def _parse_xlsx(data: bytes) -> list[list[str]]:
 
 
 def _parse_csv(data: bytes) -> list[list[str]]:
-    """Parse CSV bytes into a list of rows.
+    """将 CSV 字节解析为行列表。
 
-    Tries UTF-8 (with BOM) first, then falls back to GB18030 for
-    files exported from Chinese Windows Excel.
+    先尝试 UTF-8（含 BOM），再回退到 GB18030
+    以兼容中文 Windows Excel 导出的文件。
     """
     for encoding in ("utf-8-sig", "gb18030"):
         try:
@@ -49,7 +49,7 @@ def _parse_csv(data: bytes) -> list[list[str]]:
         except (UnicodeDecodeError, LookupError):
             continue
     else:
-        raise ValueError("Unable to decode CSV: unsupported encoding")
+        raise ValueError("无法解码 CSV：不支持的编码")
 
     reader = csv.reader(io.StringIO(text))
     rows: list[list[str]] = []
@@ -60,8 +60,8 @@ def _parse_csv(data: bytes) -> list[list[str]]:
     return rows
 
 
-# Dispatch by MIME type
-_PARSERS: dict[str, type] = {}  # unused, dispatch via suffix below
+# 按 MIME 类型分发
+_PARSERS: dict[str, type] = {}  # 未使用，通过后缀分发
 
 _XLSX_MIMES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -74,7 +74,7 @@ _CSV_MIMES = {
 
 
 def _parse_text(data: bytes) -> str:
-    """Parse plain text / markdown bytes, trying UTF-8 then GB18030."""
+    """解析纯文本 / Markdown 字节，先尝试 UTF-8 再 GB18030。"""
     text: str | None = None
     for encoding in ("utf-8", "gb18030"):
         try:
@@ -107,14 +107,16 @@ async def execute_read_file(args: dict, ctx: ToolContext) -> str:
     if not file_id:
         return json.dumps({"error": "请提供文件 ID（file_id）"}, ensure_ascii=False)
 
-    # file_id is the MinIO object path stored when the file was uploaded
+    logger.info("读取文件 — file_id=%s", file_id)
+
+    # file_id 是文件上传时存储的 MinIO 对象路径
     try:
         data = await asyncio.to_thread(storage_service.get_object, file_id)
     except Exception:
-        logger.exception("Failed to download file: %s", file_id)
+        logger.exception("文件下载失败 — file_id=%s", file_id)
         return json.dumps({"error": "文件不存在或无法下载"}, ensure_ascii=False)
 
-    # Determine format from file extension in the path
+    # 根据路径中的文件扩展名确定格式
     lower_path = file_id.lower()
     try:
         if lower_path.endswith((".xlsx", ".xls")):
@@ -129,7 +131,7 @@ async def execute_read_file(args: dict, ctx: ToolContext) -> str:
                 ensure_ascii=False,
             )
     except Exception:
-        logger.exception("Failed to parse file: %s", file_id)
+        logger.exception("文件解析失败 — file_id=%s", file_id)
         return json.dumps({"error": "文件解析失败，请检查文件格式"}, ensure_ascii=False)
 
     if not rows:
@@ -151,7 +153,7 @@ async def execute_read_file(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Registration
+# 注册
 # ---------------------------------------------------------------------------
 
 def register_file_tools(reg: ToolRegistry) -> None:

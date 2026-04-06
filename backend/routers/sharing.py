@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -23,8 +24,10 @@ from schemas.sharing import (
     AdminTopicListResponse,
 )
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
-# Student router
+# 学生路由
 # ---------------------------------------------------------------------------
 
 router = APIRouter(prefix="/api/sharing", tags=["sharing"])
@@ -34,14 +37,14 @@ async def _build_topic_items(
     db: AsyncSession, user_id: uuid.UUID, class_id: uuid.UUID,
     status_filter: str | None, *, include_materials: bool = False
 ) -> list[dict]:
-    """Query topics and compute vote_count / current_user_voted."""
+    """查询主题列表并计算投票数 / 当前用户是否已投票。"""
     stmt = select(SharingTopic).where(SharingTopic.class_id == class_id)
     if status_filter:
         stmt = stmt.where(SharingTopic.status == status_filter)
     result = await db.execute(stmt)
     topics = result.scalars().all()
 
-    # Batch-load vote counts and user votes
+    # 批量加载投票数和用户投票状态
     topic_ids = [t.id for t in topics]
     vote_counts: dict[uuid.UUID, int] = {}
     user_votes: set[uuid.UUID] = set()
@@ -133,13 +136,18 @@ async def vote_topic(
     user: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("投票 — user_id=%s, topic_id=%s", user.id, topic_id)
+
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))
     topic = result.scalar_one_or_none()
     if not topic:
+        logger.warning("投票失败 — 主题不存在, topic_id=%s", topic_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="主题不存在")
     if topic.class_id != user.class_id:
+        logger.warning("投票失败 — 无权操作, user_id=%s, topic_id=%s", user.id, topic_id)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权操作")
     if topic.status != "voting":
+        logger.warning("投票失败 — 主题不在投票中, topic_id=%s", topic_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该主题不在投票中")
 
     result = await db.execute(
@@ -147,6 +155,7 @@ async def vote_topic(
     )
     current_vote_count = result.scalar_one()
     if current_vote_count >= MAX_VOTES_PER_STUDENT:
+        logger.warning("投票失败 — 超过投票上限, user_id=%s", user.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"最多投 {MAX_VOTES_PER_STUDENT} 个主题",
@@ -158,6 +167,7 @@ async def vote_topic(
         await db.flush()
     except IntegrityError:
         await db.rollback()
+        logger.warning("投票失败 — 重复投票, user_id=%s, topic_id=%s", user.id, topic_id)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="已投过票")
     await db.commit()
 
@@ -174,13 +184,18 @@ async def unvote_topic(
     user: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("取消投票 — user_id=%s, topic_id=%s", user.id, topic_id)
+
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))
     topic = result.scalar_one_or_none()
     if not topic:
+        logger.warning("取消投票失败 — 主题不存在, topic_id=%s", topic_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="主题不存在")
     if topic.class_id != user.class_id:
+        logger.warning("取消投票失败 — 无权操作, user_id=%s, topic_id=%s", user.id, topic_id)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权操作")
     if topic.status != "voting":
+        logger.warning("取消投票失败 — 主题不在投票中, topic_id=%s", topic_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该主题不在投票中")
 
     result = await db.execute(
@@ -189,6 +204,7 @@ async def unvote_topic(
     )
     vote = result.scalar_one_or_none()
     if not vote:
+        logger.warning("取消投票失败 — 未投过票, user_id=%s, topic_id=%s", user.id, topic_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="未投过票")
 
     await db.delete(vote)
@@ -207,8 +223,11 @@ async def suggest_topic(
     user: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("推荐主题 — user_id=%s, 标题=%s", user.id, req.title.strip())
+
     title = req.title.strip()
     if not title:
+        logger.warning("推荐主题失败 — 标题为空, user_id=%s", user.id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="标题不能为空")
 
     result = await db.execute(
@@ -216,6 +235,7 @@ async def suggest_topic(
     )
     current_vote_count = result.scalar_one()
     if current_vote_count >= MAX_VOTES_PER_STUDENT:
+        logger.warning("推荐主题失败 — 超过投票上限, user_id=%s", user.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"最多投 {MAX_VOTES_PER_STUDENT} 个主题",
@@ -238,14 +258,14 @@ async def suggest_topic(
 
 
 # ---------------------------------------------------------------------------
-# Admin router
+# 管理员路由
 # ---------------------------------------------------------------------------
 
 admin_sharing_router = APIRouter(prefix="/api/admin/sharing", tags=["admin-sharing"])
 
 
 async def _verify_topic_ownership(topic: SharingTopic, admin: TokenPayload, db: AsyncSession) -> None:
-    """Verify admin owns the class this topic belongs to."""
+    """验证管理员拥有该主题所属的班级。"""
     result = await db.execute(
         select(Class).where(Class.id == topic.class_id, Class.created_by == admin.id)
     )
@@ -261,15 +281,16 @@ async def admin_list_topics(
     db: AsyncSession = Depends(get_db),
 ):
     if class_id is not None:
-        # Verify admin owns this class
+        # 验证管理员拥有该班级
         result = await db.execute(
             select(Class).where(Class.id == class_id, Class.created_by == admin.id)
         )
         if not result.scalar_one_or_none():
+            logger.warning("查询分享主题失败 — 班级不存在, class_id=%s", class_id)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="班级不存在")
         items = await _build_topic_items(db, admin.id, class_id, status_filter, include_materials=True)
     else:
-        # Return topics across all admin's classes
+        # 返回该管理员所有班级的主题
         result = await db.execute(
             select(Class.id).where(Class.created_by == admin.id)
         )
@@ -289,11 +310,14 @@ async def admin_create_topic(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify admin owns the class
+    logger.info("创建分享主题 — 管理员=%s, 标题=%s", admin.id, req.title)
+
+    # 验证管理员拥有该班级
     result = await db.execute(
         select(Class).where(Class.id == req.class_id, Class.created_by == admin.id)
     )
     if not result.scalar_one_or_none():
+        logger.warning("创建分享主题失败 — 班级不存在, class_id=%s", req.class_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="班级不存在")
 
     if req.status == "completed":
@@ -343,9 +367,12 @@ async def admin_update_topic(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("更新分享主题 — topic_id=%s, 管理员=%s", topic_id, admin.id)
+
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))
     topic = result.scalar_one_or_none()
     if not topic:
+        logger.warning("更新分享主题失败 — 主题不存在, topic_id=%s", topic_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="主题不存在")
 
     await _verify_topic_ownership(topic, admin, db)
@@ -395,9 +422,12 @@ async def admin_delete_topic(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("删除分享主题 — topic_id=%s, 管理员=%s", topic_id, admin.id)
+
     result = await db.execute(select(SharingTopic).where(SharingTopic.id == topic_id))
     topic = result.scalar_one_or_none()
     if not topic:
+        logger.warning("删除分享主题失败 — 主题不存在, topic_id=%s", topic_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="主题不存在")
 
     await _verify_topic_ownership(topic, admin, db)

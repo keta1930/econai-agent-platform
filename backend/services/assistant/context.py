@@ -1,4 +1,4 @@
-"""Context management: token estimation and automatic conversation compression."""
+"""上下文管理：token 估算与自动对话压缩。"""
 
 from __future__ import annotations
 
@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ---------- Constants ----------
+# ---------- 常量 ----------
 
 DEFAULT_MAX_CONTEXT = 200_000
-"""Fallback context window size when model-specific limit is unknown."""
+"""模型上下文窗口大小的默认回退值。"""
 
-# Known context window sizes for common models. Keys are matched as prefixes
-# against the model name (e.g. "claude-sonnet-4-20250514" matches "claude-").
+# 常用模型的上下文窗口大小。键作为前缀与模型名称匹配
+# （例如 "claude-sonnet-4-20250514" 匹配 "claude-"）。
 MODEL_CONTEXT_LIMITS: dict[str, int] = {
     "claude-":        200_000,
     "gpt-4o":         128_000,
@@ -41,7 +41,7 @@ MODEL_CONTEXT_LIMITS: dict[str, int] = {
 
 
 def get_model_context_limit(model_name: str) -> int:
-    """Return the context window size for a model name using prefix matching."""
+    """通过前缀匹配返回模型的上下文窗口大小。"""
     lower = model_name.lower()
     for prefix, limit in MODEL_CONTEXT_LIMITS.items():
         if lower.startswith(prefix):
@@ -50,36 +50,36 @@ def get_model_context_limit(model_name: str) -> int:
 
 
 COMPRESS_THRESHOLD = 0.7
-"""Trigger compression when token usage exceeds this ratio of available budget."""
+"""token 使用量超过可用预算的此比例时触发压缩。"""
 
 TOKENS_PER_TOOL = 200
-"""Approximate token overhead per tool definition sent to the model."""
+"""每个工具定义发送到模型时的近似 token 开销。"""
 
 _ENCODING: tiktoken.Encoding | None = None
 
 
 def _get_encoding() -> tiktoken.Encoding:
-    """Lazily initialise the tiktoken encoder (cl100k_base covers GPT-4 / Claude)."""
+    """延迟初始化 tiktoken 编码器（cl100k_base 覆盖 GPT-4 / Claude）。"""
     global _ENCODING  # noqa: PLW0603
     if _ENCODING is None:
         _ENCODING = tiktoken.get_encoding("cl100k_base")
     return _ENCODING
 
 
-# ---------- Token estimation ----------
+# ---------- Token 估算 ----------
 
 
 def estimate_tokens(text: str) -> int:
-    """Estimate the token count for a plain text string."""
+    """估算纯文本字符串的 token 数。"""
     if not text:
         return 0
     return len(_get_encoding().encode(text))
 
 
 def estimate_message_tokens(content_blocks: list[dict]) -> int:
-    """Estimate token count for a list of JSONB content blocks.
+    """估算 JSONB 内容块列表的 token 数。
 
-    Handles text, tool_use, tool_result, and file block types.
+    处理 text、tool_use、tool_result 和 file 块类型。
     """
     total = 0
     for block in content_blocks:
@@ -87,7 +87,7 @@ def estimate_message_tokens(content_blocks: list[dict]) -> int:
         if block_type == "text":
             total += estimate_tokens(block.get("text", ""))
         elif block_type == "tool_use":
-            # Tool name + serialised input arguments
+            # 工具名称 + 序列化的输入参数
             total += estimate_tokens(block.get("name", ""))
             input_data = block.get("input")
             if input_data:
@@ -96,22 +96,22 @@ def estimate_message_tokens(content_blocks: list[dict]) -> int:
                     if isinstance(input_data, dict)
                     else str(input_data)
                 )
-            # Overhead for structural tokens (id, type markers, etc.)
+            # 结构性 token 开销（id、type 标记等）
             total += 20
         elif block_type == "tool_result":
             total += estimate_tokens(block.get("content", ""))
-            total += 10  # structural overhead
+            total += 10  # 结构性开销
         elif block_type == "file":
-            # File references are short metadata — filename + mime
+            # 文件引用是简短元数据 — 文件名 + MIME 类型
             total += estimate_tokens(block.get("filename", ""))
             total += 10
         elif block_type == "image":
-            # Conservative estimate for image tokens (covers most VLM pricing)
+            # 图片 token 的保守估算（覆盖大多数 VLM 定价）
             total += 300
     return total
 
 
-# ---------- Public API ----------
+# ---------- 公开 API ----------
 
 
 async def prepare_messages(
@@ -122,17 +122,16 @@ async def prepare_messages(
     tool_count: int,
     max_context: int = DEFAULT_MAX_CONTEXT,
 ) -> tuple[list[dict], int]:
-    """Load conversation messages, compress if over threshold, return API-format messages.
+    """加载对话消息，超过阈值时压缩，返回 API 格式的消息。
 
-    Returns:
-        (api_messages, total_token_count) where api_messages is ready for
-        ``adapter.chat_stream()`` and total_token_count includes system prompt
-        and tool overhead.
+    返回:
+        (api_messages, total_token_count)，其中 api_messages 可直接传给
+        ``adapter.chat_stream()``，total_token_count 包含 system prompt
+        和工具开销。
     """
-    # Query messages directly instead of loading via relationship.
-    # This avoids SQLAlchemy identity-map caching issues where a
-    # previously loaded Conversation object returns stale (empty)
-    # messages even after new ones have been flushed in the same session.
+    # 直接查询消息而非通过 relationship 加载。
+    # 避免 SQLAlchemy identity-map 缓存问题：之前加载的 Conversation
+    # 对象在同一 session 中 flush 新消息后仍返回旧的（空的）消息。
     result = await db.execute(
         select(ConversationMessage)
         .where(ConversationMessage.conversation_id == conversation_id)
@@ -140,7 +139,7 @@ async def prepare_messages(
     )
     messages: list[ConversationMessage] = list(result.scalars().all())
     if not messages:
-        logger.warning("No messages found for conversation %s", conversation_id)
+        logger.warning("未找到消息 — 对话=%s", conversation_id)
         system_tokens = estimate_tokens(system_prompt)
         tool_overhead = tool_count * TOKENS_PER_TOOL
         return [], system_tokens + tool_overhead
@@ -156,13 +155,17 @@ async def prepare_messages(
         total = system_tokens + tool_overhead + message_tokens
         return api_messages, total
 
-    # Compression needed
-    logger.info(
-        "Compressing conversation %s: %d tokens exceeds %.0f%% of %d available",
+    # 需要压缩
+    logger.warning(
+        "对话压缩触发 — token 使用率=%.0f%%, 对话=%s",
+        message_tokens / available * 100,
         conversation_id,
+    )
+    logger.info(
+        "对话压缩 — 消息 token=%d, 可用=%d, 对话=%s",
         message_tokens,
-        COMPRESS_THRESHOLD * 100,
         available,
+        conversation_id,
     )
     compressed_orm = await compress_messages(messages, adapter, available)
     api_messages = await rebuild_api_messages(compressed_orm)
@@ -172,7 +175,7 @@ async def prepare_messages(
     )
     total = system_tokens + tool_overhead + compressed_tokens
 
-    # Update conversation token count in DB
+    # 更新数据库中的对话 token 计数
     conv_result = await db.execute(
         select(Conversation).where(Conversation.id == conversation_id)
     )
@@ -189,23 +192,23 @@ async def compress_messages(
     adapter: BaseAIAdapter,
     available_tokens: int,
 ) -> list[ConversationMessage | dict]:
-    """Compress messages by summarising the middle portion.
+    """通过摘要中间部分来压缩消息。
 
-    Strategy:
-    - Keep the earliest 2 messages (establishes conversation context)
-    - Keep the most recent N messages within 60% of available budget
-    - Summarise the middle messages into a single synthetic message
+    策略:
+    - 保留最早的 2 条消息（建立对话上下文）
+    - 保留最近的 N 条消息（占可用预算的 60%）
+    - 将中间消息摘要为一条合成消息
 
-    Returns a mixed list: original ORM messages + one synthetic summary dict.
+    返回混合列表：原始 ORM 消息 + 一条合成摘要 dict。
     """
     if len(messages) <= 4:
-        # Too few messages to compress meaningfully
+        # 消息太少，无法有效压缩
         return list(messages)
 
-    # Partition: early | middle | recent
+    # 分区: early | middle | recent
     early = messages[:2]
 
-    # Select recent messages, working backwards, within 60% budget
+    # 从后往前选择最近的消息，预算为 60%
     recent_budget = int(available_tokens * 0.6)
     recent: list[ConversationMessage] = []
     recent_tokens = 0
@@ -217,21 +220,21 @@ async def compress_messages(
         recent.insert(0, msg)
         recent_tokens += msg_tokens
 
-    # Ensure tool_use/tool_result pairing at the boundary
+    # 确保边界处 tool_use/tool_result 配对完整
     recent = _fix_pair_boundary(messages[2:], recent)
 
-    # If recent covers everything after early, no compression needed
+    # 如果 recent 覆盖了 early 之后的所有消息，则无需压缩
     middle_end = len(messages) - len(recent) if recent else len(messages)
     middle = messages[2:middle_end]
 
     if not middle:
         return list(messages)
 
-    # Generate summary of middle messages
+    # 生成中间消息的摘要
     conversation_text = _format_messages_for_summary(middle)
     summary_text = await _generate_summary(conversation_text, adapter)
 
-    # Build synthetic summary message (dict, not ORM)
+    # 构建合成摘要消息（dict，非 ORM）
     summary_msg = {
         "_synthetic": True,
         "_text": summary_text,
@@ -246,21 +249,20 @@ async def compress_messages(
 async def rebuild_api_messages(
     orm_messages: list[ConversationMessage | dict],
 ) -> list[dict]:
-    """Convert ORM messages (or synthetic dicts) to the OpenAI API message format.
+    """将 ORM 消息（或合成 dict）转换为 OpenAI API 消息格式。
 
-    Output uses OpenAI's standard format as the internal representation:
-    - Assistant messages with tool calls use top-level ``tool_calls`` field.
-    - Tool result messages use ``role: "tool"`` with ``tool_call_id``.
-    - Image blocks are fetched from storage and converted to multimodal
-      content block arrays (base64 inline).
-    - The Anthropic adapter's ``_convert_messages()`` handles conversion
-      from this format to Anthropic's native format.
+    输出使用 OpenAI 标准格式作为内部表示：
+    - 带工具调用的助手消息使用顶层 ``tool_calls`` 字段。
+    - 工具结果消息使用 ``role: "tool"`` 加 ``tool_call_id``。
+    - 图片块从存储中获取并转换为多模态内容块数组（base64 内联）。
+    - Anthropic adapter 的 ``_convert_messages()`` 负责从此格式
+      转换为 Anthropic 原生格式。
     """
     api_messages: list[dict] = []
 
     for msg in orm_messages:
         if isinstance(msg, dict):
-            # Synthetic summary message
+            # 合成摘要消息
             api_messages.append({
                 "role": msg["role"],
                 "content": msg["content"][0]["text"] if msg.get("content") else "",
@@ -293,19 +295,19 @@ async def rebuild_api_messages(
                             build_image_block(img_bytes, mime_type)
                         )
                     except Exception:
-                        logger.warning("Failed to load image %s, skipping", file_id)
+                        logger.warning("图片加载失败，跳过 — file_id=%s", file_id)
                         text_parts.append(f'[图片加载失败: {block.get("filename", "")}]')
 
             text_content = "\n".join(text_parts) if text_parts else ""
             if image_blocks:
-                # Multimodal: content is a block array
+                # 多模态：content 为块数组
                 content: str | list[dict] = [{"type": "text", "text": text_content}] + image_blocks
             else:
                 content = text_content
             api_messages.append({"role": "user", "content": content})
 
         elif role == "assistant":
-            # Separate text and tool_use blocks, output OpenAI format
+            # 分离 text 和 tool_use 块，输出 OpenAI 格式
             text_parts: list[str] = []
             tool_calls_list: list[dict] = []
             for block in blocks:
@@ -329,10 +331,9 @@ async def rebuild_api_messages(
             api_messages.append(msg_dict)
 
         elif role == "tool":
-            # Each tool block maps to a tool_result message.
-            # is_error is kept in JSONB for frontend display but excluded
-            # from API messages — OpenAI rejects unknown fields.  Error
-            # status is encoded as a "[ERROR] " content prefix instead.
+            # 每个 tool block 对应一条 tool_result 消息。
+            # is_error 保留在 JSONB 中供前端显示，但从 API 消息中排除
+            # — OpenAI 拒绝未知字段。错误状态改为 "[ERROR] " 内容前缀。
             for block in blocks:
                 if block.get("type") == "tool_result":
                     content = block.get("content", "")
@@ -345,7 +346,7 @@ async def rebuild_api_messages(
                     })
 
         elif role == "system":
-            # System messages pass through as-is
+            # system 消息直接透传
             text = " ".join(
                 b.get("text", "") for b in blocks if b.get("type") == "text"
             )
@@ -356,10 +357,10 @@ async def rebuild_api_messages(
 
 
 def validate_message_pairs(messages: list[dict]) -> bool:
-    """Check that every tool_call in an assistant message has a matching tool result.
+    """检查助手消息中每个 tool_call 是否都有对应的 tool result。
 
-    Expects OpenAI-format api_messages (top-level ``tool_calls`` field).
-    Returns True if all pairs are complete, False otherwise.
+    期望 OpenAI 格式的 api_messages（顶层 ``tool_calls`` 字段）。
+    所有配对完整返回 True，否则返回 False。
     """
     pending_ids: set[str] = set()
 
@@ -378,22 +379,22 @@ def validate_message_pairs(messages: list[dict]) -> bool:
                 pending_ids.discard(tool_call_id)
 
     if pending_ids:
-        logger.warning("Unpaired tool_use IDs: %s", pending_ids)
+        logger.warning("未配对的 tool_use ID: %s", pending_ids)
         return False
     return True
 
 
-# ---------- Internal helpers ----------
+# ---------- 内部辅助函数 ----------
 
 
 def _fix_pair_boundary(
     all_after_early: list[ConversationMessage],
     recent: list[ConversationMessage],
 ) -> list[ConversationMessage]:
-    """Ensure the first message in `recent` doesn't orphan a tool_use/tool_result pair.
+    """确保 `recent` 的第一条消息不会孤立 tool_use/tool_result 配对。
 
-    If the first recent message is a tool-role message, prepend the preceding
-    assistant message that contains the matching tool_use.
+    如果 recent 的第一条是 tool 角色消息，前置包含匹配 tool_use 的
+    assistant 消息。
     """
     if not recent:
         return recent
@@ -402,21 +403,21 @@ def _fix_pair_boundary(
     if first.role != "tool":
         return recent
 
-    # Find the position of `first` in the full list and walk backwards
+    # 在完整列表中找到 `first` 的位置并向前回溯
     try:
         idx = all_after_early.index(first)
     except ValueError:
         return recent
 
-    # Walk backwards to find the assistant message with the tool_use
+    # 向前回溯找到包含 tool_use 的 assistant 消息
     for i in range(idx - 1, -1, -1):
         candidate = all_after_early[i]
         if candidate.role == "assistant":
-            # Check this assistant message contains tool_use blocks
+            # 检查此 assistant 消息是否包含 tool_use 块
             blocks = candidate.content if isinstance(candidate.content, list) else []
             has_tool_use = any(b.get("type") == "tool_use" for b in blocks)
             if has_tool_use:
-                # Also include any tool messages between this assistant and `first`
+                # 同时包含此 assistant 与 `first` 之间的所有 tool 消息
                 return list(all_after_early[i:idx]) + recent
             break
 
@@ -424,7 +425,7 @@ def _fix_pair_boundary(
 
 
 def _format_messages_for_summary(messages: list[ConversationMessage]) -> str:
-    """Format ORM messages into readable text for the summary prompt."""
+    """将 ORM 消息格式化为可读文本，供摘要 prompt 使用。"""
     lines: list[str] = []
     for msg in messages:
         role_label = {"user": "教师", "assistant": "助教", "tool": "工具结果", "system": "系统"}.get(
@@ -442,7 +443,7 @@ def _format_messages_for_summary(messages: list[ConversationMessage]) -> str:
                 text_parts.append(f'[调用工具: {block.get("name", "")}]')
             elif btype == "tool_result":
                 content = block.get("content", "")
-                # Truncate long tool results
+                # 截断过长的工具结果
                 if len(content) > 200:
                     content = content[:200] + "..."
                 text_parts.append(f"[工具返回: {content}]")
@@ -455,7 +456,7 @@ async def _generate_summary(
     conversation_text: str,
     adapter: BaseAIAdapter,
 ) -> str:
-    """Call the adapter to generate a conversation summary."""
+    """调用 adapter 生成对话摘要。"""
     prompt = SUMMARY_PROMPT.format(conversation_text=conversation_text)
     response = await adapter.async_chat(
         messages=[{"role": "user", "content": prompt}],

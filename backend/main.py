@@ -1,13 +1,54 @@
 import asyncio
+import logging
+import logging.config
+import os
 import sys
 from pathlib import Path
 from contextlib import asynccontextmanager
 
 # psycopg async 不支持 Windows 默认的 ProactorEventLoop，
 # 必须在 uvicorn 创建 event loop 之前切换 policy。
-# 配合 uvicorn.run(loop="none") 使用，使 asyncio.run() 走 policy 路径。
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+# ---------------------------------------------------------------------------
+# 日志配置
+# ---------------------------------------------------------------------------
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+logging.basicConfig(level=getattr(logging, _LOG_LEVEL, logging.INFO), format=_LOG_FORMAT)
+logger = logging.getLogger(__name__)
+
+
+def _restore_logging() -> None:
+    """Restore logging after Alembic's fileConfig clobbers it.
+
+    Alembic's env.py calls fileConfig(alembic.ini) which sets
+    ``disable_existing_loggers=True`` — this marks every existing logger
+    as ``disabled=True``.  ``basicConfig(force=True)`` can restore the
+    root handler but CANNOT undo ``disabled=True`` on child loggers.
+    Only ``dictConfig(disable_existing_loggers=False)`` re-enables them.
+    """
+    logging.config.dictConfig({
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "standard": {"format": _LOG_FORMAT},
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "standard",
+                "stream": "ext://sys.stderr",
+            },
+        },
+        "root": {
+            "level": _LOG_LEVEL,
+            "handlers": ["console"],
+        },
+    })
+
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
@@ -34,17 +75,20 @@ from routers.password_reset import public_router as pwd_reset_public_router, adm
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info("Startup: initializing MinIO homework bucket...")
+    logger.info("启动: 初始化 MinIO homework bucket...")
     await asyncio.to_thread(storage_service.ensure_bucket)
-    logger.info("Startup: initializing backups directory...")
+    logger.info("启动: 初始化备份目录...")
     from services.backup_service import init_backups_dir
     await init_backups_dir()
-    logger.info("Startup: initializing database...")
+    logger.info("启动: 初始化数据库...")
     await init_database()
-    start_cleanup_scheduler(engine)
-    logger.info("Startup: complete")
+    # Alembic fileConfig 会禁用所有已有 logger — dictConfig 恢复
+    _restore_logging()
+    try:
+        start_cleanup_scheduler(engine)
+    except Exception:
+        logger.exception("清理调度器启动失败 — 跳过")
+    logger.info("启动完成")
     yield
     shutdown_cleanup_scheduler()
 
@@ -59,7 +103,7 @@ app = FastAPI(
     openapi_url="/openapi.json" if _is_dev else None,
 )
 
-# Register API routers (must come before static file mount)
+# 注册 API 路由（必须在静态文件挂载之前）
 app.include_router(auth_router)
 app.include_router(student_auth_router)
 app.include_router(classes_router)
@@ -77,14 +121,14 @@ app.include_router(assistant_router)
 app.include_router(pwd_reset_public_router)
 app.include_router(pwd_reset_admin_router)
 
-# Mount frontend static files
+# 挂载前端静态文件
 dist_path = Path(__file__).resolve().parent / "dist"
 if dist_path.exists():
     app.mount("/assets", StaticFiles(directory=str(dist_path / "assets")), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_spa(request: Request, full_path: str):
-        # Serve static files if they exist, otherwise return index.html for SPA routing
+        # 静态文件存在则直接返回，否则回退到 index.html 支持 SPA 路由
         file_path = dist_path / full_path
         if full_path and file_path.is_file():
             return FileResponse(file_path)
@@ -93,4 +137,4 @@ if dist_path.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=PORT, loop="none")
+    uvicorn.run(app, host="0.0.0.0", port=PORT, loop="none", log_level="info")

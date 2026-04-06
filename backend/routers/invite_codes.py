@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import secrets
 import uuid
 
@@ -18,6 +19,8 @@ from schemas.invite_code import (
 )
 from services.auth_service import hash_password, verify_password
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/super-admin", tags=["invite-codes"])
 
 
@@ -35,6 +38,8 @@ async def create_invite_code(
     _super: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("创建邀请码 — 分类=%s", req.category)
+
     raw_code = _generate_invite_code()
     code_hash = await asyncio.to_thread(hash_password, raw_code)
 
@@ -66,7 +71,7 @@ async def list_invite_codes(
     )
     codes = result.scalars().all()
 
-    # Batch count registered teachers per invite code
+    # 批量统计每个邀请码的已注册教师数
     registered_counts: dict[uuid.UUID, int] = {}
     if codes:
         code_ids = [c.id for c in codes]
@@ -98,11 +103,14 @@ async def delete_invite_code(
     _super: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("删除邀请码 — code_id=%s", code_id)
+
     result = await db.execute(
         select(InviteCode).where(InviteCode.id == code_id)
     )
     invite = result.scalar_one_or_none()
     if not invite:
+        logger.warning("删除邀请码失败 — 不存在, code_id=%s", code_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="邀请码不存在",
@@ -122,11 +130,14 @@ async def regenerate_invite_code(
     _super: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("重新生成邀请码 — code_id=%s", code_id)
+
     result = await db.execute(
         select(InviteCode).where(InviteCode.id == code_id)
     )
     invite = result.scalar_one_or_none()
     if not invite:
+        logger.warning("重新生成邀请码失败 — 不存在, code_id=%s", code_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="邀请码不存在",
@@ -139,7 +150,7 @@ async def regenerate_invite_code(
     await db.commit()
     await db.refresh(invite)
 
-    # Count registered teachers for this invite code
+    # 统计该邀请码的已注册教师数
     count_result = await db.execute(
         select(func.count(User.id)).where(
             User.role == "admin", User.invite_code_id == invite.id

@@ -13,7 +13,7 @@ from services.assistant.tools.registry import ToolContext, ToolHandler, ToolRegi
 
 logger = logging.getLogger(__name__)
 
-# Course-specific domains: AI Agent design curriculum
+# 课程相关的搜索域：AI 智能体设计课程
 SEARCH_DOMAINS = [
     "https://code.claude.com/docs/",
     "https://opencode.ai/docs",
@@ -21,7 +21,7 @@ SEARCH_DOMAINS = [
     "https://developers.openai.com/codex",
 ]
 
-# Minimum relevance score to include a content item
+# 纳入内容项的最低相关性分数
 MIN_CONTENT_SCORE = 0.6
 MAX_CONTENT_ITEMS = 3
 
@@ -31,7 +31,7 @@ MAX_CONTENT_ITEMS = 3
 # ---------------------------------------------------------------------------
 
 async def execute_ask_user(args: dict, ctx: ToolContext) -> str:
-    """Placeholder — actual handling is intercepted by AssistantService."""
+    """占位 — 实际处理由 AssistantService 拦截。"""
     return ""
 
 
@@ -40,7 +40,7 @@ async def execute_ask_user(args: dict, ctx: ToolContext) -> str:
 # ---------------------------------------------------------------------------
 
 def _call_tavily(query: str) -> tuple[str, list[dict]]:
-    """Call Tavily API and return formatted answer + structured filtered results."""
+    """调用 Tavily API，返回格式化答案 + 结构化过滤结果。"""
     client = TavilyClient(api_key=TAVILY_API_KEY)
     response = client.search(
         query=query,
@@ -53,12 +53,12 @@ def _call_tavily(query: str) -> tuple[str, list[dict]]:
     parts: list[str] = []
     filtered: list[dict] = []
 
-    # Answer: Tavily's built-in agent summary across all results
+    # 摘要：Tavily 内置的跨结果 agent 总结
     answer = response.get("answer", "")
     if answer:
         parts.append(f"## 摘要\n\n{answer}")
 
-    # Content: only items with score >= threshold, max 3
+    # 内容：仅分数 >= 阈值的条目，最多 3 条
     results = response.get("results", [])
     high_score = [r for r in results if r.get("score", 0) >= MIN_CONTENT_SCORE]
     for result in high_score[:MAX_CONTENT_ITEMS]:
@@ -78,13 +78,15 @@ async def execute_tavily_search(args: dict, ctx: ToolContext) -> str:
     if not query:
         return json.dumps({"error": "请提供搜索关键词"}, ensure_ascii=False)
 
+    logger.info("Tavily 搜索 — 查询=%s", query)
+
     try:
         result_text, filtered_results = await asyncio.to_thread(_call_tavily, query)
     except Exception:
-        logger.exception("Tavily search failed for query: %s", query)
+        logger.exception("Tavily 搜索失败 — 查询=%s", query)
         return json.dumps({"error": "搜索失败，请稍后重试"}, ensure_ascii=False)
 
-    # Persist high-relevance results for learning_resources URL validation
+    # 持久化高相关性结果供 learning_resources URL 验证
     if ctx.conversation_id and filtered_results:
         for item in filtered_results:
             ctx.db.add(SearchResult(
@@ -101,7 +103,7 @@ async def execute_tavily_search(args: dict, ctx: ToolContext) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Registration
+# 注册
 # ---------------------------------------------------------------------------
 
 def register_system_tools(reg: ToolRegistry) -> None:

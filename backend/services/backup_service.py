@@ -23,20 +23,20 @@ from utils import uuid7
 logger = logging.getLogger(__name__)
 
 
-# ── Startup ──────────────────────────────────────────────────────────────────
+# ── 启动 ─────────────────────────────────────────────────────────────────────
 
 
 async def init_backups_dir() -> None:
-    """Ensure backup directory exists. Called at startup."""
+    """确保备份目录存在。启动时调用。"""
     Path(BACKUP_DIR).mkdir(parents=True, exist_ok=True)
-    logger.info("Backup directory ready: %s", BACKUP_DIR)
+    logger.info("备份目录就绪 — 路径=%s", BACKUP_DIR)
 
 
-# ── Serialization helpers ────────────────────────────────────────────────────
+# ── 序列化辅助 ────────────────────────────────────────────────────────────────
 
 
 def _serialize_value(value: object) -> object:
-    """Convert a single value for JSON serialization."""
+    """将单个值转换为 JSON 可序列化格式。"""
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, uuid.UUID):
@@ -48,7 +48,7 @@ _EXCLUDED_COLUMNS = frozenset({"password_hash"})
 
 
 def _row_to_dict(row: object) -> dict:
-    """Convert a SQLAlchemy ORM instance to a plain dict with JSON-safe values."""
+    """将 SQLAlchemy ORM 实例转换为 JSON 安全的纯字典。"""
     mapper = type(row).__mapper__  # type: ignore[attr-defined]
     return {
         col.key: _serialize_value(getattr(row, col.key))
@@ -57,35 +57,35 @@ def _row_to_dict(row: object) -> dict:
     }
 
 
-# ── Data export ──────────────────────────────────────────────────────────────
+# ── 数据导出 ──────────────────────────────────────────────────────────────────
 
 
 async def export_admin_data(
     db: AsyncSession, admin_id: uuid.UUID, admin_username: str,
 ) -> bytes:
-    """Export all data belonging to an admin as JSON bytes.
+    """将管理员的所有数据导出为 JSON 字节。
 
-    Query chain:
-      classes (created_by) → student_roster, users, tasks, sharing_topics (class_id)
-      → submissions (task_id), topic_votes (topic_id)
+    查询链：
+      classes (created_by) -> student_roster, users, tasks, sharing_topics (class_id)
+      -> submissions (task_id), topic_votes (topic_id)
       + model_configs (admin_id)
     """
-    # 1. Classes
+    # 1. 班级
     classes = (
         await db.execute(select(Class).where(Class.created_by == admin_id))
     ).scalars().all()
     class_ids = [c.id for c in classes]
 
-    # Short-circuit: if no classes, still export empty data + model_configs
+    # 短路：无班级时仍导出空数据 + model_configs
     if class_ids:
-        # 2. Student roster
+        # 2. 学生名单
         roster = (
             await db.execute(
                 select(StudentRoster).where(StudentRoster.class_id.in_(class_ids))
             )
         ).scalars().all()
 
-        # 3. Student users (via class_members join)
+        # 3. 学生用户（通过 class_members 关联）
         student_ids_stmt = (
             select(ClassMember.user_id)
             .where(ClassMember.class_id.in_(class_ids))
@@ -99,20 +99,20 @@ async def export_admin_data(
             )
         ).scalars().all()
 
-        # 4. Tasks
+        # 4. 作业
         tasks = (
             await db.execute(select(Task).where(Task.class_id.in_(class_ids)))
         ).scalars().all()
         task_ids = [t.id for t in tasks]
 
-        # 5. Submissions
+        # 5. 提交
         submissions = (
             await db.execute(
                 select(Submission).where(Submission.task_id.in_(task_ids))
             )
         ).scalars().all() if task_ids else []
 
-        # 7. Sharing topics
+        # 7. 分享主题
         topics = (
             await db.execute(
                 select(SharingTopic).where(SharingTopic.class_id.in_(class_ids))
@@ -120,7 +120,7 @@ async def export_admin_data(
         ).scalars().all()
         topic_ids = [t.id for t in topics]
 
-        # 8. Topic votes
+        # 8. 投票
         votes = (
             await db.execute(
                 select(TopicVote).where(TopicVote.topic_id.in_(topic_ids))
@@ -134,7 +134,7 @@ async def export_admin_data(
         topics = []
         votes = []
 
-    # 6. Model configs (independent of classes)
+    # 6. 模型配置（独立于班级）
     model_configs = (
         await db.execute(
             select(ModelConfig).where(ModelConfig.admin_id == admin_id)
@@ -163,15 +163,15 @@ async def export_admin_data(
     return json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
 
-# ── CRUD operations ──────────────────────────────────────────────────────────
+# ── CRUD 操作 ─────────────────────────────────────────────────────────────────
 
 
 async def create_backup(
     db: AsyncSession, admin_id: uuid.UUID, display_name: str | None,
 ) -> Backup:
-    """Create a new backup for the given admin.
+    """为指定管理员创建新备份。
 
-    Raises ValueError if backup limit is reached.
+    达到备份上限时抛出 ValueError。
     """
     count_result = await db.execute(
         select(func.count()).select_from(Backup).where(Backup.admin_id == admin_id)
@@ -186,7 +186,7 @@ async def create_backup(
     if not display_name:
         display_name = f"备份_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
-    # Fetch admin username for export metadata
+    # 获取管理员用户名用于导出元数据
     admin_result = await db.execute(select(User).where(User.id == admin_id))
     admin_user = admin_result.scalar_one()
 
@@ -207,12 +207,12 @@ async def create_backup(
     await db.commit()
     await db.refresh(backup)
 
-    logger.info("Backup created: %s (%d bytes) for admin %s", object_key, len(data), admin_id)
+    logger.info("备份创建完成 — 路径=%s, 大小=%d, 管理员=%s", object_key, len(data), admin_id)
     return backup
 
 
 async def list_backups(db: AsyncSession, admin_id: uuid.UUID) -> list[Backup]:
-    """List backups for an admin, cleaning up orphaned DB records."""
+    """列出管理员的备份，同时清理孤立的数据库记录。"""
     result = await db.execute(
         select(Backup)
         .where(Backup.admin_id == admin_id)
@@ -226,7 +226,7 @@ async def list_backups(db: AsyncSession, admin_id: uuid.UUID) -> list[Backup]:
         if file_path.exists():
             valid.append(backup)
         else:
-            logger.info("Cleaning orphaned backup record: %s", backup.object_key)
+            logger.info("清理孤立备份记录 — 路径=%s", backup.object_key)
             await db.delete(backup)
 
     if len(valid) != len(all_backups):
@@ -238,10 +238,10 @@ async def list_backups(db: AsyncSession, admin_id: uuid.UUID) -> list[Backup]:
 async def get_backup_file_path(
     db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID,
 ) -> tuple[Path, str]:
-    """Get the file path for a backup.
+    """获取备份文件路径。
 
-    Returns (file_path, suggested_filename).
-    Raises ValueError if not found or file missing.
+    返回 (file_path, suggested_filename)。
+    找不到或文件缺失时抛出 ValueError。
     """
     backup = await _get_backup_or_raise(db, backup_id, admin_id)
     file_path = (Path(BACKUP_DIR) / backup.object_key).resolve()
@@ -255,9 +255,9 @@ async def get_backup_file_path(
 async def rename_backup(
     db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID, display_name: str,
 ) -> Backup:
-    """Rename a backup's display name.
+    """重命名备份的显示名称。
 
-    Raises ValueError if not found.
+    找不到时抛出 ValueError。
     """
     backup = await _get_backup_or_raise(db, backup_id, admin_id)
     backup.display_name = display_name
@@ -269,9 +269,9 @@ async def rename_backup(
 async def delete_backup(
     db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID,
 ) -> None:
-    """Delete a backup (local file + DB record).
+    """删除备份（本地文件 + 数据库记录）。
 
-    Raises ValueError if not found.
+    找不到时抛出 ValueError。
     """
     backup = await _get_backup_or_raise(db, backup_id, admin_id)
 
@@ -281,16 +281,16 @@ async def delete_backup(
 
     await db.delete(backup)
     await db.commit()
-    logger.info("Backup deleted: %s", backup.object_key)
+    logger.info("备份已删除 — 路径=%s", backup.object_key)
 
 
-# ── Private helpers ──────────────────────────────────────────────────────────
+# ── 私有辅助 ──────────────────────────────────────────────────────────────────
 
 
 async def _get_backup_or_raise(
     db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID,
 ) -> Backup:
-    """Fetch a backup by id and admin, or raise ValueError."""
+    """按 id 和管理员获取备份，找不到则抛出 ValueError。"""
     result = await db.execute(
         select(Backup).where(Backup.id == backup_id, Backup.admin_id == admin_id)
     )

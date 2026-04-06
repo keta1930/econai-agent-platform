@@ -28,7 +28,7 @@ class ChatResponse:
 
 @dataclass
 class StreamEvent:
-    """Unified streaming event emitted by chat_stream() across all adapters."""
+    """所有适配器 chat_stream() 统一的流式事件。"""
 
     type: Literal[
         "text_delta",
@@ -45,15 +45,15 @@ class StreamEvent:
 
 
 class BaseAIAdapter(ABC):
-    """Base class for AI model adapters.
+    """AI 模型适配器基类。
 
-    Messages use OpenAI format as the internal representation.
-    The ``content`` field of each message can be either:
-    - ``str`` — plain text message
-    - ``list[dict]`` — multimodal content block array (text + image_url blocks)
+    消息统一使用 OpenAI 格式作为内部表示。
+    每条消息的 ``content`` 字段可以是：
+    - ``str`` — 纯文本消息
+    - ``list[dict]`` — 多模态内容块数组（text + image_url 块）
 
-    Concrete adapters are responsible for converting this representation
-    to the provider's native format (e.g. Anthropic image source blocks).
+    具体适配器负责将此格式转换为各供应商的原生格式
+    （如 Anthropic 的 image source 块）。
     """
 
     def __init__(self, api_key: str, base_url: str, model_name: str):

@@ -1,8 +1,7 @@
-"""Orphan account cleanup service.
+"""孤立账号清理服务。
 
-Periodically removes student accounts that have no class memberships
-and were created more than 15 days ago. Associated refresh_tokens are
-cleaned up via CASCADE on the FK constraint.
+定期删除无班级成员关系且创建超过 15 天的学生账号。
+关联的 refresh_tokens 通过外键 CASCADE 自动清理。
 """
 
 import logging
@@ -19,15 +18,15 @@ ORPHAN_RETENTION_DAYS = 15
 
 
 async def cleanup_orphan_accounts(engine: AsyncEngine) -> int:
-    """Delete student accounts with no class memberships older than ORPHAN_RETENTION_DAYS.
+    """删除无班级成员关系且超过保留天数的学生账号。
 
-    Returns the number of deleted accounts.
+    返回删除的账号数量。
     """
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as db:
         cutoff = datetime.now(timezone.utc) - timedelta(days=ORPHAN_RETENTION_DAYS)
 
-        # Use raw SQL for a single efficient DELETE with subquery
+        # 使用原生 SQL 单次高效 DELETE + 子查询
         result = await db.execute(
             text("""
                 DELETE FROM users
@@ -41,12 +40,12 @@ async def cleanup_orphan_accounts(engine: AsyncEngine) -> int:
         await db.commit()
 
     if deleted > 0:
-        logger.info("Cleanup: removed %d orphan student account(s)", deleted)
+        logger.info("孤立账号清理完成 — 删除=%d", deleted)
     return deleted
 
 
 def start_cleanup_scheduler(engine: AsyncEngine) -> None:
-    """Start the APScheduler background scheduler for orphan cleanup."""
+    """启动 APScheduler 后台调度器进行孤立账号清理。"""
     global _scheduler
 
     try:
@@ -54,8 +53,8 @@ def start_cleanup_scheduler(engine: AsyncEngine) -> None:
         from apscheduler.triggers.cron import CronTrigger
     except ImportError:
         logger.warning(
-            "apscheduler not installed — orphan cleanup scheduler disabled. "
-            "Install with: pip install apscheduler"
+            "apscheduler 未安装 — 孤立账号清理调度已禁用。"
+            "安装命令: pip install apscheduler"
         )
         return
 
@@ -69,13 +68,13 @@ def start_cleanup_scheduler(engine: AsyncEngine) -> None:
         replace_existing=True,
     )
     _scheduler.start()
-    logger.info("Orphan cleanup scheduler started (runs daily at 03:00)")
+    logger.info("孤立账号清理调度已启动（每日 03:00 执行）")
 
 
 def shutdown_cleanup_scheduler() -> None:
-    """Shut down the cleanup scheduler if running."""
+    """关闭清理调度器（如正在运行）。"""
     global _scheduler
     if _scheduler is not None:
         _scheduler.shutdown(wait=False)
         _scheduler = None
-        logger.info("Orphan cleanup scheduler shut down")
+        logger.info("孤立账号清理调度已关闭")

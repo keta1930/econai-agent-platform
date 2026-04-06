@@ -1,4 +1,4 @@
-"""AI Assistant API routes — conversation CRUD, SSE messaging, file upload."""
+"""AI 助手 API 路由 — 对话 CRUD、SSE 消息流、文件上传。"""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def _sse_headers() -> dict[str, str]:
 
 
 # ------------------------------------------------------------------
-# Conversation CRUD
+# 对话 CRUD
 # ------------------------------------------------------------------
 
 
@@ -67,6 +67,7 @@ async def create_conversation(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> ConversationResponse:
+    logger.info("创建对话 — 管理员=%s, 标题=%s", admin.id, body.title)
     service = AssistantService(db)
     conversation = await service.create_conversation(admin.id, body.title)
     return ConversationResponse(
@@ -117,6 +118,7 @@ async def delete_conversation(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
+    logger.info("删除对话 — conversation_id=%s, 管理员=%s", conversation_id, admin.id)
     service = AssistantService(db)
     await service.delete_conversation(conversation_id, admin.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -129,6 +131,7 @@ async def update_conversation_title(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> ConversationResponse:
+    logger.info("更新对话标题 — conversation_id=%s, 新标题=%s", conversation_id, body.title)
     service = AssistantService(db)
     conversation = await service.update_conversation_title(
         conversation_id, admin.id, body.title,
@@ -144,7 +147,7 @@ async def update_conversation_title(
 
 
 # ------------------------------------------------------------------
-# Messaging (SSE Streaming)
+# 消息（SSE 流式传输）
 # ------------------------------------------------------------------
 
 
@@ -155,6 +158,7 @@ async def send_message(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
+    logger.info("发送消息 — conversation_id=%s, 管理员=%s", conversation_id, admin.id)
     service = AssistantService(db)
     files = [f.model_dump() for f in body.files] if body.files else None
     return StreamingResponse(
@@ -175,6 +179,7 @@ async def answer_question(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
+    logger.info("回答追问 — conversation_id=%s, 管理员=%s", conversation_id, admin.id)
     service = AssistantService(db)
     return StreamingResponse(
         service.handle_answer(conversation_id, admin.id, body.answer),
@@ -189,15 +194,16 @@ async def stop_generation(
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
+    logger.info("停止生成 — conversation_id=%s, 管理员=%s", conversation_id, admin.id)
     service = AssistantService(db)
-    # Verify the conversation belongs to this admin before allowing cancellation
+    # 验证对话归属后再允许取消
     await service._load_owned_conversation(conversation_id, admin.id)
     await service.stop_generation(conversation_id)
     return {"status": "ok"}
 
 
 # ------------------------------------------------------------------
-# File Upload
+# 文件上传
 # ------------------------------------------------------------------
 
 
@@ -206,11 +212,12 @@ async def get_file_preview(
     file_id: str,
     admin: TokenPayload = Depends(require_admin),
 ) -> dict[str, str]:
-    """Return a presigned URL for previewing an uploaded assistant file."""
-    # file_id is the full MinIO object name, e.g. "assistant/{admin_id}/{uuid}.png"
-    # Verify the file belongs to this admin
+    """返回上传文件的预签名 URL 用于预览。"""
+    # file_id 是完整的 MinIO 对象名，如 "assistant/{admin_id}/{uuid}.png"
+    # 验证文件归属
     expected_prefix = f"assistant/{admin.id}/"
     if not file_id.startswith(expected_prefix):
+        logger.warning("获取文件预览失败 — 无权访问, file_id=%s, 管理员=%s", file_id, admin.id)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权访问该文件",
@@ -221,7 +228,7 @@ async def get_file_preview(
             storage_service.presigned_get_url, file_id, expires=3600,
         )
     except Exception:
-        logger.exception("Failed to generate presigned URL for %s", file_id)
+        logger.exception("生成预签名 URL 失败 — file_id=%s", file_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="文件不存在或无法访问",
@@ -235,26 +242,30 @@ async def upload_file(
     file: UploadFile = File(...),
     admin: TokenPayload = Depends(require_admin),
 ) -> FileUploadResponse:
-    # Validate extension
+    logger.info("上传文件 — 管理员=%s, 文件名=%s", admin.id, file.filename)
+
+    # 校验扩展名
     filename = file.filename or "unknown"
     ext = ""
     if "." in filename:
         ext = "." + filename.rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXTENSIONS:
+        logger.warning("上传文件失败 — 不支持的格式, ext=%s", ext)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"不支持的文件格式，仅支持 {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
-    # Read and validate size
+    # 读取并校验大小
     data = await file.read()
     if len(data) > MAX_UPLOAD_SIZE:
+        logger.warning("上传文件失败 — 超过大小限制, size=%d", len(data))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"文件大小超过限制（最大 {MAX_UPLOAD_SIZE // 1024 // 1024}MB）",
         )
 
-    # Store to MinIO
+    # 存储到 MinIO
     file_id = str(uuid.uuid4())
     object_name = f"assistant/{admin.id}/{file_id}{ext}"
     mime_type = file.content_type or "application/octet-stream"

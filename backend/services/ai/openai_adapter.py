@@ -44,7 +44,14 @@ class OpenAIAdapter(BaseAIAdapter):
                 for t in tools
             ]
 
-        response = self.client.chat.completions.create(**kwargs)
+        logger.info("OpenAI 调用 — 模型=%s, 消息数=%d", self.model_name, len(messages))
+        try:
+            response = self.client.chat.completions.create(**kwargs)
+        except Exception:
+            logger.exception("OpenAI 调用失败 — 模型=%s", self.model_name)
+            raise
+        if response.usage:
+            logger.info("OpenAI 完成 — 输入 token=%d, 输出 token=%d", response.usage.prompt_tokens, response.usage.completion_tokens)
         choice = response.choices[0].message
 
         tool_calls = []
@@ -53,7 +60,7 @@ class OpenAIAdapter(BaseAIAdapter):
                 try:
                     args = json.loads(tc.function.arguments)
                 except (json.JSONDecodeError, TypeError):
-                    logger.warning("Malformed tool call arguments: %s", tc.function.arguments[:200])
+                    logger.warning("工具调用参数格式错误: %s", tc.function.arguments[:200])
                     args = {}
                 tool_calls.append(
                     ToolCall(id=tc.id, name=tc.function.name, arguments=args)
@@ -84,7 +91,14 @@ class OpenAIAdapter(BaseAIAdapter):
                 for t in tools
             ]
 
-        response = await self.async_client.chat.completions.create(**kwargs)
+        logger.info("OpenAI 异步调用 — 模型=%s, 消息数=%d", self.model_name, len(messages))
+        try:
+            response = await self.async_client.chat.completions.create(**kwargs)
+        except Exception:
+            logger.exception("OpenAI 异步调用失败 — 模型=%s", self.model_name)
+            raise
+        if response.usage:
+            logger.info("OpenAI 异步完成 — 输入 token=%d, 输出 token=%d", response.usage.prompt_tokens, response.usage.completion_tokens)
         choice = response.choices[0].message
 
         tool_calls = []
@@ -93,7 +107,7 @@ class OpenAIAdapter(BaseAIAdapter):
                 try:
                     args = json.loads(tc.function.arguments)
                 except (json.JSONDecodeError, TypeError):
-                    logger.warning("Malformed tool call arguments: %s", tc.function.arguments[:200])
+                    logger.warning("工具调用参数格式错误: %s", tc.function.arguments[:200])
                     args = {}
                 tool_calls.append(
                     ToolCall(id=tc.id, name=tc.function.name, arguments=args)
@@ -125,9 +139,14 @@ class OpenAIAdapter(BaseAIAdapter):
                 for t in tools
             ]
 
-        stream = await self.async_client.chat.completions.create(**kwargs)
+        logger.info("OpenAI 流式调用 — 模型=%s, 消息数=%d", self.model_name, len(messages))
+        try:
+            stream = await self.async_client.chat.completions.create(**kwargs)
+        except Exception:
+            logger.exception("OpenAI 流式调用失败 — 模型=%s", self.model_name)
+            raise
 
-        # Accumulate tool calls keyed by index
+        # 按 index 累积工具调用
         pending_tool_calls: dict[int, dict] = {}
 
         async for chunk in stream:
@@ -137,18 +156,18 @@ class OpenAIAdapter(BaseAIAdapter):
 
             finish_reason = chunk.choices[0].finish_reason
 
-            # Text content
+            # 文本内容
             if delta.content:
                 yield StreamEvent(type="text_delta", text=delta.content)
 
-            # Tool calls — OpenAI streams them incrementally, using index
-            # to distinguish parallel calls within a single message.
+            # 工具调用 — OpenAI 增量式流式传输，
+            # 通过 index 区分同一消息中的并行调用
             if delta.tool_calls:
                 for tc_delta in delta.tool_calls:
                     idx = tc_delta.index
 
                     if idx not in pending_tool_calls:
-                        # First chunk for this tool call carries id and name
+                        # 该工具调用的第一个 chunk 携带 id 和 name
                         pending_tool_calls[idx] = {
                             "id": tc_delta.id or "",
                             "name": (tc_delta.function.name if tc_delta.function else "") or "",
@@ -161,7 +180,7 @@ class OpenAIAdapter(BaseAIAdapter):
                                 tool_name=tc_delta.function.name,
                             )
 
-                    # Accumulate argument fragments
+                    # 累积参数片段
                     if tc_delta.function and tc_delta.function.arguments:
                         fragment = tc_delta.function.arguments
                         pending_tool_calls[idx]["arguments"] += fragment
@@ -171,8 +190,8 @@ class OpenAIAdapter(BaseAIAdapter):
                             partial_json=fragment,
                         )
 
-            # Stream finished — emit tool_call_end for each pending call,
-            # then message_end with the complete list.
+            # 流结束 — 为每个待处理调用发出 tool_call_end，
+            # 然后发出带完整列表的 message_end
             if finish_reason is not None:
                 completed: list[ToolCall] = []
                 for idx in sorted(pending_tool_calls):
@@ -180,7 +199,7 @@ class OpenAIAdapter(BaseAIAdapter):
                     try:
                         args = json.loads(tc["arguments"]) if tc["arguments"] else {}
                     except json.JSONDecodeError:
-                        logger.warning("Malformed tool call arguments: %s", tc["arguments"][:200])
+                        logger.warning("工具调用参数格式错误: %s", tc["arguments"][:200])
                         args = {}
                     completed.append(ToolCall(id=tc["id"], name=tc["name"], arguments=args))
                     yield StreamEvent(type="tool_call_end", tool_call_id=tc["id"])

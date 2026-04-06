@@ -1,4 +1,4 @@
-"""Tool subsystem — registration and dispatch for all assistant tools."""
+"""工具子系统 — 所有助手工具的注册与分发。"""
 
 from services.assistant.tools.registry import ToolContext, ToolHandler, ToolRegistry, registry
 from services.assistant.tools.query_tools import register_query_tools
@@ -9,7 +9,7 @@ from services.assistant.tools.skill_tools import register_skill_tools
 
 
 def _register_all() -> None:
-    """Register every tool category into the global registry."""
+    """将所有工具类别注册到全局注册表。"""
     register_query_tools(registry)
     register_action_tools(registry)
     register_system_tools(registry)

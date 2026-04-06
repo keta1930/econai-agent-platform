@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -21,6 +22,8 @@ from schemas.super_admin import AdminResponse, AdminListResponse, ResetPasswordR
 from services.auth_service import hash_password, revoke_all_user_tokens
 from services.storage import storage_service
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/super-admin", tags=["super-admin"])
 
 
@@ -37,7 +40,7 @@ async def list_admins(
     )
     rows = result.all()
 
-    # Batch count classes per admin
+    # 批量统计每个管理员的班级数
     admin_ids = [user.id for user, _ in rows]
     class_counts: dict[uuid.UUID, int] = {}
     if admin_ids:
@@ -69,7 +72,10 @@ async def toggle_admin_active(
     super_admin: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("切换管理员状态 — admin_id=%s", admin_id)
+
     if admin_id == super_admin.id:
+        logger.warning("切换管理员状态失败 — 不能禁用自己, admin_id=%s", admin_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="不能禁用自己的账号",
@@ -80,6 +86,7 @@ async def toggle_admin_active(
     )
     admin = result.scalar_one_or_none()
     if not admin:
+        logger.warning("切换管理员状态失败 — 管理员不存在, admin_id=%s", admin_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="管理员不存在",
@@ -87,20 +94,20 @@ async def toggle_admin_active(
 
     admin.is_active = not admin.is_active
 
-    # Revoke all refresh tokens when disabling
+    # 禁用时撤销所有 refresh token
     if not admin.is_active:
         await revoke_all_user_tokens(db, admin.id)
 
     await db.commit()
     await db.refresh(admin)
 
-    # Fetch class count
+    # 查询班级数
     result = await db.execute(
         select(func.count(Class.id)).where(Class.created_by == admin.id)
     )
     class_count = result.scalar() or 0
 
-    # Fetch category
+    # 查询所属分类
     category = None
     if admin.invite_code_id:
         ic_result = await db.execute(
@@ -126,11 +133,14 @@ async def reset_admin_password(
     _super: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("重置管理员密码 — admin_id=%s", admin_id)
+
     result = await db.execute(
         select(User).where(User.id == admin_id, User.role == "admin")
     )
     admin = result.scalar_one_or_none()
     if not admin:
+        logger.warning("重置管理员密码失败 — 管理员不存在, admin_id=%s", admin_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="管理员不存在",
@@ -147,7 +157,10 @@ async def delete_admin(
     super_admin: TokenPayload = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    logger.info("删除管理员 — admin_id=%s", admin_id)
+
     if admin_id == super_admin.id:
+        logger.warning("删除管理员失败 — 不能删除自己, admin_id=%s", admin_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="不能删除自己的账号",
@@ -158,12 +171,13 @@ async def delete_admin(
     )
     admin = result.scalar_one_or_none()
     if not admin:
+        logger.warning("删除管理员失败 — 管理员不存在, admin_id=%s", admin_id)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="管理员不存在",
         )
 
-    # Collect all class IDs owned by this admin
+    # 收集该管理员名下所有班级 ID
     result = await db.execute(
         select(Class.id).where(Class.created_by == admin_id)
     )
@@ -172,14 +186,14 @@ async def delete_admin(
     file_paths: list[str] = []
 
     if class_ids:
-        # 1. Delete topic_votes for topics in admin's classes
+        # 1. 删除该管理员班级下分享主题的投票
         topic_ids_stmt = select(SharingTopic.id).where(SharingTopic.class_id.in_(class_ids))
         await db.execute(delete(TopicVote).where(TopicVote.topic_id.in_(topic_ids_stmt)))
 
-        # 2. Delete sharing_topics
+        # 2. 删除分享主题
         await db.execute(delete(SharingTopic).where(SharingTopic.class_id.in_(class_ids)))
 
-        # 3. Delete submissions + collect file paths
+        # 3. 删除提交记录，收集文件路径
         task_ids_stmt = select(Task.id).where(Task.class_id.in_(class_ids))
         result = await db.execute(
             select(Submission.file_path).where(Submission.task_id.in_(task_ids_stmt))
@@ -188,31 +202,31 @@ async def delete_admin(
 
         await db.execute(delete(Submission).where(Submission.task_id.in_(task_ids_stmt)))
 
-        # 4. Delete tasks
+        # 4. 删除任务
         await db.execute(delete(Task).where(Task.class_id.in_(class_ids)))
 
-        # 5. Delete class_members records (students keep their User accounts)
+        # 5. 删除班级成员关系（学生账号保留）
         await db.execute(
             delete(ClassMember).where(ClassMember.class_id.in_(class_ids))
         )
 
-        # 6. Delete roster entries
+        # 6. 删除学生名单
         await db.execute(delete(StudentRoster).where(StudentRoster.class_id.in_(class_ids)))
 
-        # 7. Delete classes
+        # 7. 删除班级
         await db.execute(delete(Class).where(Class.created_by == admin_id))
 
-    # 8. Delete model configs
+    # 8. 删除模型配置
     await db.execute(delete(ModelConfig).where(ModelConfig.admin_id == admin_id))
 
-    # 9. Delete backups
+    # 9. 删除备份记录
     await db.execute(delete(Backup).where(Backup.admin_id == admin_id))
 
-    # 10. Delete the admin user (CASCADE will clean up refresh_tokens)
+    # 10. 删除管理员账号（CASCADE 会清理 refresh_tokens）
     await db.delete(admin)
     await db.commit()
 
-    # Clean up files in MinIO
+    # 清理 MinIO 中的文件
     if file_paths:
         await asyncio.to_thread(storage_service.remove_objects, file_paths)
 
