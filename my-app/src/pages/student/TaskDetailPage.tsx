@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileUpload } from "@/components/FileUpload";
-import { ImageUpload } from "@/components/ImageUpload";
+import { MultiImageUpload } from "@/components/MultiImageUpload";
 import { StatusBadge } from "@/components/StatusBadge";
 import { scoreColor } from "@/lib/format";
 import { useApi } from "@/hooks/useApi";
@@ -41,7 +41,7 @@ export default function TaskDetailPage() {
   const [activeTab, setActiveTab] = useState("text");
   const [textContent, setTextContent] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -56,7 +56,7 @@ export default function TaskDetailPage() {
   const canSubmit =
     (activeTab === "text" && textContent.trim().length > 0) ||
     (activeTab === "file" && selectedFile !== null) ||
-    (activeTab === "image" && selectedImage !== null);
+    (activeTab === "image" && selectedImages.length > 0);
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -69,8 +69,8 @@ export default function TaskDetailPage() {
         await submissionsApi.submit(id, "file", selectedFile!);
         setSelectedFile(null);
       } else {
-        await submissionsApi.submit(id, "image", selectedImage!);
-        setSelectedImage(null);
+        await submissionsApi.submitImages(id, selectedImages);
+        setSelectedImages([]);
       }
       await refetch();
     } catch (e) {
@@ -109,16 +109,16 @@ export default function TaskDetailPage() {
       <Card>
         <CardContent className="space-y-4 pt-6">
           <div>
-            <h4 className="mb-2 text-sm font-medium text-muted-foreground">任务说明</h4>
+            <h4 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">任务说明</h4>
             <p className="whitespace-pre-wrap text-sm">{task.description}</p>
           </div>
           <div>
-            <h4 className="mb-2 text-sm font-medium text-muted-foreground">打分标准</h4>
+            <h4 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">打分标准</h4>
             <MarkdownContent content={task.grading_criteria} />
           </div>
           {task.learning_resources && task.learning_resources.length > 0 && (
             <div>
-              <h4 className="mb-2 text-sm font-medium text-muted-foreground">学习资源</h4>
+              <h4 className="font-heading text-sm font-semibold text-muted-foreground tracking-wide mb-3 pb-2 border-b border-[var(--paper-deep)]">学习资源</h4>
               <div className="space-y-2">
                 {task.learning_resources.map((resource, index) => (
                   <div
@@ -190,9 +190,8 @@ export default function TaskDetailPage() {
                 </TabsContent>
 
                 <TabsContent value="image">
-                  <ImageUpload
-                    onFileSelect={setSelectedImage}
-                    onClear={() => setSelectedImage(null)}
+                  <MultiImageUpload
+                    onFilesChange={setSelectedImages}
                     disabled={submitting}
                   />
                 </TabsContent>
@@ -229,7 +228,9 @@ export default function TaskDetailPage() {
             <Eye className="h-10 w-10 text-info" />
             <p className="mt-4 font-medium">已提交，待人工审核</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              图片类提交需要人工审核，请耐心等待
+              {latestSubmission.content_type === "image"
+                ? "当前 AI 模型不支持图片批改，已转为人工审核"
+                : "该提交需要人工审核，请耐心等待"}
             </p>
           </CardContent>
         </Card>
@@ -304,11 +305,11 @@ export default function TaskDetailPage() {
           </CardHeader>
           {historyOpen && (
             <CardContent className="pt-0">
-              <div className="divide-y rounded-md border">
+              <div className="rounded-md border border-[var(--paper-border)] overflow-hidden">
                 {historySubmissions.map((sub) => (
                   <div
                     key={sub.id}
-                    className="flex items-center justify-between px-4 py-3 text-sm"
+                    className="flex items-center justify-between px-4 py-3.5 text-sm border-b border-[var(--paper-deep)] last:border-b-0 transition-colors hover:bg-[var(--paper-warm)]"
                   >
                     <div className="flex items-center gap-3">
                       <span className="font-medium">

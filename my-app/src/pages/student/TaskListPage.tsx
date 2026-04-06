@@ -1,4 +1,12 @@
 import { useNavigate } from "react-router-dom";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState } from "@/components/EmptyState";
@@ -18,10 +26,9 @@ export default function TaskListPage() {
 
   if (tasksLoading) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-[72px] w-full rounded-xl" />
-        ))}
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     );
   }
@@ -31,15 +38,6 @@ export default function TaskListPage() {
   }
 
   const tasks = tasksData?.items ?? [];
-  if (tasks.length === 0) {
-    return (
-      <EmptyState
-        icon={<ClipboardList className="h-12 w-12" />}
-        title="暂无任务"
-        description="老师还没有发布任何任务"
-      />
-    );
-  }
 
   const submissionMap = new Map<string, string>();
   if (subsData?.items) {
@@ -51,31 +49,45 @@ export default function TaskListPage() {
   }
 
   return (
-    <div className="animate-fade-in-up">
-      <h1 className="text-[22px] font-heading font-semibold page-title-decorated mb-6">
+    <div className="space-y-4 animate-fade-in-up">
+      <h1 className="text-2xl font-heading font-semibold page-title-decorated">
         任务列表
       </h1>
-      <div className="space-y-3">
-        {tasks.map((task, index) => (
-          <button
-            key={task.id}
-            type="button"
-            className="student-task-card animate-scroll-reveal"
-            style={{ "--stagger-index": index } as React.CSSProperties}
-            onClick={() => navigate(`/student/tasks/${task.id}`)}
-          >
-            <div>
-              <h3 className="text-[15px] font-heading font-semibold text-[var(--text-primary,#1c1a17)]">
-                {task.title}
-              </h3>
-              <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary,#8a8479)" }}>
-                发布于 {formatDate(task.created_at)}
-              </p>
-            </div>
-            <StatusBadge status={submissionMap.get(task.id) ?? "not_submitted"} />
-          </button>
-        ))}
-      </div>
+
+      {tasks.length === 0 ? (
+        <EmptyState
+          icon={<ClipboardList className="h-12 w-12" />}
+          title="暂无任务"
+          description="老师还没有发布任何任务"
+        />
+      ) : (
+        <Table className="data-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead>任务标题</TableHead>
+              <TableHead>发布时间</TableHead>
+              <TableHead>提交状态</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tasks.map((task) => (
+              <TableRow
+                key={task.id}
+                className="cursor-pointer"
+                onClick={() => navigate(`/student/tasks/${task.id}`)}
+              >
+                <TableCell className="font-medium">{task.title}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {formatDate(task.created_at)}
+                </TableCell>
+                <TableCell>
+                  <StatusBadge status={submissionMap.get(task.id) ?? "not_submitted"} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
   );
 }

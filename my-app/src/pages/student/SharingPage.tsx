@@ -1,6 +1,12 @@
 import { useState, useCallback } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,129 +22,26 @@ import { MarkdownContent } from "@/components/ui/markdown-content";
 import { useApi } from "@/hooks/useApi";
 import { sharingApi } from "@/api/sharing";
 import { ApiError } from "@/api/client";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ThumbsUp, BookOpen, CheckCircle2, Vote, Send } from "lucide-react";
-import type { TopicListItem, TopicMaterialsResponse } from "@/types/sharing";
+import { ThumbsUp, Send, Presentation } from "lucide-react";
+import type { TopicListItem, TopicMaterialsResponse, TopicStatus } from "@/types/sharing";
 
 const MAX_VOTES = 3;
 
-// ---------------------------------------------------------------------------
-// CompletedTab
-// ---------------------------------------------------------------------------
+const STATUS_LABELS: Record<TopicStatus, string> = {
+  completed: "已分享",
+  confirmed: "已确定",
+  voting: "投票中",
+};
+const STATUS_VARIANTS: Record<TopicStatus, "default" | "secondary" | "outline"> = {
+  completed: "default",
+  confirmed: "secondary",
+  voting: "outline",
+};
+const STATUS_ORDER: TopicStatus[] = ["completed", "confirmed", "voting"];
 
-function CompletedTab({ topics }: { topics: TopicListItem[] }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [materials, setMaterials] = useState<TopicMaterialsResponse | null>(null);
-  const [loadingMaterials, setLoadingMaterials] = useState(false);
-
-  async function handleViewMaterials(topic: TopicListItem) {
-    setSheetOpen(true);
-    setMaterials(null);
-
-    if (!topic.has_materials) {
-      return;
-    }
-
-    setLoadingMaterials(true);
-    try {
-      const res = await sharingApi.getMaterials(topic.id);
-      setMaterials(res);
-    } catch {
-      toast.error("加载素材失败");
-    } finally {
-      setLoadingMaterials(false);
-    }
-  }
-
-  if (topics.length === 0) {
-    return (
-      <EmptyState
-        icon={<BookOpen className="h-12 w-12" />}
-        title="暂无已分享内容"
-        description="已完成的分享内容将在此展示"
-      />
-    );
-  }
-
-  return (
-    <>
-      <div className="rounded-xl border divide-y" style={{ borderColor: "var(--paper-border)" }}>
-        {topics.map((topic) => (
-          <div
-            key={topic.id}
-            className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
-            onClick={() => handleViewMaterials(topic)}
-          >
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium truncate">{topic.title}</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {topic.presenters && <span>{topic.presenters}</span>}
-                {topic.session_number != null && (
-                  <span className="ml-2">第 {topic.session_number} 次分享</span>
-                )}
-                {topic.shared_at && (
-                  <span className="ml-2">
-                    {new Date(topic.shared_at).toLocaleDateString("zh-CN")}
-                  </span>
-                )}
-              </p>
-            </div>
-            {topic.has_materials && (
-              <BookOpen className="ml-3 h-4 w-4 shrink-0 text-muted-foreground" />
-            )}
-          </div>
-        ))}
-      </div>
-
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{materials?.title ?? "分享素材"}</SheetTitle>
-          </SheetHeader>
-          <div className="px-4 pb-4">
-            {loadingMaterials ? (
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-              </div>
-            ) : materials ? (
-              <MarkdownContent content={materials.materials_content} />
-            ) : (
-              <p className="text-sm text-muted-foreground">暂无素材</p>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ConfirmedTab
-// ---------------------------------------------------------------------------
-
-function ConfirmedTab({ topics }: { topics: TopicListItem[] }) {
-  if (topics.length === 0) {
-    return (
-      <EmptyState
-        icon={<CheckCircle2 className="h-12 w-12" />}
-        title="暂无已确定主题"
-        description="已确定的未来分享主题将在此展示"
-      />
-    );
-  }
-
-  return (
-    <div className="rounded-xl border divide-y" style={{ borderColor: "var(--paper-border)" }}>
-      {topics.map((topic) => (
-        <div key={topic.id} className="px-4 py-3">
-          <span className="text-sm font-medium">{topic.title}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+type StatusFilter = "all" | TopicStatus;
 
 // ---------------------------------------------------------------------------
 // SuggestInput
@@ -196,124 +99,24 @@ function SuggestInput({ onSuggested }: { onSuggested: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// VotingTab
-// ---------------------------------------------------------------------------
-
-function VotingTab({
-  topics,
-  totalVotes,
-  onVoteChange,
-  onRefresh,
-}: {
-  topics: TopicListItem[];
-  totalVotes: number;
-  onVoteChange: (topicId: string, voted: boolean, newCount: number) => void;
-  onRefresh: () => void;
-}) {
-  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
-  const atLimit = totalVotes >= MAX_VOTES;
-
-  async function handleToggleVote(topic: TopicListItem) {
-    if (loadingIds.has(topic.id)) return;
-
-    const snapshot = { voted: topic.current_user_voted, count: topic.vote_count };
-    const optimisticCount = snapshot.voted ? snapshot.count - 1 : snapshot.count + 1;
-
-    onVoteChange(topic.id, !snapshot.voted, optimisticCount);
-    setLoadingIds((prev) => new Set(prev).add(topic.id));
-
-    try {
-      const res = snapshot.voted
-        ? await sharingApi.unvote(topic.id)
-        : await sharingApi.vote(topic.id);
-      onVoteChange(topic.id, !snapshot.voted, res.vote_count);
-    } catch (err) {
-      onVoteChange(topic.id, snapshot.voted, snapshot.count);
-      if (err instanceof ApiError) {
-        toast.error(err.message);
-      } else {
-        toast.error("操作失败");
-      }
-    } finally {
-      setLoadingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(topic.id);
-        return next;
-      });
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          已投 {totalVotes}/{MAX_VOTES}
-        </p>
-      </div>
-
-      <SuggestInput onSuggested={onRefresh} />
-
-      {topics.length === 0 ? (
-        <EmptyState
-          icon={<Vote className="h-12 w-12" />}
-          title="暂无投票主题"
-          description="候选的分享主题将在此展示"
-        />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {topics.map((topic) => {
-            const canVote = topic.current_user_voted || !atLimit;
-            return (
-              <Card key={topic.id}>
-                <CardContent className="flex items-center justify-between py-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-sm font-medium truncate">{topic.title}</h3>
-                      {topic.is_student_submitted && (
-                        <Badge variant="secondary" className="shrink-0 text-xs">
-                          同学推荐
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {topic.vote_count} 票
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={topic.current_user_voted ? "outline" : "default"}
-                    disabled={loadingIds.has(topic.id) || !canVote}
-                    onClick={() => handleToggleVote(topic)}
-                    className="ml-3 shrink-0"
-                  >
-                    <ThumbsUp className="mr-1.5 h-3.5 w-3.5" />
-                    {topic.current_user_voted
-                      ? "已投票"
-                      : atLimit
-                        ? "已达上限"
-                        : "投票"}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // SharingPage (main)
 // ---------------------------------------------------------------------------
 
 export default function SharingPage() {
   const { data, loading, error, refetch } = useApi(() => sharingApi.list(), []);
   const [topicsOverride, setTopicsOverride] = useState<Map<string, { voted: boolean; count: number }>>(new Map());
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [loadingVoteIds, setLoadingVoteIds] = useState<Set<string>>(new Set());
+
+  // Materials sheet state
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [materials, setMaterials] = useState<TopicMaterialsResponse | null>(null);
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
 
   const allTopics = data?.items ?? [];
   const serverTotalVotes = data?.total_votes ?? 0;
 
+  // Apply optimistic vote overrides
   const topics = allTopics.map((t) => {
     const override = topicsOverride.get(t.id);
     if (override) {
@@ -331,12 +134,32 @@ export default function SharingPage() {
     return delta;
   }, 0);
   const totalVotes = serverTotalVotes + voteDelta;
+  const atLimit = totalVotes >= MAX_VOTES;
 
-  const completed = topics.filter((t) => t.status === "completed");
-  const confirmed = topics.filter((t) => t.status === "confirmed");
-  const voting = topics
-    .filter((t) => t.status === "voting")
-    .sort((a, b) => b.vote_count - a.vote_count);
+  // Counts per status
+  const countByStatus: Record<StatusFilter, number> = {
+    all: topics.length,
+    completed: topics.filter((t) => t.status === "completed").length,
+    confirmed: topics.filter((t) => t.status === "confirmed").length,
+    voting: topics.filter((t) => t.status === "voting").length,
+  };
+
+  // Filter + sort: completed → confirmed → voting, voting sorted by vote_count desc
+  const filteredTopics = topics
+    .filter((t) => statusFilter === "all" || t.status === statusFilter)
+    .sort((a, b) => {
+      const orderA = STATUS_ORDER.indexOf(a.status);
+      const orderB = STATUS_ORDER.indexOf(b.status);
+      if (orderA !== orderB) return orderA - orderB;
+      if (a.status === "voting") return b.vote_count - a.vote_count;
+      return 0;
+    });
+
+  const showVotingControls = statusFilter === "all" || statusFilter === "voting";
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
   const handleVoteChange = useCallback(
     (topicId: string, voted: boolean, newCount: number) => {
@@ -349,17 +172,68 @@ export default function SharingPage() {
     []
   );
 
+  async function handleToggleVote(topic: TopicListItem) {
+    if (loadingVoteIds.has(topic.id)) return;
+
+    const snapshot = { voted: topic.current_user_voted, count: topic.vote_count };
+    const optimisticCount = snapshot.voted ? snapshot.count - 1 : snapshot.count + 1;
+
+    handleVoteChange(topic.id, !snapshot.voted, optimisticCount);
+    setLoadingVoteIds((prev) => new Set(prev).add(topic.id));
+
+    try {
+      const res = snapshot.voted
+        ? await sharingApi.unvote(topic.id)
+        : await sharingApi.vote(topic.id);
+      handleVoteChange(topic.id, !snapshot.voted, res.vote_count);
+    } catch (err) {
+      handleVoteChange(topic.id, snapshot.voted, snapshot.count);
+      if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else {
+        toast.error("操作失败");
+      }
+    } finally {
+      setLoadingVoteIds((prev) => {
+        const next = new Set(prev);
+        next.delete(topic.id);
+        return next;
+      });
+    }
+  }
+
+  async function handleViewMaterials(topic: TopicListItem) {
+    setSheetOpen(true);
+    setMaterials(null);
+
+    if (!topic.has_materials) return;
+
+    setLoadingMaterials(true);
+    try {
+      const res = await sharingApi.getMaterials(topic.id);
+      setMaterials(res);
+    } catch {
+      toast.error("加载素材失败");
+    } finally {
+      setLoadingMaterials(false);
+    }
+  }
+
   function handleRefresh() {
     setTopicsOverride(new Map());
     refetch();
   }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   if (loading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
     );
   }
@@ -369,31 +243,155 @@ export default function SharingPage() {
   }
 
   return (
-    <div className="animate-fade-in-up">
-      <h1 className="text-[22px] font-heading font-semibold page-title-decorated mb-6">
-        课程分享
-      </h1>
-      <Tabs defaultValue="completed">
-        <TabsList>
-          <TabsTrigger value="completed">已分享</TabsTrigger>
-          <TabsTrigger value="confirmed">已确定</TabsTrigger>
-          <TabsTrigger value="voting">投票</TabsTrigger>
-        </TabsList>
-        <TabsContent value="completed">
-          <CompletedTab topics={completed} />
-        </TabsContent>
-        <TabsContent value="confirmed">
-          <ConfirmedTab topics={confirmed} />
-        </TabsContent>
-        <TabsContent value="voting">
-          <VotingTab
-            topics={voting}
-            totalVotes={totalVotes}
-            onVoteChange={handleVoteChange}
-            onRefresh={handleRefresh}
-          />
-        </TabsContent>
-      </Tabs>
+    <div className="space-y-4 animate-fade-in-up">
+      {/* Header: title + nav + suggest */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <h1 className="text-2xl font-heading font-semibold page-title-decorated">
+            课程分享
+          </h1>
+          <nav className="flex items-center gap-4">
+            {(
+              [
+                ["all", "全部"],
+                ["completed", "已分享"],
+                ["confirmed", "已确定"],
+                ["voting", "投票中"],
+              ] as const
+            ).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setStatusFilter(tab)}
+                className={cn(
+                  "relative pb-1 text-sm transition-colors",
+                  statusFilter === tab
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {label}({countByStatus[tab]})
+                {statusFilter === tab && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--gold)] rounded-full" />
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {showVotingControls && countByStatus.voting > 0 && (
+          <span className="text-sm text-muted-foreground shrink-0">
+            已投 {totalVotes}/{MAX_VOTES}
+          </span>
+        )}
+      </div>
+
+      {/* Suggest input */}
+      {showVotingControls && countByStatus.voting > 0 && (
+        <SuggestInput onSuggested={handleRefresh} />
+      )}
+
+      {/* Topic table */}
+      {filteredTopics.length === 0 ? (
+        <EmptyState
+          icon={<Presentation className="h-12 w-12" />}
+          title="暂无主题"
+          description="分享主题将在此展示"
+        />
+      ) : (
+        <Table className="data-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead>标题</TableHead>
+              <TableHead>来源</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>汇报人</TableHead>
+              <TableHead>票数</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredTopics.map((topic) => {
+              const isCompleted = topic.status === "completed";
+              const isVoting = topic.status === "voting";
+              const canVote = topic.current_user_voted || !atLimit;
+
+              return (
+                <TableRow
+                  key={topic.id}
+                  className={isCompleted && topic.has_materials ? "cursor-pointer" : undefined}
+                  onClick={isCompleted && topic.has_materials ? () => handleViewMaterials(topic) : undefined}
+                >
+                  <TableCell className="font-medium">{topic.title}</TableCell>
+                  <TableCell>
+                    {topic.is_student_submitted ? (
+                      <Badge variant="secondary" className="text-xs">同学推荐</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">系统</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={STATUS_VARIANTS[topic.status]}>
+                      {STATUS_LABELS[topic.status]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {topic.presenters ?? "-"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {topic.vote_count}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {isVoting && (
+                      <Button
+                        size="sm"
+                        variant={topic.current_user_voted ? "outline" : "default"}
+                        disabled={loadingVoteIds.has(topic.id) || !canVote}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleVote(topic);
+                        }}
+                      >
+                        <ThumbsUp className="mr-1.5 h-3.5 w-3.5" />
+                        {topic.current_user_voted
+                          ? "已投票"
+                          : atLimit
+                            ? "已达上限"
+                            : "投票"}
+                      </Button>
+                    )}
+                    {isCompleted && topic.has_materials && (
+                      <span className="text-xs text-muted-foreground">查看素材</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+
+      {/* Materials sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{materials?.title ?? "分享素材"}</SheetTitle>
+          </SheetHeader>
+          <div className="px-4 pb-4">
+            {loadingMaterials ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+              </div>
+            ) : materials ? (
+              <MarkdownContent content={materials.materials_content} />
+            ) : (
+              <p className="text-sm text-muted-foreground">暂无素材</p>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
