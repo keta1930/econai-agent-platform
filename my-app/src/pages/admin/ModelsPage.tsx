@@ -66,7 +66,6 @@ export default function ModelsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const isCreate = dialogMode.type === "create";
   const isEdit = dialogMode.type === "edit";
   const isDerive = dialogMode.type === "derive";
 
