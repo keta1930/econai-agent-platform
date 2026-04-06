@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatContext } from "@/contexts/ChatContext";
+import { useClassContext } from "@/contexts/ClassContext";
 import { useChat } from "@/hooks/useChat";
 import { ConversationList } from "./ConversationList";
 import { MessageBubble } from "./MessageBubble";
@@ -195,6 +196,7 @@ function MessageArea({
 
 function PanelContent({ onClose }: { onClose: () => void }) {
   const { state } = useChatContext();
+  const { currentClass } = useClassContext();
   const {
     sendMessage,
     answerQuestion,
@@ -236,10 +238,10 @@ function PanelContent({ onClose }: { onClose: () => void }) {
       if (state.isPendingAnswer) {
         answerQuestion(content);
       } else {
-        sendMessage(content);
+        sendMessage(content, currentClass?.id);
       }
     },
-    [state.isPendingAnswer, answerQuestion, sendMessage],
+    [state.isPendingAnswer, answerQuestion, sendMessage, currentClass],
   );
 
   return (

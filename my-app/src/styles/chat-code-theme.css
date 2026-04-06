@@ -12,9 +12,17 @@
   --tw-prose-links: var(--cyan-mid);
   --tw-prose-code: var(--cyan-deep);
   color: inherit;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* --- highlight.js base reset -------------------------------------------- */
+
+.chat-markdown pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+}
 
 .chat-markdown pre code.hljs {
   background: transparent;
@@ -62,6 +70,47 @@
 }
 .chat-markdown .hljs-punctuation {
   color: var(--muted-foreground);
+}
+
+/* --- Spacing — override prose-sm defaults for narrow chat panel --------- */
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  font-weight: 600;
+}
+
+.chat-markdown h1 { font-size: 1.1em; }
+.chat-markdown h2 { font-size: 1.05em; }
+.chat-markdown h3 { font-size: 1em; }
+
+.chat-markdown p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+  padding-left: 1.4em;
+}
+
+.chat-markdown li {
+  margin-top: 0.15em;
+  margin-bottom: 0.15em;
+}
+
+/* First child in bubble should not have top margin */
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+/* Last child should not have bottom margin */
+.chat-markdown > :last-child {
+  margin-bottom: 0;
 }
 
 /* --- Inline code -------------------------------------------------------- */

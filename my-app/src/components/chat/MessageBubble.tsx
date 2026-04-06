@@ -182,7 +182,7 @@ export function MessageBubble({
     <div className={cn("flex mb-3", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[85%] rounded-lg px-3 py-2",
+          "max-w-[85%] rounded-lg px-3 py-2 overflow-hidden",
           isUser
             ? "bg-[var(--ink-deep)] text-[var(--text-on-dark)]"
             : "bg-white border border-[var(--paper-border)] text-foreground shadow-[var(--shadow-sm)]",

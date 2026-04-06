@@ -19,7 +19,7 @@ interface StreamingBlockDisplayProps {
 export function StreamingBlockDisplay({ blocks, onAnswer }: StreamingBlockDisplayProps) {
   return (
     <div className="flex justify-start mb-3">
-      <div className="max-w-[85%] rounded-lg px-3 py-2 bg-white border border-[var(--paper-border)] text-foreground shadow-[var(--shadow-sm)]">
+      <div className="max-w-[85%] rounded-lg px-3 py-2 overflow-hidden bg-white border border-[var(--paper-border)] text-foreground shadow-[var(--shadow-sm)]">
         {blocks.map((block) => (
           <StreamingBlockRenderer key={block.id} block={block} onAnswer={onAnswer} />
         ))}
