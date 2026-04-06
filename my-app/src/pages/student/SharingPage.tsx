@@ -324,11 +324,9 @@ export default function SharingPage() {
                 >
                   <TableCell className="font-medium">{topic.title}</TableCell>
                   <TableCell>
-                    {topic.is_student_submitted ? (
-                      <Badge variant="secondary" className="text-xs">同学推荐</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">系统</span>
-                    )}
+                    <Badge variant={topic.is_student_submitted ? "secondary" : "outline"} className="text-xs">
+                      {topic.is_student_submitted ? "同学推荐" : "系统"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANTS[topic.status]}>
