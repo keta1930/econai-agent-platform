@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from config import DATABASE_URL
 from database import Base
@@ -36,15 +36,20 @@ def run_migrations_online() -> None:
     connectable = create_engine(sync_url)
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-            compare_server_default=True,
-        )
+        # Prevent concurrent migrations from multiple app instances
+        connection.execute(text("SELECT pg_advisory_lock(1732)"))
+        try:
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                compare_type=True,
+                compare_server_default=True,
+            )
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            connection.execute(text("SELECT pg_advisory_unlock(1732)"))
 
 
 if context.is_offline_mode():

@@ -1,7 +1,7 @@
 """add_conversations
 
 Revision ID: 0fb1d73aaf55
-Revises: 
+Revises: 0000000000
 Create Date: 2026-04-05 15:03:26.934516
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '0fb1d73aaf55'
-down_revision: Union[str, Sequence[str], None] = None
+down_revision: Union[str, Sequence[str], None] = '0000000000'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

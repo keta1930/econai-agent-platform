@@ -32,13 +32,40 @@ def _check_secret_key() -> None:
     )
 
 
+def _alembic_config() -> Config:
+    cfg = Config(str(_BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
+    return cfg
+
+
+# Revision that matches the schema created by the old Base.metadata.create_all.
+# Used once to stamp existing databases, then never triggered again.
+_CREATE_ALL_REVISION = "6bafd916a45d"
+
+
+def _stamp_existing_database() -> None:
+    """One-time transition: if DB was built by create_all, stamp alembic_version."""
+    from sqlalchemy import create_engine, inspect
+    from config import DATABASE_URL
+
+    sync_url = DATABASE_URL.replace("+asyncpg", "+psycopg")
+    engine = create_engine(sync_url)
+    try:
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        if "users" in tables and "alembic_version" not in tables:
+            command.stamp(_alembic_config(), _CREATE_ALL_REVISION)
+            logger.info(
+                "Auto-stamped existing database to %s", _CREATE_ALL_REVISION,
+            )
+    finally:
+        engine.dispose()
+
+
 def _run_migrations() -> None:
     """Run Alembic migrations (upgrade head) programmatically."""
-    alembic_cfg = Config(str(_BACKEND_DIR / "alembic.ini"))
-    # alembic.ini uses %(here)s which resolves relative to the ini file,
-    # but we need to ensure the working directory context is correct.
-    alembic_cfg.set_main_option("script_location", str(_BACKEND_DIR / "alembic"))
-    command.upgrade(alembic_cfg, "head")
+    _stamp_existing_database()
+    command.upgrade(_alembic_config(), "head")
 
 
 async def init_database():

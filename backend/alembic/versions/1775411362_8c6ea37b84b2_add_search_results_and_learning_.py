@@ -1,7 +1,7 @@
 """add_search_results_and_learning_resources
 
 Revision ID: 8c6ea37b84b2
-Revises: a9a488f54b73
+Revises: 0fb1d73aaf55
 Create Date: 2026-04-06 01:49:22.283764
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '8c6ea37b84b2'
-down_revision: Union[str, Sequence[str], None] = 'a9a488f54b73'
+down_revision: Union[str, Sequence[str], None] = '0fb1d73aaf55'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
