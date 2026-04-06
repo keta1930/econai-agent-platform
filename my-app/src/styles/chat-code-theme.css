@@ -77,6 +77,12 @@
 
 /* --- Table -------------------------------------------------------------- */
 
+/* 包裹层：表格超宽时允许横向滚动，避免撑破消息容器 */
+.chat-markdown .table-wrapper {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
 .chat-markdown table {
   border-collapse: separate;
   border-spacing: 0;
@@ -86,7 +92,8 @@
   border-radius: 6px;
   overflow: hidden;
   font-size: 13px;
-  margin: 8px 0;
+  margin: 0;
+  table-layout: fixed;
 }
 .chat-markdown thead {
   background: var(--paper-warm);
@@ -103,6 +110,8 @@
   padding: 6px 12px;
   border-bottom: 1px solid rgba(217, 207, 193, 0.5);
   color: inherit;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .chat-markdown tbody tr:last-child td {
   border-bottom: none;

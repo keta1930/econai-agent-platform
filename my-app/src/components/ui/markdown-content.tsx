@@ -68,6 +68,14 @@ const markdownComponents: Components = {
       </a>
     );
   },
+  // 表格包裹滚动容器，防止长内容撑破消息气泡
+  table({ children, ...props }) {
+    return (
+      <div className="table-wrapper">
+        <table {...props}>{children}</table>
+      </div>
+    );
+  },
 };
 
 export function MarkdownContent({ content, className }: MarkdownContentProps) {
