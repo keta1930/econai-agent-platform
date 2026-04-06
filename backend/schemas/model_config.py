@@ -13,6 +13,20 @@ class ModelConfigCreateRequest(BaseModel):
     supports_vision: bool = False
 
 
+class ModelConfigUpdateRequest(BaseModel):
+    name: str | None = None
+    api_key: str | None = None
+    base_url: str | None = None
+    adapter_type: Literal["openai", "anthropic"] | None = None
+    supports_vision: bool | None = None
+
+
+class ModelDeriveRequest(BaseModel):
+    source_model_id: uuid.UUID
+    name: str
+    supports_vision: bool = False
+
+
 class ModelConfigResponse(BaseModel):
     id: uuid.UUID
     name: str
