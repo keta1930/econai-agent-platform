@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -77,15 +77,17 @@ function TopicEditSheet({ open, onOpenChange, topic, classId, onSaved }: EditShe
   const [sharedAt, setSharedAt] = useState("");
   const [materialsContent, setMaterialsContent] = useState("");
 
-  function handleOpenChange(nextOpen: boolean) {
-    if (nextOpen && topic) {
+  // 当 open/topic 变化时同步表单数据，避免 React 批量更新导致的竞态
+  useEffect(() => {
+    if (!open) return;
+    if (topic) {
       setTitle(topic.title);
       setStatus(topic.status);
       setPresenters(topic.presenters ?? "");
       setSessionNumber(topic.session_number?.toString() ?? "");
       setSharedAt(topic.shared_at ? topic.shared_at.slice(0, 10) : "");
       setMaterialsContent(topic.materials_content ?? "");
-    } else if (nextOpen && !topic) {
+    } else {
       setTitle("");
       setStatus("voting");
       setPresenters("");
@@ -93,8 +95,7 @@ function TopicEditSheet({ open, onOpenChange, topic, classId, onSaved }: EditShe
       setSharedAt("");
       setMaterialsContent("");
     }
-    onOpenChange(nextOpen);
-  }
+  }, [open, topic]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -141,7 +142,7 @@ function TopicEditSheet({ open, onOpenChange, topic, classId, onSaved }: EditShe
   }
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{isCreate ? "创建主题" : "编辑主题"}</SheetTitle>
