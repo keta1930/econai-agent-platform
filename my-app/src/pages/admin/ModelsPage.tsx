@@ -23,7 +23,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -32,46 +31,119 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApi } from "@/hooks/useApi";
 import { modelsApi } from "@/api/models";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Zap } from "lucide-react";
+import { Loader2, Plus, Trash2, Zap, Pencil, Copy } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import type { ModelConfigCreateRequest } from "@/types/model";
+import type { ModelConfig } from "@/types/model";
+
+type DialogMode =
+  | { type: "create" }
+  | { type: "edit"; model: ModelConfig }
+  | { type: "derive"; source: ModelConfig };
+
+interface FormState {
+  name: string;
+  api_key: string;
+  base_url: string;
+  adapter_type: "openai" | "anthropic";
+  supports_vision: boolean;
+}
+
+const emptyForm: FormState = {
+  name: "",
+  api_key: "",
+  base_url: "",
+  adapter_type: "openai",
+  supports_vision: false,
+};
 
 export default function ModelsPage() {
   const { data, loading, error, refetch } = useApi(() => modelsApi.list(), []);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<ModelConfigCreateRequest>({
-    name: "",
-    api_key: "",
-    base_url: "",
-    adapter_type: "openai",
-    supports_vision: false,
-  });
-  const [creating, setCreating] = useState(false);
+  const [dialogMode, setDialogMode] = useState<DialogMode>({ type: "create" });
+  const [form, setForm] = useState<FormState>({ ...emptyForm });
+  const [submitting, setSubmitting] = useState(false);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const isFormValid = form.name.trim() && form.api_key.trim() && form.base_url.trim();
+  const isCreate = dialogMode.type === "create";
+  const isEdit = dialogMode.type === "edit";
+  const isDerive = dialogMode.type === "derive";
 
-  async function handleCreate(e: FormEvent) {
+  const isFormValid = isDerive
+    ? form.name.trim().length > 0
+    : isEdit
+      ? form.name.trim().length > 0
+      : form.name.trim().length > 0 && form.api_key.trim().length > 0 && form.base_url.trim().length > 0;
+
+  function openCreate() {
+    setDialogMode({ type: "create" });
+    setForm({ ...emptyForm });
+    setDialogOpen(true);
+  }
+
+  function openEdit(model: ModelConfig) {
+    setDialogMode({ type: "edit", model });
+    setForm({
+      name: model.name,
+      api_key: "",
+      base_url: model.base_url,
+      adapter_type: model.adapter_type as "openai" | "anthropic",
+      supports_vision: model.supports_vision,
+    });
+    setDialogOpen(true);
+  }
+
+  function openDerive(source: ModelConfig) {
+    setDialogMode({ type: "derive", source });
+    setForm({ ...emptyForm });
+    setDialogOpen(true);
+  }
+
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setCreating(true);
+    setSubmitting(true);
     try {
-      await modelsApi.create({
-        name: form.name.trim(),
-        api_key: form.api_key.trim(),
-        base_url: form.base_url.trim(),
-        adapter_type: form.adapter_type,
-        supports_vision: form.supports_vision,
-      });
-      toast.success("模型已添加");
+      if (isDerive) {
+        const source = (dialogMode as { type: "derive"; source: ModelConfig }).source;
+        await modelsApi.derive({
+          source_model_id: source.id,
+          name: form.name.trim(),
+          supports_vision: form.supports_vision,
+        });
+        toast.success("模型已添加");
+      } else if (isEdit) {
+        const model = (dialogMode as { type: "edit"; model: ModelConfig }).model;
+        const updates: Record<string, unknown> = {};
+        if (form.name.trim() !== model.name) updates.name = form.name.trim();
+        if (form.api_key.trim()) updates.api_key = form.api_key.trim();
+        if (form.base_url.trim() !== model.base_url) updates.base_url = form.base_url.trim();
+        if (form.adapter_type !== model.adapter_type) updates.adapter_type = form.adapter_type;
+        if (form.supports_vision !== model.supports_vision) updates.supports_vision = form.supports_vision;
+
+        if (Object.keys(updates).length === 0) {
+          toast.info("未做任何修改");
+          setDialogOpen(false);
+          return;
+        }
+        await modelsApi.update(model.id, updates);
+        toast.success("模型已更新");
+      } else {
+        await modelsApi.create({
+          name: form.name.trim(),
+          api_key: form.api_key.trim(),
+          base_url: form.base_url.trim(),
+          adapter_type: form.adapter_type,
+          supports_vision: form.supports_vision,
+        });
+        toast.success("模型已添加");
+      }
       setDialogOpen(false);
-      setForm({ name: "", api_key: "", base_url: "", adapter_type: "openai", supports_vision: false });
       await refetch();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "添加失败");
+      toast.error(err instanceof Error ? err.message : "操作失败");
     } finally {
-      setCreating(false);
+      setSubmitting(false);
     }
   }
 
@@ -118,6 +190,9 @@ export default function ModelsPage() {
 
   const models = data?.items ?? [];
 
+  const dialogTitle = isEdit ? "编辑模型" : isDerive ? "添加同源模型" : "添加模型";
+  const submitText = isEdit ? "保存" : "添加";
+
   return (
     <div className="space-y-4 animate-fade-in-up">
       <div className="flex items-center justify-between">
@@ -125,81 +200,94 @@ export default function ModelsPage() {
           <h1 className="text-2xl font-heading font-semibold page-title-decorated">模型管理</h1>
           <span className="text-sm text-muted-foreground">共 {models.length} 个模型配置</span>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="mr-2 h-4 w-4" />
-            添加模型
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>添加模型</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="model-name">名称</Label>
-                <Input
-                  id="model-name"
-                  placeholder="例如 gpt-4o"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="model-key">API Key</Label>
-                <Input
-                  id="model-key"
-                  type="password"
-                  placeholder="请输入 API Key"
-                  value={form.api_key}
-                  onChange={(e) => setForm({ ...form, api_key: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="model-url">Base URL</Label>
-                <Input
-                  id="model-url"
-                  placeholder="例如 https://api.openai.com/v1"
-                  value={form.base_url}
-                  onChange={(e) => setForm({ ...form, base_url: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>调用格式类型</Label>
-                <Select
-                  value={form.adapter_type}
-                  onValueChange={(v) => setForm({ ...form, adapter_type: v as "openai" | "anthropic" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openai">OpenAI</SelectItem>
-                    <SelectItem value="anthropic">Anthropic</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={form.supports_vision ?? false}
-                  onCheckedChange={(checked) => setForm({ ...form, supports_vision: checked })}
-                />
-                <Label className="cursor-pointer text-sm font-normal">
-                  支持图片输入（VLM）
-                </Label>
-              </div>
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>
-                  取消
-                </DialogClose>
-                <Button type="submit" disabled={!isFormValid || creating}>
-                  {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  添加
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={openCreate}>
+          <Plus className="mr-2 h-4 w-4" />
+          添加模型
+        </Button>
       </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+            {isDerive && (
+              <p className="text-sm text-muted-foreground mt-1">
+                复用「{(dialogMode as { type: "derive"; source: ModelConfig }).source.name}」的 Base URL 和 API Key
+              </p>
+            )}
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="model-name">名称</Label>
+              <Input
+                id="model-name"
+                placeholder="例如 gpt-4o"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
+            {!isDerive && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="model-key">
+                    API Key
+                    {isEdit && <span className="ml-2 text-xs text-muted-foreground font-normal">留空则不修改</span>}
+                  </Label>
+                  <Input
+                    id="model-key"
+                    type="password"
+                    placeholder={isEdit ? "留空则保持原密钥不变" : "请输入 API Key"}
+                    value={form.api_key}
+                    onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="model-url">Base URL</Label>
+                  <Input
+                    id="model-url"
+                    placeholder="例如 https://api.openai.com/v1"
+                    value={form.base_url}
+                    onChange={(e) => setForm({ ...form, base_url: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>调用格式类型</Label>
+                  <Select
+                    value={form.adapter_type}
+                    onValueChange={(v) => setForm({ ...form, adapter_type: v as "openai" | "anthropic" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">OpenAI</SelectItem>
+                      <SelectItem value="anthropic">Anthropic</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={form.supports_vision}
+                onCheckedChange={(checked) => setForm({ ...form, supports_vision: checked as boolean })}
+              />
+              <Label className="cursor-pointer text-sm font-normal">
+                支持图片输入（VLM）
+              </Label>
+            </div>
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>
+                取消
+              </DialogClose>
+              <Button type="submit" disabled={!isFormValid || submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitText}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Table className="data-table">
         <TableHeader>
@@ -243,6 +331,12 @@ export default function ModelsPage() {
                 )}
               </TableCell>
               <TableCell className="text-right space-x-2">
+                <Button variant="outline" size="sm" onClick={() => openEdit(model)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => openDerive(model)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
                 {!model.is_active && (
                   <>
                     <Button
@@ -252,11 +346,10 @@ export default function ModelsPage() {
                       onClick={() => handleActivate(model.id)}
                     >
                       {activatingId === model.id ? (
-                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Zap className="mr-1 h-4 w-4" />
+                        <Zap className="h-4 w-4" />
                       )}
-                      设为活跃
                     </Button>
                     <Button
                       variant="outline"
@@ -264,8 +357,7 @@ export default function ModelsPage() {
                       className="text-[var(--danger)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/10"
                       onClick={() => setDeleteTarget({ id: model.id, name: model.name })}
                     >
-                      <Trash2 className="mr-1 h-4 w-4" />
-                      删除
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </>
                 )}
