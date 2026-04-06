@@ -48,6 +48,7 @@ def run_migrations_online() -> None:
 
             with context.begin_transaction():
                 context.run_migrations()
+            connection.commit()
         finally:
             connection.execute(text("SELECT pg_advisory_unlock(1732)"))
 
