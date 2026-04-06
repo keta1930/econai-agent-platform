@@ -43,4 +43,6 @@ MAX_BACKUPS_PER_ADMIN: int = int(os.getenv("MAX_BACKUPS_PER_ADMIN", "10"))
 
 # Upload limits (bytes)
 MAX_TEXT_SIZE: int = int(os.getenv("MAX_TEXT_SIZE", "2097152"))  # 2 MB
-MAX_IMAGE_SIZE: int = int(os.getenv("MAX_IMAGE_SIZE", "10485760"))  # 10 MB
+MAX_IMAGE_SIZE: int = int(os.getenv("MAX_IMAGE_SIZE", "5242880"))  # 5 MB per image
+MAX_IMAGES_PER_SUBMISSION: int = int(os.getenv("MAX_IMAGES_PER_SUBMISSION", "10"))
+MAX_IMAGE_TOTAL_SIZE: int = int(os.getenv("MAX_IMAGE_TOTAL_SIZE", "52428800"))  # 50 MB total

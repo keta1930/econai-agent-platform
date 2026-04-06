@@ -45,6 +45,17 @@ class StreamEvent:
 
 
 class BaseAIAdapter(ABC):
+    """Base class for AI model adapters.
+
+    Messages use OpenAI format as the internal representation.
+    The ``content`` field of each message can be either:
+    - ``str`` — plain text message
+    - ``list[dict]`` — multimodal content block array (text + image_url blocks)
+
+    Concrete adapters are responsible for converting this representation
+    to the provider's native format (e.g. Anthropic image source blocks).
+    """
+
     def __init__(self, api_key: str, base_url: str, model_name: str):
         self.api_key = api_key
         self.base_url = base_url

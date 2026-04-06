@@ -36,6 +36,6 @@ class SubmissionListResponse(BaseModel):
 class SubmissionContentResponse(BaseModel):
     submission_id: uuid.UUID
     filename: str
-    content: str
+    content: str | list[str]
     content_type: str
     file_extension: str

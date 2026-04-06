@@ -6,11 +6,14 @@ import re
 from dataclasses import dataclass
 
 from services.ai.base import BaseAIAdapter
+from services.ai.vision import build_multimodal_content
 from services.grading.prompts import (
     HIGHLIGHT_DISCOVERER_SYSTEM,
     HIGHLIGHT_DISCOVERER_USER,
+    HIGHLIGHT_DISCOVERER_USER_IMAGE,
     STANDARD_REVIEWER_SYSTEM,
     STANDARD_REVIEWER_USER,
+    STANDARD_REVIEWER_USER_IMAGE,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,17 +124,30 @@ def format_learning_resources(resources: list[dict] | None) -> str:
     return "\n\n---\n\n".join(parts)
 
 
+def _build_user_content(
+    text_template: str,
+    image_template: str,
+    context: dict,
+) -> str | list[dict]:
+    """Build user message content, using multimodal format when images are present."""
+    images: list[tuple[bytes, str]] | None = context.get("images")
+    if images:
+        prompt_text = image_template.format(**context)
+        return build_multimodal_content(prompt_text, images)
+    return text_template.format(**context)
+
+
 async def run_standard_reviewer(
     adapter: BaseAIAdapter,
     context: dict,
 ) -> StandardReviewResult:
     """Execute the Standard Reviewer agent with retry on parse failure."""
+    user_content = _build_user_content(
+        STANDARD_REVIEWER_USER, STANDARD_REVIEWER_USER_IMAGE, context,
+    )
     messages = [
         {"role": "system", "content": STANDARD_REVIEWER_SYSTEM},
-        {
-            "role": "user",
-            "content": STANDARD_REVIEWER_USER.format(**context),
-        },
+        {"role": "user", "content": user_content},
     ]
 
     last_error: Exception | None = None
@@ -158,12 +174,12 @@ async def run_highlight_discoverer(
     context: dict,
 ) -> HighlightResult:
     """Execute the Highlight Discoverer agent with retry on parse failure."""
+    user_content = _build_user_content(
+        HIGHLIGHT_DISCOVERER_USER, HIGHLIGHT_DISCOVERER_USER_IMAGE, context,
+    )
     messages = [
         {"role": "system", "content": HIGHLIGHT_DISCOVERER_SYSTEM},
-        {
-            "role": "user",
-            "content": HIGHLIGHT_DISCOVERER_USER.format(**context),
-        },
+        {"role": "user", "content": user_content},
     ]
 
     last_error: Exception | None = None

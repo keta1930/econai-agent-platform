@@ -10,11 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from auth.deps import require_student, require_admin, TokenPayload
-from config import MAX_TEXT_SIZE, MAX_IMAGE_SIZE
+from config import MAX_TEXT_SIZE, MAX_IMAGE_SIZE, MAX_IMAGES_PER_SUBMISSION, MAX_IMAGE_TOTAL_SIZE
 from models.user import User
 from models.task import Task
 from models.class_ import Class
 from models.class_member import ClassMember
+from models.model_config import ModelConfig
 from models.submission import Submission
 from schemas.submission import (
     SubmissionCreateResponse, SubmissionDetail, SubmissionListResponse,
@@ -100,32 +101,53 @@ async def _handle_file_submission(
     return rel_path
 
 
-async def _handle_image_submission(
-    file: UploadFile | None, task_id: uuid.UUID, student_id: uuid.UUID, timestamp: str,
-) -> str:
-    """Validate and upload an image submission. Returns the storage path."""
-    if not file:
+async def _handle_image_submissions(
+    files: list[UploadFile],
+    task_id: uuid.UUID,
+    student_id: uuid.UUID,
+    timestamp: str,
+) -> list[str]:
+    """Validate and upload multiple image files. Returns a list of storage paths."""
+    if not files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="请选择图片",
         )
-    _, ext = os.path.splitext(file.filename or "")
-    ext = ext.lower()
-    if ext not in IMAGE_EXTENSIONS:
+    if len(files) > MAX_IMAGES_PER_SUBMISSION:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"仅支持 {', '.join(sorted(IMAGE_EXTENSIONS))} 格式",
+            detail=f"最多上传 {MAX_IMAGES_PER_SUBMISSION} 张图片",
         )
-    file_data = await file.read()
-    if len(file_data) > MAX_IMAGE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"图片大小超过 {MAX_IMAGE_SIZE // (1024 * 1024)}MB 限制",
-        )
-    safe_filename = f"{timestamp}_{file.filename}"
-    rel_path = f"submissions/{task_id}/{student_id}/{safe_filename}"
-    mime = _IMAGE_CONTENT_TYPES.get(ext, "application/octet-stream")
-    await asyncio.to_thread(storage_service.put_object, rel_path, file_data, mime)
-    return rel_path
+
+    paths: list[str] = []
+    total_size = 0
+
+    for i, f in enumerate(files):
+        _, ext = os.path.splitext(f.filename or "")
+        ext = ext.lower()
+        if ext not in IMAGE_EXTENSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"第 {i + 1} 个文件格式不支持，仅支持 {', '.join(sorted(IMAGE_EXTENSIONS))}",
+            )
+        file_data = await f.read()
+        if len(file_data) > MAX_IMAGE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"第 {i + 1} 张图片超过 {MAX_IMAGE_SIZE // (1024 * 1024)}MB 限制",
+            )
+        total_size += len(file_data)
+        if total_size > MAX_IMAGE_TOTAL_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"图片总大小超过 {MAX_IMAGE_TOTAL_SIZE // (1024 * 1024)}MB 限制",
+            )
+        safe_filename = f"{timestamp}_{i:02d}_{f.filename}"
+        rel_path = f"submissions/{task_id}/{student_id}/{safe_filename}"
+        mime = _IMAGE_CONTENT_TYPES.get(ext, "application/octet-stream")
+        await asyncio.to_thread(storage_service.put_object, rel_path, file_data, mime)
+        paths.append(rel_path)
+
+    return paths
 
 
 def _build_submission_detail(s: Submission, task_title: str) -> SubmissionDetail:
@@ -158,6 +180,7 @@ async def submit_assignment(
     content_type: str = Form(...),
     text_content: str | None = Form(None),
     file: UploadFile | None = File(None),
+    files: list[UploadFile] = File(default=[]),
     student: TokenPayload = Depends(require_student),
     db: AsyncSession = Depends(get_db),
 ):
@@ -186,23 +209,45 @@ async def submit_assignment(
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
-    # Dispatch to content-type-specific handler
+    # Dispatch to content-type-specific handler — file_path is always a JSON array
     if content_type == "text":
         rel_path = await _handle_text_submission(text_content, task_id, student.id, timestamp)
+        file_path = [rel_path]
     elif content_type == "file":
         rel_path = await _handle_file_submission(file, task_id, student.id, timestamp)
+        file_path = [rel_path]
     else:  # image
-        rel_path = await _handle_image_submission(file, task_id, student.id, timestamp)
+        file_path = await _handle_image_submissions(files, task_id, student.id, timestamp)
 
-    # Determine initial status
-    initial_status = "manual_review" if content_type == "image" else "pending"
+    # Determine initial status — image submissions check VLM support
+    if content_type == "image":
+        result = await db.execute(
+            select(Class).where(Class.id == task.class_id)
+        )
+        cls = result.scalar_one_or_none()
+        model_config = None
+        if cls:
+            result = await db.execute(
+                select(ModelConfig).where(
+                    ModelConfig.admin_id == cls.created_by,
+                    ModelConfig.is_active == True,  # noqa: E712
+                )
+            )
+            model_config = result.scalar_one_or_none()
+
+        if model_config and model_config.supports_vision:
+            initial_status = "pending"
+        else:
+            initial_status = "manual_review"
+    else:
+        initial_status = "pending"
 
     # Create submission record
     submission = Submission(
         task_id=task_id,
         student_id=student.id,
         version=new_version,
-        file_path=rel_path,
+        file_path=file_path,
         content_type=content_type,
         status=initial_status,
     )
@@ -210,8 +255,8 @@ async def submit_assignment(
     await db.commit()
     await db.refresh(submission)
 
-    # Trigger async grading for text/file only
-    if content_type != "image":
+    # Trigger async grading for all pending submissions (including VLM-capable image)
+    if submission.status == "pending":
         from services.grading import grade_submission
         asyncio.create_task(grade_submission(submission.id))
 
@@ -327,37 +372,41 @@ async def get_submission_content(
     if task:
         await _verify_admin_owns_task(task, admin, db)
 
-    filename = Path(submission.file_path).name
-    file_extension = Path(submission.file_path).suffix.lower()
+    file_paths: list[str] = submission.file_path  # JSON array
 
     if submission.content_type == "image":
-        # Return presigned URL for image content
+        # Return presigned URLs for all images
         try:
-            url = await asyncio.to_thread(
-                storage_service.presigned_get_url, submission.file_path,
-            )
+            urls = []
+            for path in file_paths:
+                url = await asyncio.to_thread(
+                    storage_service.presigned_get_url, path,
+                )
+                urls.append(url)
         except Exception:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片文件不存在")
+        first_path = file_paths[0] if file_paths else ""
         return SubmissionContentResponse(
             submission_id=submission.id,
-            filename=filename,
-            content=url,
+            filename=Path(first_path).name,
+            content=urls,
             content_type=submission.content_type,
-            file_extension=file_extension,
+            file_extension=Path(first_path).suffix.lower(),
         )
 
-    # Text / file: read content as string
+    # Text / file: read content as string (take first path)
+    first_path = file_paths[0] if file_paths else ""
     try:
-        text_content = await asyncio.to_thread(storage_service.get_text, submission.file_path)
+        text_content = await asyncio.to_thread(storage_service.get_text, first_path)
     except Exception:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="提交文件不存在")
 
     return SubmissionContentResponse(
         submission_id=submission.id,
-        filename=filename,
+        filename=Path(first_path).name,
         content=text_content,
         content_type=submission.content_type,
-        file_extension=file_extension,
+        file_extension=Path(first_path).suffix.lower(),
     )
 
 

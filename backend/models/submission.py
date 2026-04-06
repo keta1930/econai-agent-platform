@@ -15,7 +15,7 @@ class Submission(Base):
     task_id = Column(Uuid, ForeignKey("tasks.id"), nullable=False)
     student_id = Column(Uuid, ForeignKey("users.id"), nullable=False)
     version = Column(Integer, nullable=False, default=1)
-    file_path = Column(String, nullable=False)
+    file_path = Column(JSON, nullable=False)
     content_type = Column(String, nullable=False, default="file", server_default="file")
     status = Column(String, nullable=False, default="pending")
     score = Column(Float, nullable=True)

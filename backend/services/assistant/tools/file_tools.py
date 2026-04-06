@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Limit rows returned to keep token usage reasonable
 MAX_PREVIEW_ROWS = 200
+MAX_TEXT_CHARS = 50_000
 
 
 def _parse_xlsx(data: bytes) -> list[list[str]]:
@@ -72,6 +73,35 @@ _CSV_MIMES = {
 }
 
 
+def _parse_text(data: bytes) -> str:
+    """Parse plain text / markdown bytes, trying UTF-8 then GB18030."""
+    text: str | None = None
+    for encoding in ("utf-8", "gb18030"):
+        try:
+            text = data.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+
+    if text is None:
+        return json.dumps({"error": "文件编码不支持"}, ensure_ascii=False)
+
+    truncated = False
+    total_chars = len(text)
+    if total_chars > MAX_TEXT_CHARS:
+        text = text[:MAX_TEXT_CHARS]
+        truncated = True
+
+    return json.dumps(
+        {
+            "content": text,
+            "total_chars": total_chars,
+            "truncated": truncated,
+        },
+        ensure_ascii=False,
+    )
+
+
 async def execute_read_file(args: dict, ctx: ToolContext) -> str:
     file_id = args.get("file_id", "").strip()
     if not file_id:
@@ -91,9 +121,11 @@ async def execute_read_file(args: dict, ctx: ToolContext) -> str:
             rows = await asyncio.to_thread(_parse_xlsx, data)
         elif lower_path.endswith(".csv"):
             rows = await asyncio.to_thread(_parse_csv, data)
+        elif lower_path.endswith((".md", ".txt")):
+            return await asyncio.to_thread(_parse_text, data)
         else:
             return json.dumps(
-                {"error": f"不支持的文件格式，仅支持 .xlsx/.xls/.csv"},
+                {"error": "不支持的文件格式，仅支持 .xlsx/.xls/.csv/.md/.txt"},
                 ensure_ascii=False,
             )
     except Exception:
@@ -127,8 +159,8 @@ def register_file_tools(reg: ToolRegistry) -> None:
         definition=ToolDefinition(
             name="read_file",
             description=(
-                "读取用户上传的文件，返回结构化数据。"
-                "支持 Excel (.xlsx/.xls) 和 CSV (.csv) 格式。"
+                "读取用户上传的文件，返回文件内容。"
+                "支持 Excel (.xlsx/.xls)、CSV (.csv)、Markdown (.md) 和纯文本 (.txt) 格式。"
             ),
             parameters={
                 "type": "object",

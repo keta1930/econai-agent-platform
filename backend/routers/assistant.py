@@ -33,8 +33,18 @@ ALLOWED_UPLOAD_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
     "application/vnd.ms-excel",  # .xls
     "text/csv",  # .csv
+    "text/markdown",  # .md
+    "text/plain",  # .txt
+    "image/jpeg",  # .jpg, .jpeg
+    "image/png",  # .png
+    "image/gif",  # .gif
+    "image/webp",  # .webp
 }
-ALLOWED_EXTENSIONS = {".xlsx", ".xls", ".csv"}
+ALLOWED_EXTENSIONS = {
+    ".xlsx", ".xls", ".csv",
+    ".md", ".txt",
+    ".jpg", ".jpeg", ".png", ".gif", ".webp",
+}
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
@@ -189,6 +199,35 @@ async def stop_generation(
 # ------------------------------------------------------------------
 # File Upload
 # ------------------------------------------------------------------
+
+
+@router.get("/files/{file_id:path}/preview")
+async def get_file_preview(
+    file_id: str,
+    admin: TokenPayload = Depends(require_admin),
+) -> dict[str, str]:
+    """Return a presigned URL for previewing an uploaded assistant file."""
+    # file_id is the full MinIO object name, e.g. "assistant/{admin_id}/{uuid}.png"
+    # Verify the file belongs to this admin
+    expected_prefix = f"assistant/{admin.id}/"
+    if not file_id.startswith(expected_prefix):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="无权访问该文件",
+        )
+
+    try:
+        url = await asyncio.to_thread(
+            storage_service.presigned_get_url, file_id, expires=3600,
+        )
+    except Exception:
+        logger.exception("Failed to generate presigned URL for %s", file_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="文件不存在或无法访问",
+        )
+
+    return {"url": url}
 
 
 @router.post("/upload", response_model=FileUploadResponse)

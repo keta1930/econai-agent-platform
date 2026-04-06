@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -11,7 +12,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.conversation import Conversation, ConversationMessage
+from services.ai.vision import build_image_block
 from services.assistant.prompts import SUMMARY_PROMPT
+from services.storage import storage_service
 
 if TYPE_CHECKING:
     from services.ai.base import BaseAIAdapter
@@ -102,6 +105,9 @@ def estimate_message_tokens(content_blocks: list[dict]) -> int:
             # File references are short metadata — filename + mime
             total += estimate_tokens(block.get("filename", ""))
             total += 10
+        elif block_type == "image":
+            # Conservative estimate for image tokens (covers most VLM pricing)
+            total += 300
     return total
 
 
@@ -146,7 +152,7 @@ async def prepare_messages(
     message_tokens = sum(m.token_count for m in messages)
 
     if message_tokens <= available * COMPRESS_THRESHOLD:
-        api_messages = rebuild_api_messages(messages)
+        api_messages = await rebuild_api_messages(messages)
         total = system_tokens + tool_overhead + message_tokens
         return api_messages, total
 
@@ -159,7 +165,7 @@ async def prepare_messages(
         available,
     )
     compressed_orm = await compress_messages(messages, adapter, available)
-    api_messages = rebuild_api_messages(compressed_orm)
+    api_messages = await rebuild_api_messages(compressed_orm)
     compressed_tokens = sum(
         m.token_count if isinstance(m, ConversationMessage) else estimate_tokens(m.get("_text", ""))
         for m in compressed_orm
@@ -237,7 +243,7 @@ async def compress_messages(
     return list(early) + [summary_msg] + list(recent)
 
 
-def rebuild_api_messages(
+async def rebuild_api_messages(
     orm_messages: list[ConversationMessage | dict],
 ) -> list[dict]:
     """Convert ORM messages (or synthetic dicts) to the OpenAI API message format.
@@ -245,6 +251,8 @@ def rebuild_api_messages(
     Output uses OpenAI's standard format as the internal representation:
     - Assistant messages with tool calls use top-level ``tool_calls`` field.
     - Tool result messages use ``role: "tool"`` with ``tool_call_id``.
+    - Image blocks are fetched from storage and converted to multimodal
+      content block arrays (base64 inline).
     - The Anthropic adapter's ``_convert_messages()`` handles conversion
       from this format to Anthropic's native format.
     """
@@ -263,8 +271,8 @@ def rebuild_api_messages(
         blocks: list[dict] = msg.content if isinstance(msg.content, list) else []
 
         if role == "user":
-            # Extract text content; include file references as text annotations
             text_parts: list[str] = []
+            image_blocks: list[dict] = []
             for block in blocks:
                 if block.get("type") == "text":
                     text_parts.append(block["text"])
@@ -274,10 +282,27 @@ def rebuild_api_messages(
                     text_parts.append(
                         f'[附件: {filename} | file_id: {file_id}]'
                     )
-            api_messages.append({
-                "role": "user",
-                "content": "\n".join(text_parts) if text_parts else "",
-            })
+                elif block.get("type") == "image":
+                    file_id = block.get("file_id", "")
+                    mime_type = block.get("mime_type", "image/png")
+                    try:
+                        img_bytes = await asyncio.to_thread(
+                            storage_service.get_object, file_id,
+                        )
+                        image_blocks.append(
+                            build_image_block(img_bytes, mime_type)
+                        )
+                    except Exception:
+                        logger.warning("Failed to load image %s, skipping", file_id)
+                        text_parts.append(f'[图片加载失败: {block.get("filename", "")}]')
+
+            text_content = "\n".join(text_parts) if text_parts else ""
+            if image_blocks:
+                # Multimodal: content is a block array
+                content: str | list[dict] = [{"type": "text", "text": text_content}] + image_blocks
+            else:
+                content = text_content
+            api_messages.append({"role": "user", "content": content})
 
         elif role == "assistant":
             # Separate text and tool_use blocks, output OpenAI format
@@ -411,6 +436,8 @@ def _format_messages_for_summary(messages: list[ConversationMessage]) -> str:
             btype = block.get("type", "")
             if btype == "text":
                 text_parts.append(block.get("text", ""))
+            elif btype == "image":
+                text_parts.append(f'[图片: {block.get("filename", "")}]')
             elif btype == "tool_use":
                 text_parts.append(f'[调用工具: {block.get("name", "")}]')
             elif btype == "tool_result":

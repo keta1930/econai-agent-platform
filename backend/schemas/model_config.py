@@ -10,6 +10,7 @@ class ModelConfigCreateRequest(BaseModel):
     api_key: str
     base_url: str
     adapter_type: Literal["openai", "anthropic"]
+    supports_vision: bool = False
 
 
 class ModelConfigResponse(BaseModel):
@@ -17,6 +18,7 @@ class ModelConfigResponse(BaseModel):
     name: str
     base_url: str
     adapter_type: str
+    supports_vision: bool
     is_active: bool
     created_at: datetime
 

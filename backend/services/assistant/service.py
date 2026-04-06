@@ -146,11 +146,13 @@ class AssistantService:
         blocks: list[dict] = [{"type": "text", "text": content}]
         if files:
             for f in files:
+                mime = f.get("mime_type", "")
+                block_type = "image" if mime.startswith("image/") else "file"
                 blocks.append({
-                    "type": "file",
+                    "type": block_type,
                     "file_id": f["file_id"],
                     "filename": f["filename"],
-                    "mime_type": f["mime_type"],
+                    "mime_type": mime,
                 })
 
         user_msg = ConversationMessage(

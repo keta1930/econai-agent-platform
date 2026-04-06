@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import mimetypes
 import uuid
 from datetime import datetime, timezone
 
@@ -48,10 +49,6 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
                 logger.error("Submission %s not found", submission_id)
                 return
 
-            # Image submissions skip AI grading
-            if submission.content_type == "image":
-                return
-
             submission.status = "grading"
             await db.commit()
 
@@ -93,20 +90,54 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
                 await db.commit()
                 return
 
-            # Read submission content from MinIO
-            content = await asyncio.to_thread(
-                storage_service.get_text, submission.file_path
-            )
-
             adapter = get_adapter(model_config)
-            context = {
+            context: dict = {
                 "task_description": task.description or "",
                 "grading_criteria": task.grading_criteria or "",
                 "learning_resources": format_learning_resources(
                     task.learning_resources
                 ),
-                "submission_content": content,
             }
+
+            file_paths: list[str] = submission.file_path  # JSON array
+
+            if submission.content_type == "image":
+                # VLM capability check
+                if not model_config.supports_vision:
+                    logger.info(
+                        "Model %s does not support vision, marking submission %s as manual_review",
+                        model_config.name,
+                        submission_id,
+                    )
+                    submission.status = "manual_review"
+                    await db.commit()
+                    return
+
+                # Read all images from storage
+                images: list[tuple[bytes, str]] = []
+                total_size = 0
+                for path in file_paths:
+                    img_bytes = await asyncio.to_thread(
+                        storage_service.get_object, path,
+                    )
+                    mime, _ = mimetypes.guess_type(path)
+                    images.append((img_bytes, mime or "image/jpeg"))
+                    total_size += len(img_bytes)
+
+                logger.info(
+                    "Submission %s: %d images, total %.1f MB",
+                    submission_id,
+                    len(images),
+                    total_size / (1024 * 1024),
+                )
+                context["images"] = images
+                context["submission_content"] = ""
+            else:
+                # Text / file: read content as string (file_path is a JSON array, take first)
+                content = await asyncio.to_thread(
+                    storage_service.get_text, file_paths[0],
+                )
+                context["submission_content"] = content
 
             # Run both agents in parallel
             results = await asyncio.gather(

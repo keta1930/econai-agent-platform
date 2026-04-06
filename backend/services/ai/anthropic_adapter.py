@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from collections.abc import AsyncIterator
 
 from anthropic import Anthropic, AsyncAnthropic
@@ -65,8 +66,42 @@ class AnthropicAdapter(BaseAIAdapter):
                     })
                 api_messages.append({"role": "assistant", "content": content})
             else:
-                api_messages.append({"role": msg["role"], "content": msg["content"]})
+                content = msg["content"]
+                if isinstance(content, list):
+                    content = self._convert_content_blocks(content)
+                api_messages.append({"role": msg["role"], "content": content})
         return system_content, api_messages
+
+    @staticmethod
+    def _convert_content_blocks(blocks: list[dict]) -> list[dict]:
+        """Convert OpenAI-format content blocks to Anthropic format.
+
+        Handles image_url blocks by extracting base64 data from data URIs
+        and converting to Anthropic's image source format.
+        """
+        converted: list[dict] = []
+        for block in blocks:
+            if block.get("type") == "image_url":
+                url = block["image_url"]["url"]
+                match = re.match(r"data:([^;]+);base64,(.+)", url, re.DOTALL)
+                if match:
+                    converted.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": match.group(1),
+                            "data": match.group(2),
+                        },
+                    })
+                else:
+                    # URL-based image (not base64) — pass as-is via url source
+                    converted.append({
+                        "type": "image",
+                        "source": {"type": "url", "url": url},
+                    })
+            else:
+                converted.append(block)
+        return converted
 
     @staticmethod
     def _build_tools_param(tools: list[ToolDefinition]) -> list[dict]:

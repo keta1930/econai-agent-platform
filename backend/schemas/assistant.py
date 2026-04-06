@@ -34,7 +34,7 @@ class AnswerRequest(BaseModel):
 
 # --- Block types for message content ---
 
-BlockType = Literal["text", "tool_use", "tool_result", "file"]
+BlockType = Literal["text", "tool_use", "tool_result", "file", "image"]
 
 
 class TextBlock(BaseModel):
@@ -63,7 +63,14 @@ class FileBlock(BaseModel):
     mime_type: str
 
 
-BlockSchema = TextBlock | ToolUseBlock | ToolResultBlock | FileBlock
+class ImageBlock(BaseModel):
+    type: Literal["image"]
+    file_id: str
+    filename: str
+    mime_type: str
+
+
+BlockSchema = TextBlock | ToolUseBlock | ToolResultBlock | FileBlock | ImageBlock
 
 
 # --- Responses ---

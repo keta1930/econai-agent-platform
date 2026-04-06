@@ -1,4 +1,7 @@
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, Uuid, func
+from sqlalchemy import (
+    Column, String, Boolean, DateTime, ForeignKey,
+    CheckConstraint, UniqueConstraint, Uuid, func,
+)
 
 from database import Base
 from utils import uuid7
@@ -13,6 +16,7 @@ class ModelConfig(Base):
     base_url = Column(String, nullable=False)
     adapter_type = Column(String, nullable=False)
     is_active = Column(Boolean, nullable=False, default=False)
+    supports_vision = Column(Boolean, nullable=False, default=False, server_default="false")
     admin_id = Column(Uuid, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
