@@ -38,7 +38,7 @@ DEFAULT_ADMIN_PASSWORD: str = os.getenv("DEFAULT_ADMIN_PASSWORD", "changeme")
 TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
 
 # Backup
-BACKUP_RETENTION_DAYS: int = int(os.getenv("BACKUP_RETENTION_DAYS", "30"))
+BACKUP_DIR: str = os.getenv("BACKUP_DIR", str(Path(__file__).parent / "backups"))
 MAX_BACKUPS_PER_ADMIN: int = int(os.getenv("MAX_BACKUPS_PER_ADMIN", "10"))
 
 # Upload limits (bytes)

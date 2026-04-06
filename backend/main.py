@@ -38,9 +38,9 @@ async def lifespan(app: FastAPI):
     logger = logging.getLogger(__name__)
     logger.info("Startup: initializing MinIO homework bucket...")
     await asyncio.to_thread(storage_service.ensure_bucket)
-    logger.info("Startup: initializing MinIO backups bucket...")
-    from services.backup_service import init_backups_bucket
-    await init_backups_bucket()
+    logger.info("Startup: initializing backups directory...")
+    from services.backup_service import init_backups_dir
+    await init_backups_dir()
     logger.info("Startup: initializing database...")
     await init_database()
     start_cleanup_scheduler(engine)

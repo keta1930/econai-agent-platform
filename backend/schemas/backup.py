@@ -30,8 +30,3 @@ class BackupResponse(BaseModel):
 
 class BackupListResponse(BaseModel):
     items: list[BackupResponse]
-
-
-class BackupDownloadResponse(BaseModel):
-    download_url: str
-    filename: str

@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.deps import require_admin, TokenPayload
@@ -10,7 +11,6 @@ from schemas.backup import (
     BackupRename,
     BackupResponse,
     BackupListResponse,
-    BackupDownloadResponse,
 )
 from services import backup_service
 
@@ -41,19 +41,23 @@ async def list_backups(
     return BackupListResponse(items=items)
 
 
-@router.get("/{backup_id}/download", response_model=BackupDownloadResponse)
+@router.get("/{backup_id}/download")
 async def download_backup(
     backup_id: uuid.UUID,
     admin: TokenPayload = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        url, filename = await backup_service.get_backup_download_url(
+        file_path, filename = await backup_service.get_backup_file_path(
             db, backup_id, admin.id,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    return BackupDownloadResponse(download_url=url, filename=filename)
+    return FileResponse(
+        path=str(file_path),
+        filename=filename,
+        media_type="application/json",
+    )
 
 
 @router.patch("/{backup_id}", response_model=BackupResponse)

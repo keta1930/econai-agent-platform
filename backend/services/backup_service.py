@@ -3,12 +3,12 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
-from minio.error import S3Error
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import BACKUP_RETENTION_DAYS, MAX_BACKUPS_PER_ADMIN
+from config import BACKUP_DIR, MAX_BACKUPS_PER_ADMIN
 from models.backup import Backup
 from models.class_ import Class
 from models.model_config import ModelConfig
@@ -18,26 +18,18 @@ from models.submission import Submission
 from models.task import Task
 from models.class_member import ClassMember
 from models.user import User
-from services.storage import storage_service
 from utils import uuid7
 
 logger = logging.getLogger(__name__)
-
-BACKUPS_BUCKET = "backups"
 
 
 # ── Startup ──────────────────────────────────────────────────────────────────
 
 
-async def init_backups_bucket() -> None:
-    """Create backups bucket and set lifecycle policy. Called at startup."""
-    await asyncio.to_thread(storage_service.ensure_bucket_with_name, BACKUPS_BUCKET)
-    await asyncio.to_thread(
-        storage_service.set_bucket_lifecycle, BACKUPS_BUCKET, BACKUP_RETENTION_DAYS,
-    )
-    logger.info(
-        "Backups bucket ready (retention=%d days)", BACKUP_RETENTION_DAYS,
-    )
+async def init_backups_dir() -> None:
+    """Ensure backup directory exists. Called at startup."""
+    Path(BACKUP_DIR).mkdir(parents=True, exist_ok=True)
+    logger.info("Backup directory ready: %s", BACKUP_DIR)
 
 
 # ── Serialization helpers ────────────────────────────────────────────────────
@@ -52,12 +44,16 @@ def _serialize_value(value: object) -> object:
     return value
 
 
+_EXCLUDED_COLUMNS = frozenset({"password_hash"})
+
+
 def _row_to_dict(row: object) -> dict:
     """Convert a SQLAlchemy ORM instance to a plain dict with JSON-safe values."""
     mapper = type(row).__mapper__  # type: ignore[attr-defined]
     return {
         col.key: _serialize_value(getattr(row, col.key))
         for col in mapper.column_attrs
+        if col.key not in _EXCLUDED_COLUMNS
     }
 
 
@@ -197,10 +193,9 @@ async def create_backup(
     data = await export_admin_data(db, admin_id, admin_user.username)
 
     object_key = f"{admin_id}/{uuid7()}.json"
-    await asyncio.to_thread(
-        storage_service.put_object_to_bucket,
-        BACKUPS_BUCKET, object_key, data, "application/json",
-    )
+    file_path = Path(BACKUP_DIR) / object_key
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(file_path.write_bytes, data)
 
     backup = Backup(
         admin_id=admin_id,
@@ -227,8 +222,8 @@ async def list_backups(db: AsyncSession, admin_id: uuid.UUID) -> list[Backup]:
 
     valid: list[Backup] = []
     for backup in all_backups:
-        exists = await _minio_object_exists(backup.object_key)
-        if exists:
+        file_path = Path(BACKUP_DIR) / backup.object_key
+        if file_path.exists():
             valid.append(backup)
         else:
             logger.info("Cleaning orphaned backup record: %s", backup.object_key)
@@ -240,21 +235,21 @@ async def list_backups(db: AsyncSession, admin_id: uuid.UUID) -> list[Backup]:
     return valid
 
 
-async def get_backup_download_url(
+async def get_backup_file_path(
     db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID,
-) -> tuple[str, str]:
-    """Get a presigned download URL for a backup.
+) -> tuple[Path, str]:
+    """Get the file path for a backup.
 
-    Returns (url, suggested_filename).
-    Raises ValueError if not found.
+    Returns (file_path, suggested_filename).
+    Raises ValueError if not found or file missing.
     """
     backup = await _get_backup_or_raise(db, backup_id, admin_id)
-
-    url = await asyncio.to_thread(
-        storage_service.presigned_get_url_from_bucket,
-        BACKUPS_BUCKET, backup.object_key,
-    )
-    return url, f"{backup.display_name}.json"
+    file_path = (Path(BACKUP_DIR) / backup.object_key).resolve()
+    if not str(file_path).startswith(str(Path(BACKUP_DIR).resolve())):
+        raise ValueError("非法路径")
+    if not file_path.exists():
+        raise ValueError("备份文件不存在")
+    return file_path, f"{backup.display_name}.json"
 
 
 async def rename_backup(
@@ -274,21 +269,15 @@ async def rename_backup(
 async def delete_backup(
     db: AsyncSession, backup_id: uuid.UUID, admin_id: uuid.UUID,
 ) -> None:
-    """Delete a backup (MinIO file + DB record).
+    """Delete a backup (local file + DB record).
 
     Raises ValueError if not found.
     """
     backup = await _get_backup_or_raise(db, backup_id, admin_id)
 
-    # Delete MinIO file first; ignore if already gone (lifecycle expiry)
-    try:
-        await asyncio.to_thread(
-            storage_service.remove_object_from_bucket,
-            BACKUPS_BUCKET, backup.object_key,
-        )
-    except S3Error as e:
-        if e.code != "NoSuchKey":
-            raise
+    file_path = Path(BACKUP_DIR) / backup.object_key
+    if file_path.exists():
+        file_path.unlink()
 
     await db.delete(backup)
     await db.commit()
@@ -309,16 +298,3 @@ async def _get_backup_or_raise(
     if not backup:
         raise ValueError("备份不存在")
     return backup
-
-
-async def _minio_object_exists(object_key: str) -> bool:
-    """Check whether an object exists in the backups bucket."""
-    try:
-        await asyncio.to_thread(
-            storage_service.client.stat_object, BACKUPS_BUCKET, object_key,
-        )
-        return True
-    except S3Error as e:
-        if e.code == "NoSuchKey":
-            return False
-        raise

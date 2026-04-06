@@ -1,25 +1,23 @@
 """Tests for backup management (8 cases)."""
 
 import uuid
-from unittest.mock import patch, MagicMock
 
 import pytest
 from httpx import AsyncClient
 
 from tests.conftest import auth_header
 
+# All tests use the _backup_dir fixture which patches BACKUP_DIR
+# to a per-test temp directory. No mocking of file ops needed —
+# backup_service writes real files to the temp dir.
 
-def _mock_backup_storage():
-    """Patch MinIO operations used by backup_service."""
-    return patch.multiple(
-        "services.storage.storage_service",
-        put_object_to_bucket=lambda *a, **kw: None,
-        presigned_get_url_from_bucket=lambda *a, **kw: "https://download.url/backup",
-        remove_object_from_bucket=lambda *a, **kw: None,
-        client=MagicMock(
-            stat_object=MagicMock(return_value=True),
-        ),
-    )
+pytestmark = pytest.mark.usefixtures("_backup_dir")
+
+
+@pytest.fixture
+def _backup_dir(tmp_path, monkeypatch):
+    """Point BACKUP_DIR to a per-test temp directory."""
+    monkeypatch.setattr("services.backup_service.BACKUP_DIR", str(tmp_path))
 
 
 async def _create_backup(
@@ -27,12 +25,11 @@ async def _create_backup(
 ) -> dict:
     """Helper: create a backup."""
     body = {"display_name": display_name} if display_name else None
-    with _mock_backup_storage():
-        resp = await client.post(
-            "/api/admin/backups",
-            json=body,
-            headers=auth_header(token),
-        )
+    resp = await client.post(
+        "/api/admin/backups",
+        json=body,
+        headers=auth_header(token),
+    )
     assert resp.status_code == 201
     return resp.json()
 
@@ -61,10 +58,9 @@ async def test_admin_list_backups(
     """#120 — List backups."""
     await _create_backup(client, admin_token)
 
-    with _mock_backup_storage():
-        resp = await client.get(
-            "/api/admin/backups", headers=auth_header(admin_token)
-        )
+    resp = await client.get(
+        "/api/admin/backups", headers=auth_header(admin_token)
+    )
     assert resp.status_code == 200
     assert len(resp.json()["items"]) >= 1
 
@@ -72,18 +68,22 @@ async def test_admin_list_backups(
 async def test_admin_download_backup(
     client: AsyncClient, admin_token: str
 ):
-    """#121 — Get backup download URL."""
+    """#121 — Download backup file."""
     backup = await _create_backup(client, admin_token)
 
-    with _mock_backup_storage():
-        resp = await client.get(
-            f"/api/admin/backups/{backup['id']}/download",
-            headers=auth_header(admin_token),
-        )
+    resp = await client.get(
+        f"/api/admin/backups/{backup['id']}/download",
+        headers=auth_header(admin_token),
+    )
     assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/json; charset=utf-8"
+    # Body should be valid JSON with the export structure
     data = resp.json()
-    assert "download_url" in data
-    assert "filename" in data
+    assert "version" in data
+    assert "data" in data
+    # password_hash must not appear in exported users
+    for user in data["data"].get("users", []):
+        assert "password_hash" not in user
 
 
 async def test_admin_download_nonexistent_backup(
@@ -118,11 +118,10 @@ async def test_admin_delete_backup(
     """#124 — Delete a backup."""
     backup = await _create_backup(client, admin_token)
 
-    with _mock_backup_storage():
-        resp = await client.delete(
-            f"/api/admin/backups/{backup['id']}",
-            headers=auth_header(admin_token),
-        )
+    resp = await client.delete(
+        f"/api/admin/backups/{backup['id']}",
+        headers=auth_header(admin_token),
+    )
     assert resp.status_code == 204
 
 
