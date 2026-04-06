@@ -30,4 +30,7 @@ export const assistantApi = {
     form.append("file", file);
     return api.post<UploadedFile>("/assistant/upload", form);
   },
+
+  getFilePreviewUrl: (fileId: string) =>
+    api.get<{ url: string }>(`/assistant/files/${encodeURIComponent(fileId)}/preview`),
 };

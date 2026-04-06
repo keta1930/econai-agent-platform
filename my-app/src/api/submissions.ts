@@ -8,7 +8,7 @@ import type {
 export const submissionsApi = {
   submit: (
     taskId: string,
-    contentType: "text" | "file" | "image",
+    contentType: "text" | "file",
     payload: string | File,
   ) => {
     const formData = new FormData();
@@ -21,6 +21,16 @@ export const submissionsApi = {
       formData.append("file", payload as File);
     }
 
+    return api.post<SubmissionCreateResponse>("/submissions", formData);
+  },
+
+  submitImages: (taskId: string, files: File[]) => {
+    const formData = new FormData();
+    formData.append("task_id", String(taskId));
+    formData.append("content_type", "image");
+    for (const file of files) {
+      formData.append("files", file);
+    }
     return api.post<SubmissionCreateResponse>("/submissions", formData);
   },
   listMy: () => api.get<SubmissionListResponse>("/submissions/my"),

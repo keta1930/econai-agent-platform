@@ -1,7 +1,9 @@
-import type { Message, Block, ToolUseBlock, AskUserQuestion } from "@/types/assistant";
+import { useEffect, useState } from "react";
+import type { Message, Block, ToolUseBlock, ImageBlock, AskUserQuestion } from "@/types/assistant";
 import { MarkdownContent } from "@/components/ui/markdown-content";
 import { ToolCallCard } from "./ToolCallCard";
 import { AskUserCard } from "./AskUserCard";
+import { assistantApi } from "@/api/assistant";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -33,6 +35,41 @@ function StreamingIndicator() {
         />
       ))}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Image preview (fetches presigned URL on mount)
+// ---------------------------------------------------------------------------
+
+function ImagePreview({ block }: { block: ImageBlock }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    assistantApi.getFilePreviewUrl(block.file_id).then(
+      (res) => { if (!cancelled) setUrl(res.url); },
+      () => { /* silently fail — show filename fallback */ },
+    );
+    return () => { cancelled = true; };
+  }, [block.file_id]);
+
+  if (!url) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white/15">
+        {block.filename}
+      </span>
+    );
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      <img
+        src={url}
+        alt={block.filename}
+        className="max-w-[200px] rounded-md object-cover cursor-pointer hover:opacity-90 transition-opacity"
+      />
+    </a>
   );
 }
 
@@ -106,9 +143,14 @@ function renderBlock(
       );
     }
 
-    // tool_result and file blocks are not rendered directly in the bubble
-    case "tool_result":
+    case "image":
+      return <ImagePreview key={index} block={block as ImageBlock} />;
+
     case "file":
+      // File attachments are rendered in the header area; no inline rendering needed
+      return null;
+
+    case "tool_result":
       return null;
   }
 }

@@ -47,7 +47,14 @@ export interface FileBlock {
   mime_type: string;
 }
 
-export type Block = TextBlock | ToolUseBlock | ToolResultBlock | FileBlock;
+export interface ImageBlock {
+  type: "image";
+  file_id: string;
+  filename: string;
+  mime_type: string;
+}
+
+export type Block = TextBlock | ToolUseBlock | ToolResultBlock | FileBlock | ImageBlock;
 
 export type MessageRole = "user" | "assistant" | "system" | "tool";
 

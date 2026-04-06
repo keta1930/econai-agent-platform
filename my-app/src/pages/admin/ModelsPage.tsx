@@ -27,6 +27,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApi } from "@/hooks/useApi";
 import { modelsApi } from "@/api/models";
@@ -43,6 +44,7 @@ export default function ModelsPage() {
     api_key: "",
     base_url: "",
     adapter_type: "openai",
+    supports_vision: false,
   });
   const [creating, setCreating] = useState(false);
   const [activatingId, setActivatingId] = useState<string | null>(null);
@@ -60,10 +62,11 @@ export default function ModelsPage() {
         api_key: form.api_key.trim(),
         base_url: form.base_url.trim(),
         adapter_type: form.adapter_type,
+        supports_vision: form.supports_vision,
       });
       toast.success("模型已添加");
       setDialogOpen(false);
-      setForm({ name: "", api_key: "", base_url: "", adapter_type: "openai" });
+      setForm({ name: "", api_key: "", base_url: "", adapter_type: "openai", supports_vision: false });
       await refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "添加失败");
@@ -175,6 +178,15 @@ export default function ModelsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={form.supports_vision ?? false}
+                  onCheckedChange={(checked) => setForm({ ...form, supports_vision: checked })}
+                />
+                <Label className="cursor-pointer text-sm font-normal">
+                  支持图片输入（VLM）
+                </Label>
+              </div>
               <DialogFooter>
                 <DialogClose render={<Button type="button" variant="outline" />}>
                   取消
@@ -195,6 +207,7 @@ export default function ModelsPage() {
             <TableHead>名称</TableHead>
             <TableHead>Base URL</TableHead>
             <TableHead>类型</TableHead>
+            <TableHead>图片</TableHead>
             <TableHead>状态</TableHead>
             <TableHead className="text-right">操作</TableHead>
           </TableRow>
@@ -208,6 +221,15 @@ export default function ModelsPage() {
               </TableCell>
               <TableCell>
                 <Badge variant="outline">{model.adapter_type}</Badge>
+              </TableCell>
+              <TableCell>
+                {model.supports_vision ? (
+                  <Badge className="bg-[var(--cyan-mid)]/10 text-[var(--cyan-mid)] hover:bg-[var(--cyan-mid)]/10">
+                    VLM
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
               </TableCell>
               <TableCell>
                 {model.is_active ? (

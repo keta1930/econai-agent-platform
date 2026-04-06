@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import { Paperclip, Send, Square, X } from "lucide-react";
 import type { UploadedFile } from "@/types/assistant";
@@ -7,12 +7,19 @@ import type { UploadedFile } from "@/types/assistant";
 // Constants
 // ---------------------------------------------------------------------------
 
-const ACCEPTED_TYPES = ".xlsx,.xls,.csv";
+const ACCEPTED_TYPES = ".xlsx,.xls,.csv,.md,.txt,.jpg,.jpeg,.png,.gif,.webp";
 const ACCEPTED_MIME = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
   "text/csv",
+  "text/markdown",
+  "text/plain",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
 ]);
+const IMAGE_MIME_PREFIX = "image/";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 // ---------------------------------------------------------------------------
@@ -47,8 +54,26 @@ export function ChatInput({
   const [text, setText] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<Map<string, string>>(new Map());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clean up image preview ObjectURLs when files are removed
+  useEffect(() => {
+    const currentIds = new Set(attachedFiles.map((f) => f.file_id));
+    setImagePreviews((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, url] of prev) {
+        if (!currentIds.has(id)) {
+          URL.revokeObjectURL(url);
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [attachedFiles]);
 
   // ---- Auto-resize textarea ----
   const adjustHeight = useCallback(() => {
@@ -87,8 +112,8 @@ export function ChatInput({
     async (file: File) => {
       setUploadError(null);
 
-      if (!ACCEPTED_MIME.has(file.type) && !file.name.match(/\.(xlsx|xls|csv)$/i)) {
-        setUploadError("仅支持 .xlsx、.xls、.csv 格式");
+      if (!ACCEPTED_MIME.has(file.type) && !file.name.match(/\.(xlsx|xls|csv|md|txt|jpe?g|png|gif|webp)$/i)) {
+        setUploadError("仅支持 Excel、CSV、Markdown、文本和图片格式");
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
@@ -97,7 +122,17 @@ export function ChatInput({
       }
 
       try {
-        await onUpload(file);
+        const isImage = file.type.startsWith(IMAGE_MIME_PREFIX);
+        const previewUrl = isImage ? URL.createObjectURL(file) : null;
+        const uploaded = await onUpload(file);
+        if (!uploaded?.file_id) {
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          setUploadError("文件上传失败，请重试");
+          return;
+        }
+        if (previewUrl) {
+          setImagePreviews((prev) => new Map(prev).set(uploaded.file_id, previewUrl));
+        }
       } catch {
         setUploadError("文件上传失败，请重试");
       }
@@ -140,6 +175,23 @@ export function ChatInput({
     [processFile],
   );
 
+  // ---- Paste image ----
+  const handlePaste = useCallback(
+    (e: ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith(IMAGE_MIME_PREFIX)) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) processFile(file);
+          return;
+        }
+      }
+    },
+    [processFile],
+  );
+
   // ---- Placeholder ----
   const placeholder = isPendingAnswer
     ? "回答助教的问题..."
@@ -158,22 +210,44 @@ export function ChatInput({
       {/* File attachments */}
       {attachedFiles.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pt-2">
-          {attachedFiles.map((f) => (
-            <span
-              key={f.file_id}
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-[var(--paper-warm)] border border-[var(--paper-border)] text-foreground"
-            >
-              {f.filename}
-              <button
-                type="button"
-                onClick={() => onRemoveFile(f.file_id)}
-                className="text-[var(--muted-foreground)] hover:text-[var(--danger)]"
-                aria-label="移除附件"
+          {attachedFiles.map((f) => {
+            const previewUrl = imagePreviews.get(f.file_id);
+            return previewUrl ? (
+              <div
+                key={f.file_id}
+                className="relative group rounded overflow-hidden border border-[var(--paper-border)]"
               >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
+                <img
+                  src={previewUrl}
+                  alt={f.filename}
+                  className="h-12 w-12 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => onRemoveFile(f.file_id)}
+                  className="absolute -top-0.5 -right-0.5 rounded-full bg-[var(--destructive)] text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="移除附件"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            ) : (
+              <span
+                key={f.file_id}
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-[var(--paper-warm)] border border-[var(--paper-border)] text-foreground"
+              >
+                {f.filename}
+                <button
+                  type="button"
+                  onClick={() => onRemoveFile(f.file_id)}
+                  className="text-[var(--muted-foreground)] hover:text-[var(--danger)]"
+                  aria-label="移除附件"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -217,6 +291,7 @@ export function ChatInput({
             adjustHeight();
           }}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder={placeholder}
           disabled={disabled}
           rows={1}

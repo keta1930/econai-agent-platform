@@ -3,6 +3,7 @@ export interface ModelConfig {
   name: string;
   base_url: string;
   adapter_type: string;
+  supports_vision: boolean;
   is_active: boolean;
   created_at: string;
 }
@@ -16,6 +17,7 @@ export interface ModelConfigCreateRequest {
   api_key: string;
   base_url: string;
   adapter_type: "openai" | "anthropic";
+  supports_vision?: boolean;
 }
 
 export interface ModelActivateResponse {
