@@ -39,7 +39,6 @@ const STATUS_VARIANTS: Record<TopicStatus, "default" | "secondary" | "outline"> 
   confirmed: "secondary",
   voting: "outline",
 };
-const STATUS_ORDER: TopicStatus[] = ["completed", "confirmed", "voting"];
 
 type StatusFilter = "all" | TopicStatus;
 
@@ -145,15 +144,10 @@ export default function SharingPage() {
   };
 
   // Filter + sort: completed → confirmed → voting, voting sorted by vote_count desc
+  // 后端已按 completed → confirmed → voting(票数降序) 排好序
+  // 不在前端重排，避免乐观更新时列表项跳动
   const filteredTopics = topics
-    .filter((t) => statusFilter === "all" || t.status === statusFilter)
-    .sort((a, b) => {
-      const orderA = STATUS_ORDER.indexOf(a.status);
-      const orderB = STATUS_ORDER.indexOf(b.status);
-      if (orderA !== orderB) return orderA - orderB;
-      if (a.status === "voting") return b.vote_count - a.vote_count;
-      return 0;
-    });
+    .filter((t) => statusFilter === "all" || t.status === statusFilter);
 
   const showVotingControls = statusFilter === "all" || statusFilter === "voting";
 
