@@ -9,7 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MarkdownContent } from "@/components/ui/markdown-content";
 import { CodeBlock, extensionToLanguage } from "@/components/CodeBlock";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
@@ -51,10 +50,6 @@ function ContentRenderer({
         />
       </div>
     );
-  }
-
-  if (data.file_extension === ".md") {
-    return <MarkdownContent content={data.content} />;
   }
 
   if (CODE_EXTENSIONS.has(data.file_extension)) {
