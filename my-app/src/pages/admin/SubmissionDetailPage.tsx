@@ -9,12 +9,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { CodeBlock, extensionToLanguage } from "@/components/CodeBlock";
 import { useApi } from "@/hooks/useApi";
 import { tasksApi } from "@/api/tasks";
 import { submissionsApi } from "@/api/submissions";
 import type { SubmissionDetail, SubmissionContentResponse } from "@/types/submission";
-import { ArrowLeft, GitCompareArrows, X, Loader2, AlertTriangle, Eye } from "lucide-react";
+import { ArrowLeft, GitCompareArrows, X, Loader2, AlertTriangle, Eye, FileText, BookOpen } from "lucide-react";
 import { GradingFeedback } from "@/components/GradingFeedback";
 import { scoreColor } from "@/lib/format";
 
@@ -37,6 +38,8 @@ function ContentRenderer({
   data: SubmissionContentResponse | null;
   loading: boolean;
 }) {
+  const [renderMarkdown, setRenderMarkdown] = useState(false);
+
   if (loading) return <Skeleton className="h-48 w-full" />;
   if (!data) return <p className="text-sm text-muted-foreground">无法加载内容</p>;
 
@@ -61,11 +64,34 @@ function ContentRenderer({
     );
   }
 
-  // .txt or unknown — plain text
+  const isMarkdown = data.file_extension === ".md";
+
   return (
-    <pre className="whitespace-pre-wrap text-sm leading-relaxed p-4 rounded-md bg-muted/30">
-      {data.content}
-    </pre>
+    <div>
+      {isMarkdown && (
+        <div className="flex justify-end mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-xs text-muted-foreground"
+            onClick={() => setRenderMarkdown((v) => !v)}
+          >
+            {renderMarkdown ? (
+              <><FileText className="h-3.5 w-3.5" />纯文本</>
+            ) : (
+              <><BookOpen className="h-3.5 w-3.5" />渲染</>
+            )}
+          </Button>
+        </div>
+      )}
+      {isMarkdown && renderMarkdown ? (
+        <MarkdownContent content={data.content} />
+      ) : (
+        <pre className="whitespace-pre-wrap text-sm leading-relaxed p-4 rounded-md bg-muted/30">
+          {data.content}
+        </pre>
+      )}
+    </div>
   );
 }
 
