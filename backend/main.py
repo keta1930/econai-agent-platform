@@ -71,6 +71,7 @@ from routers.backups import router as backups_router
 from routers.invite_codes import router as invite_codes_router
 from routers.assistant import router as assistant_router
 from routers.password_reset import public_router as pwd_reset_public_router, admin_router as pwd_reset_admin_router
+from routers.health import router as health_router
 
 
 @asynccontextmanager
@@ -120,6 +121,7 @@ app.include_router(invite_codes_router)
 app.include_router(assistant_router)
 app.include_router(pwd_reset_public_router)
 app.include_router(pwd_reset_admin_router)
+app.include_router(health_router)
 
 # 挂载前端静态文件
 dist_path = Path(__file__).resolve().parent / "dist"

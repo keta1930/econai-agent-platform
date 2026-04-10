@@ -10,6 +10,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - book-web
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -28,6 +31,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - minio_data:/data
+    networks:
+      - book-web
     deploy:
       resources:
         limits:
@@ -36,6 +41,7 @@ services:
         reservations:
           cpus: "0.5"
           memory: 1G
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -43,6 +49,42 @@ services:
       retries: 3
       start_period: 60s
 
+  web:
+    image: keta1930/book-web:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      MINIO_ENDPOINT: minio:9000
+    ports:
+      - "${PORT:-25002}:8000"
+    volumes:
+      - backups:/app/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - book-web
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - full
+
+networks:
+  book-web:
+    driver: bridge
+
 volumes:
   postgres_data:
   minio_data:
+  backups:

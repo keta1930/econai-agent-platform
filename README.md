@@ -23,20 +23,33 @@
 
 ## 快速开始
 
-### 1. 配置环境变量
+### Docker 一键部署（推荐）
+
+```bash
+cp .env.example .env
+# 编辑 .env，填写数据库密码、JWT 密钥、AI 模型 API Key 等
+
+docker compose --profile full up -d
+```
+
+首次启动自动执行数据库迁移并创建超级管理员账号。访问 `http://localhost:25002`。
+
+### 本地开发
+
+#### 1. 配置环境变量
 
 ```bash
 cp .env.example .env
 # 编辑 .env，填写数据库密码、JWT 密钥、AI 模型 API Key 等
 ```
 
-### 2. 启动基础设施
+#### 2. 启动基础设施
 
 ```bash
 docker compose up -d   # PostgreSQL + MinIO
 ```
 
-### 3. 启动后端
+#### 3. 启动后端
 
 ```bash
 cd backend
@@ -46,21 +59,19 @@ uvicorn main:app --reload --port 25002
 
 首次启动自动执行数据库迁移并创建超级管理员账号。
 
-### 4. 启动前端（开发）
+#### 4. 启动前端
 
 ```bash
 cd my-app
 npm install && npm run dev
 ```
 
-### 5. 生产构建
+#### 5. 生产构建
 
 ```bash
 cd my-app && npm run build
 # 输出到 backend/dist/，后端同时提供 API 和前端页面
 ```
-
-> **下一步更新**：前后端打包进 Docker 容器，一键部署。
 
 ---
 
@@ -178,7 +189,7 @@ cd my-app && npm run build
 |---|---|
 | 后端 | FastAPI + SQLAlchemy Async + PostgreSQL 17 |
 | 对象存储 | MinIO（文件上传 + 数据库备份） |
-| 基础设施 | Docker Compose（PostgreSQL + MinIO） |
+| 基础设施 | Docker Compose（PostgreSQL + MinIO），支持全栈容器化部署 |
 | 前端 | React 19 + TypeScript + Vite 8 + shadcn/ui + Tailwind CSS 4 |
 | AI 批改 | 双 Agent 并行评审（标准审查 + 亮点发现），OpenAI / Anthropic 适配器 |
 | AI 助教 | Agent Loop + 12 工具 + 2 技能 + Tavily 搜索 |

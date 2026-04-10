@@ -1,0 +1,27 @@
+.git
+.gitignore
+node_modules
+my-app/node_modules
+
+# Sensitive files (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Build artifacts (generated in Stage 1)
+backend/dist
+backend/__pycache__
+**/__pycache__
+*.pyc
+
+# Backups (mounted as named volume)
+backend/backups
+
+# IDE
+.idea
+.vscode
+
+# Project tooling
+agent-workspace
+snapshots
+.claude
