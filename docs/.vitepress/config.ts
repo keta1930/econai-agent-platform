@@ -7,7 +7,7 @@ export default defineConfig({
   description: '教师发布作业，学生提交，AI 自动批改 — 开箱即用的智能教学平台',
 
   head: [
-    ['link', { rel: 'icon', href: '/logo.png' }],
+    ['link', { rel: 'icon', href: '/econai-agent-platform/logo.png' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
     ['link', { href: 'https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Noto+Sans+SC:wght@400;500;700&display=swap', rel: 'stylesheet' }],
