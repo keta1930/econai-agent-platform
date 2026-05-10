@@ -3,10 +3,11 @@ name: Build & Push Docker
 on:
   push:
     branches: [master]
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.github/workflows/docs.yml'
+    paths:
+      - 'backend/**'
+      - 'my-app/**'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
   workflow_dispatch:
 
 jobs:
