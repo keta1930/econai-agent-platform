@@ -29,49 +29,33 @@
 cp .env.example .env
 # 编辑 .env，填写数据库密码、JWT 密钥、AI 模型 API Key 等
 
-docker compose --profile full up -d
+docker compose up -d
 ```
 
 首次启动自动执行数据库迁移并创建超级管理员账号。访问 `http://localhost:25002`。
 
-### 本地开发
+镜像：[`keta1933/econai-agent-platform`](https://hub.docker.com/r/keta1933/econai-agent-platform)
 
-#### 1. 配置环境变量
+### 本地开发
 
 ```bash
 cp .env.example .env
 # 编辑 .env，填写数据库密码、JWT 密钥、AI 模型 API Key 等
-```
 
-#### 2. 启动基础设施
+# 启动基础设施
+docker compose up postgres minio -d
 
-```bash
-docker compose up -d   # PostgreSQL + MinIO
-```
-
-#### 3. 启动后端
-
-```bash
+# 启动后端
 cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload --port 25002
-```
 
-首次启动自动执行数据库迁移并创建超级管理员账号。
-
-#### 4. 启动前端
-
-```bash
+# 启动前端
 cd my-app
 npm install && npm run dev
 ```
 
-#### 5. 生产构建
-
-```bash
-cd my-app && npm run build
-# 输出到 backend/dist/，后端同时提供 API 和前端页面
-```
+首次启动自动执行数据库迁移并创建超级管理员账号。
 
 ---
 

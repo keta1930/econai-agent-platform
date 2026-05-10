@@ -50,7 +50,7 @@ services:
       start_period: 60s
 
   web:
-    image: keta1930/book-web:latest
+    image: keta1933/econai-agent-platform:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -77,8 +77,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    profiles:
-      - full
 
 networks:
   book-web:
