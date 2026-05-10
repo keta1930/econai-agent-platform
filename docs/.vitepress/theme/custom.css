@@ -1,0 +1,181 @@
+:root {
+  /* ink → VitePress brand */
+  --vp-c-brand-1: #2c5f7c;
+  --vp-c-brand-2: #1e4d6b;
+  --vp-c-brand-3: #4a8fad;
+  --vp-c-brand-soft: rgba(44, 95, 124, 0.12);
+
+  /* paper backgrounds */
+  --vp-c-bg: #f7f4ef;
+  --vp-c-bg-alt: #f2ede4;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-soft: #f2ede4;
+
+  /* text */
+  --vp-c-text-1: #1c1a17;
+  --vp-c-text-2: #5c574f;
+  --vp-c-text-3: #8a8478;
+
+  /* borders */
+  --vp-c-border: #d9cfc1;
+  --vp-c-divider: #e8e0d4;
+  --vp-c-gutter: #e8e0d4;
+
+  /* fonts */
+  --vp-font-family-base: 'Noto Sans SC', sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', monospace;
+
+  /* home hero gradient */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #1a2332, #2c5f7c);
+  --vp-home-hero-image-background-image: linear-gradient(135deg, rgba(44, 95, 124, 0.2), rgba(201, 169, 110, 0.15));
+  --vp-home-hero-image-filter: blur(40px);
+}
+
+.dark {
+  --vp-c-brand-1: #4a8fad;
+  --vp-c-brand-2: #2c5f7c;
+  --vp-c-brand-3: #6bb3d1;
+  --vp-c-brand-soft: rgba(74, 143, 173, 0.15);
+
+  --vp-c-bg: #0d1520;
+  --vp-c-bg-alt: #1a2332;
+  --vp-c-bg-elv: #1a2332;
+  --vp-c-bg-soft: #243044;
+
+  --vp-c-text-1: #e8e2d8;
+  --vp-c-text-2: rgba(232, 226, 216, 0.65);
+  --vp-c-text-3: rgba(232, 226, 216, 0.4);
+
+  --vp-c-border: rgba(201, 169, 110, 0.15);
+  --vp-c-divider: rgba(201, 169, 110, 0.1);
+  --vp-c-gutter: #1a2332;
+
+  --vp-home-hero-name-background: linear-gradient(135deg, #c9a96e, #dbc291);
+}
+
+/* heading font */
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.VPNavBarTitle .title,
+.VPHero .name {
+  font-family: 'Noto Serif SC', serif;
+}
+
+/* gold accent for hero tagline */
+.VPHero .tagline {
+  color: var(--vp-c-text-2);
+}
+
+/* sidebar active item — gold left border in dark mode */
+.dark .VPSidebarItem.is-active > .item > .indicator {
+  background-color: #c9a96e;
+}
+
+/* clickable images */
+.clickable-img {
+  cursor: pointer;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+  border-radius: 8px;
+}
+
+.clickable-img:hover {
+  box-shadow: 0 4px 20px rgba(44, 95, 124, 0.15);
+  transform: translateY(-2px);
+}
+
+/* ── 1. Feature card hover ── */
+
+.VPFeature {
+  position: relative;
+  transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1),
+              box-shadow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1),
+              border-color 0.35s ease;
+}
+
+.VPFeature::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  background: linear-gradient(to bottom, #c9a96e, transparent);
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.VPFeature:hover {
+  transform: translateX(4px);
+  border-color: #c9a96e;
+  box-shadow: 0 4px 12px rgba(13, 21, 32, 0.08), 0 0 20px rgba(201, 169, 110, 0.15);
+}
+
+.VPFeature:hover::before {
+  opacity: 1;
+}
+
+/* ── 2. Scroll progress bar ── */
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: linear-gradient(to right, #2c5f7c, #4a8fad);
+  z-index: 100;
+  transition: width 50ms linear;
+}
+
+.dark .scroll-progress {
+  background: linear-gradient(to right, #c9a96e, #dbc291);
+}
+
+/* ── 3. Scroll fade-in ── */
+
+.fade-section {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+.fade-section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── 6. Nav frosted glass ── */
+
+.VPNav {
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.VPNavBar {
+  background: rgba(247, 244, 239, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.dark .VPNavBar {
+  background: rgba(13, 21, 32, 0.8) !important;
+}
+
+/* ── 7. Back to top ── */
+
+.VPBackToTop button {
+  transition: background-color 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+.VPBackToTop button:hover {
+  background-color: #2c5f7c !important;
+  box-shadow: 0 4px 12px rgba(44, 95, 124, 0.25) !important;
+}
+
+.dark .VPBackToTop button:hover {
+  background-color: #c9a96e !important;
+  box-shadow: 0 4px 12px rgba(201, 169, 110, 0.25) !important;
+}
