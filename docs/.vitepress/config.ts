@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   base: '/econai-agent-platform/',
+  sitemap: { hostname: 'https://ai-lingnan.github.io' },
   lang: 'zh-CN',
   title: '经济金融 AI 智能体课程平台',
   description: '教师发布作业，学生提交，AI 自动批改 — 开箱即用的智能教学平台',
