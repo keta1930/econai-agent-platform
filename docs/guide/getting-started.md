@@ -1,5 +1,9 @@
 # 快速开始
 
+::: tip 不想自己部署？先在线试试
+访问 [econai-agent.com](https://econai-agent.com)，用教师邀请码 `1FWFifvwFyMqVZ_ZIWQLSA` 注册体验。
+:::
+
 ## 准备工作
 
 你需要一台安装了 [Docker](https://docs.docker.com/get-docker/) 的服务器或电脑。不需要安装数据库、Python 或 Node.js — Docker 会帮你搞定一切。
