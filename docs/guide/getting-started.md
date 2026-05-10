@@ -11,7 +11,7 @@
 ## 第一步：下载项目
 
 ```bash
-git clone https://github.com/keta1930/econai-agent-platform.git
+git clone https://github.com/ai-lingnan/econai-agent-platform.git
 cd econai-agent-platform
 ```
 

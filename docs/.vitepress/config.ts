@@ -19,7 +19,7 @@ export default defineConfig({
       { text: '指南', link: '/guide/what-is-this' },
       { text: '教师', link: '/guide/for-teachers' },
       { text: '学生', link: '/guide/for-students' },
-      { text: 'GitHub', link: 'https://github.com/keta1930/econai-agent-platform' },
+      { text: 'GitHub', link: 'https://github.com/ai-lingnan/econai-agent-platform' },
     ],
 
     sidebar: [
@@ -50,7 +50,7 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/keta1930/econai-agent-platform' },
+      { icon: 'github', link: 'https://github.com/ai-lingnan/econai-agent-platform' },
     ],
 
     outline: { label: '目录' },

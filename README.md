@@ -1,10 +1,10 @@
 # 经济金融 AI 智能体课程平台
 
-[![Docs](https://img.shields.io/badge/文档站-GitHub%20Pages-blue)](https://keta1930.github.io/econai-agent-platform/)
+[![Docs](https://img.shields.io/badge/文档站-GitHub%20Pages-blue)](https://ai-lingnan.github.io/econai-agent-platform/)
 [![Docker](https://img.shields.io/docker/pulls/keta1933/econai-agent-platform)](https://hub.docker.com/r/keta1933/econai-agent-platform)
-[![License](https://img.shields.io/github/license/keta1930/econai-agent-platform)](LICENSE)
+[![License](https://img.shields.io/github/license/ai-lingnan/econai-agent-platform)](LICENSE)
 
-> **[🌐 在线体验](https://econai-agent.com)** · **[📖 完整文档](https://keta1930.github.io/econai-agent-platform/)** · **[🐳 Docker Hub](https://hub.docker.com/r/keta1933/econai-agent-platform)**
+> **[🌐 在线体验](https://econai-agent.com)** · **[📖 完整文档](https://ai-lingnan.github.io/econai-agent-platform/)** · **[🐳 Docker Hub](https://hub.docker.com/r/keta1933/econai-agent-platform)**
 >
 > 教师邀请码：`1FWFifvwFyMqVZ_ZIWQLSA`
 
