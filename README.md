@@ -1,4 +1,10 @@
-# 经济金融 AI 智能体设计课程平台
+# 经济金融 AI 智能体课程平台
+
+[![Docs](https://img.shields.io/badge/文档站-GitHub%20Pages-blue)](https://keta1930.github.io/econai-agent-platform/)
+[![Docker](https://img.shields.io/docker/pulls/keta1933/econai-agent-platform)](https://hub.docker.com/r/keta1933/econai-agent-platform)
+[![License](https://img.shields.io/github/license/keta1930/econai-agent-platform)](LICENSE)
+
+> **[📖 完整文档](https://keta1930.github.io/econai-agent-platform/)** · **[🐳 Docker Hub](https://hub.docker.com/r/keta1933/econai-agent-platform)**
 
 多租户课程作业管理平台 — 教师发布作业，学生在线提交，AI 双 Agent 并行评审产出结构化反馈。内置 AI 助教、学习资源管理、课程分享投票、数据库备份。
 
