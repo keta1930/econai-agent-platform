@@ -20,6 +20,7 @@ export default defineConfig({
       { text: '指南', link: '/guide/what-is-this' },
       { text: '教师', link: '/guide/for-teachers' },
       { text: '学生', link: '/guide/for-students' },
+      { text: '在线体验', link: 'https://econai-agent.com' },
       { text: 'GitHub', link: 'https://github.com/ai-lingnan/econai-agent-platform' },
     ],
 
@@ -53,6 +54,11 @@ export default defineConfig({
     socialLinks: [
       { icon: 'github', link: 'https://github.com/ai-lingnan/econai-agent-platform' },
     ],
+
+    footer: {
+      message: '<a href="https://econai-agent.com">在线体验</a> · <a href="https://github.com/ai-lingnan/econai-agent-platform">GitHub</a> · <a href="https://github.com/ai-lingnan">AI Lingnan</a>',
+      copyright: 'AGPL-3.0 Licensed',
+    },
 
     outline: { label: '目录' },
     docFooter: { prev: '上一篇', next: '下一篇' },

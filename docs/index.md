@@ -6,11 +6,11 @@ hero:
   tagline: 教师发布作业，学生提交，AI 自动批改 — 开箱即用的智能教学平台
   actions:
     - theme: brand
+      text: 在线体验
+      link: https://econai-agent.com
+    - theme: alt
       text: 5 分钟部署上线
       link: /guide/getting-started
-    - theme: alt
-      text: 了解平台能做什么
-      link: /guide/what-is-this
 
 features:
   - title: 作业自动批改
